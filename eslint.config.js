@@ -32,7 +32,7 @@ export default tseslint.config(
 
   // TypeScript files configuration
   {
-    files: ["packages/**/*.{ts,tsx}"],
+    files: ["{packages,apps}/**/*.{ts,tsx}"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
@@ -65,9 +65,9 @@ export default tseslint.config(
     },
   },
 
-  // React-specific configuration for web package
+  // React-specific configuration for Next.js apps
   {
-    files: ["packages/web/**/*.{ts,tsx}"],
+    files: ["{packages/web,apps/landing}/**/*.{ts,tsx}"],
     plugins: {
       react: reactPlugin,
       "react-hooks": reactHooksPlugin,
