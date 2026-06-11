@@ -1,7 +1,9 @@
-# Ignore everything at repo root, then allow only what monorepo installs need.
+# Trim the upload to monorepo workspace files only.
 /*
 !package.json
 !pnpm-lock.yaml
 !pnpm-workspace.yaml
 !packages
+!packages/**
 !apps
+!apps/**
