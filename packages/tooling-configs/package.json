@@ -9,9 +9,13 @@
   "exports": {
     "./oxlint/base": "./oxlint/base.ts",
     "./oxlint/next": "./oxlint/next.ts",
-    "./oxlint/worker": "./oxlint/worker.ts"
+    "./oxlint/worker": "./oxlint/worker.ts",
+    "./vite/worker-library": "./vite/worker-library.ts",
+    "./vite/worker-app": "./vite/worker-app.ts",
+    "./vite/node-script": "./vite/node-script.ts"
   },
   "devDependencies": {
-    "oxlint": "catalog:"
+    "oxlint": "catalog:",
+    "vite": "catalog:"
   }
 }

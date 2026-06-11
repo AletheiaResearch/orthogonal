@@ -183,7 +183,7 @@ describe("Combobox", () => {
       await user.keyboard("{ArrowDown}");
       await user.keyboard("{ArrowDown}");
 
-      const search = screen.getByRole("combobox");
+      const search = screen.getByPlaceholderText("Search...");
       await user.type(search, "ban");
 
       const options = screen.getAllByRole("option");
@@ -196,7 +196,7 @@ describe("Combobox", () => {
       const { trigger } = renderCombobox({ searchable: true });
 
       await user.click(trigger);
-      const search = screen.getByRole("combobox");
+      const search = screen.getByPlaceholderText("Search...");
       await user.type(search, "zzzzz");
 
       expect(screen.queryAllByRole("option")).toHaveLength(0);
