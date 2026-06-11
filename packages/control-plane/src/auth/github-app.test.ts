@@ -1,4 +1,6 @@
+import type { CacheStore } from "@open-inspect/shared";
 import { afterEach, describe, it, expect, vi } from "vitest";
+
 import {
   isGitHubAppConfigured,
   getGitHubAppConfig,
@@ -7,7 +9,6 @@ import {
   INSTALLATION_TOKEN_CACHE_MAX_AGE_MS,
   INSTALLATION_TOKEN_MIN_REMAINING_MS,
 } from "./github-app";
-import type { CacheStore } from "@open-inspect/shared";
 
 class FakeCacheStore implements CacheStore {
   private readonly store = new Map<string, string>();

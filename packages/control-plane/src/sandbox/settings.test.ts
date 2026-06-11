@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { normalizeSandboxSettings, SandboxSettingsValidationError } from "./settings";
 
 class CustomSettingsValidationError extends Error {}

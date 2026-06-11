@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { stripMentions, isDmDispatchable } from "./dm-utils";
 
 describe("stripMentions", () => {

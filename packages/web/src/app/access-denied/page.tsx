@@ -2,6 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+
 import { ErrorBanner } from "@/components/ui/error-banner";
 
 function AccessDeniedContent() {
@@ -15,7 +16,7 @@ function AccessDeniedContent() {
       : "An error occurred during sign in. Please try again.";
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-6">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6">
       <h1 className="text-4xl font-bold text-foreground">Access Denied</h1>
       <ErrorBanner className="max-w-md px-6 py-4 text-center">{message}</ErrorBanner>
       <a href="/" className="text-accent hover:underline">
@@ -29,8 +30,8 @@ export default function AccessDeniedPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-2 border-current border-t-transparent text-foreground" />
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-current border-t-transparent text-foreground" />
         </div>
       }
     >

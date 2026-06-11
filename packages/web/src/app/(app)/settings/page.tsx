@@ -1,21 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useSidebarContext } from "@/components/sidebar-layout";
-import { SettingsNav, type SettingsCategory } from "@/components/settings/settings-nav";
-import { SecretsSettings } from "@/components/settings/secrets-settings";
-import { ModelsSettings } from "@/components/settings/models-settings";
-import { DataControlsSettings } from "@/components/settings/data-controls-settings";
-import { KeyboardShortcutsSettings } from "@/components/settings/keyboard-shortcuts-settings";
-import { IntegrationsSettings } from "@/components/settings/integrations-settings";
-import { SandboxSettingsPage } from "@/components/settings/sandbox-settings";
-import { ImagesSettings } from "@/components/settings/images-settings";
-import { McpServersSettings } from "@/components/settings/mcp-servers-settings";
+import { useEffect, useState } from "react";
+
 import { AppearanceSettings } from "@/components/settings/appearance-settings";
-import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
+import { DataControlsSettings } from "@/components/settings/data-controls-settings";
+import { ImagesSettings } from "@/components/settings/images-settings";
+import { IntegrationsSettings } from "@/components/settings/integrations-settings";
+import { KeyboardShortcutsSettings } from "@/components/settings/keyboard-shortcuts-settings";
+import { McpServersSettings } from "@/components/settings/mcp-servers-settings";
+import { ModelsSettings } from "@/components/settings/models-settings";
+import { SandboxSettingsPage } from "@/components/settings/sandbox-settings";
+import { SecretsSettings } from "@/components/settings/secrets-settings";
+import { SettingsNav, type SettingsCategory } from "@/components/settings/settings-nav";
+import { useSidebarContext } from "@/components/sidebar-layout";
 import { SidebarIcon, BackIcon } from "@/components/ui/icons";
 import { useIsMobile } from "@/hooks/use-media-query";
+import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
 import { supportsRepoImages } from "@/lib/sandbox-provider";
 
 const CATEGORY_LABELS: Record<SettingsCategory, string> = {
@@ -94,18 +95,18 @@ export default function SettingsPage() {
 
   if (isMobile) {
     return (
-      <div className="h-full flex flex-col">
+      <div className="flex h-full flex-col">
         {mobileView === "list" ? (
           <>
-            <header className="border-b border-border-muted flex-shrink-0">
+            <header className="flex-shrink-0 border-b border-border-muted">
               <div className="px-4 py-3">
                 <button
                   onClick={toggle}
-                  className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition"
+                  className="p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
                   title={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
                   aria-label={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
                 >
-                  <SidebarIcon className="w-4 h-4" />
+                  <SidebarIcon className="h-4 w-4" />
                 </button>
               </div>
             </header>
@@ -119,22 +120,22 @@ export default function SettingsPage() {
           </>
         ) : (
           <>
-            <header className="border-b border-border-muted flex-shrink-0">
-              <div className="px-4 py-3 flex items-center gap-2">
+            <header className="flex-shrink-0 border-b border-border-muted">
+              <div className="flex items-center gap-2 px-4 py-3">
                 <button
                   onClick={toggle}
-                  className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition"
+                  className="p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
                   title={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
                   aria-label={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
                 >
-                  <SidebarIcon className="w-4 h-4" />
+                  <SidebarIcon className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => setMobileView("list")}
-                  className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition"
+                  className="p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
                   aria-label="Back to settings"
                 >
-                  <BackIcon className="w-4 h-4" />
+                  <BackIcon className="h-4 w-4" />
                 </button>
                 <h2 className="text-sm font-medium text-foreground">
                   {CATEGORY_LABELS[activeCategory]}
@@ -151,23 +152,23 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex h-full flex-col">
       {!isOpen && (
-        <header className="border-b border-border-muted flex-shrink-0">
+        <header className="flex-shrink-0 border-b border-border-muted">
           <div className="px-4 py-3">
             <button
               onClick={toggle}
-              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition"
+              className="p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
               title={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
               aria-label={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
             >
-              <SidebarIcon className="w-4 h-4" />
+              <SidebarIcon className="h-4 w-4" />
             </button>
           </div>
         </header>
       )}
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex flex-1 overflow-hidden">
         <SettingsNav activeCategory={activeCategory} onSelect={setActiveCategory} />
         <div className="flex-1 overflow-y-auto p-8">
           <div className="max-w-2xl">{content}</div>

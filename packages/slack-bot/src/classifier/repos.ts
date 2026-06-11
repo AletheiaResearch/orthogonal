@@ -6,10 +6,11 @@
  * GitHub App installation to get the list of accessible repositories.
  */
 
+import { buildInternalAuthHeaders, createKvCacheStore } from "@open-inspect/shared";
+
+import { createLogger } from "../logger";
 import type { Env, RepoConfig, ControlPlaneRepo, ControlPlaneReposResponse } from "../types";
 import { normalizeRepoId } from "../utils/repo";
-import { buildInternalAuthHeaders, createKvCacheStore } from "@open-inspect/shared";
-import { createLogger } from "../logger";
 
 const log = createLogger("repos");
 

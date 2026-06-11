@@ -1,5 +1,7 @@
 "use client";
 
+import type { Session } from "@open-inspect/shared";
+import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -11,23 +13,18 @@ import {
   useRef,
   type TouchEvent,
 } from "react";
-import { useSession, signOut } from "next-auth/react";
 import useSWR, { mutate } from "swr";
+
 import { ArchiveSessionDialog } from "@/components/archive-session-dialog";
-import { archiveSession } from "@/lib/archive-session";
-import { formatRelativeTime, isInactiveSession } from "@/lib/time";
+import { Button } from "@/components/ui/button";
 import {
-  applyTitleUpdate,
-  buildSessionsPageKey,
-  CURRENT_USER_CREATED_BY,
-  isUnarchivedSessionListKey,
-  mergeUniqueSessions,
-  removeSessionFromList,
-  type SessionListResponse,
-} from "@/lib/session-list";
-import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
-import { useIsMobile } from "@/hooks/use-media-query";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   MoreIcon,
   SidebarIcon,
@@ -38,18 +35,22 @@ import {
   BranchIcon,
   DataControlsIcon,
 } from "@/components/ui/icons";
-import { APP_SHORT_NAME } from "@/lib/site-config";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useIsMobile } from "@/hooks/use-media-query";
+import { archiveSession } from "@/lib/archive-session";
+import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import type { Session } from "@open-inspect/shared";
+  applyTitleUpdate,
+  buildSessionsPageKey,
+  CURRENT_USER_CREATED_BY,
+  isUnarchivedSessionListKey,
+  mergeUniqueSessions,
+  removeSessionFromList,
+  type SessionListResponse,
+} from "@/lib/session-list";
+import { APP_SHORT_NAME } from "@/lib/site-config";
+import { formatRelativeTime, isInactiveSession } from "@/lib/time";
 
 export type SessionItem = Session;
 
@@ -218,7 +219,7 @@ export function SessionSidebar({ onNewSession, onToggle, onSessionSelect }: Sess
       });
 
     // Sort by updatedAt descending
-    const sorted = [...filtered].sort((a, b) => {
+    const sorted = [...filtered].toSorted((a, b) => {
       const aTime = a.updatedAt || a.createdAt;
       const bTime = b.updatedAt || b.createdAt;
       return bTime - aTime;
@@ -314,9 +315,9 @@ export function SessionSidebar({ onNewSession, onToggle, onSessionSelect }: Sess
   );
 
   return (
-    <aside className="w-72 h-dvh flex flex-col border-r border-border-muted bg-background">
+    <aside className="flex h-dvh w-72 flex-col border-r border-border-muted bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border-muted">
+      <div className="flex items-center justify-between border-b border-border-muted px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
           <Button
             variant="ghost"
@@ -325,7 +326,7 @@ export function SessionSidebar({ onNewSession, onToggle, onSessionSelect }: Sess
             title={`Toggle sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
             aria-label={`Toggle sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
           >
-            <SidebarIcon className="w-4 h-4" />
+            <SidebarIcon className="h-4 w-4" />
           </Button>
           <Link href="/" onClick={handleNavigationSelect} className="min-w-0">
             <span className="block truncate font-semibold text-foreground">{APP_SHORT_NAME}</span>
@@ -339,48 +340,48 @@ export function SessionSidebar({ onNewSession, onToggle, onSessionSelect }: Sess
             title={`New session (${SHORTCUT_LABELS.NEW_SESSION})`}
             aria-label={`New session (${SHORTCUT_LABELS.NEW_SESSION})`}
           >
-            <PlusIcon className="w-4 h-4" />
+            <PlusIcon className="h-4 w-4" />
           </Button>
           <Link
             href="/settings"
             onClick={handleNavigationSelect}
             className={`p-1.5 transition ${
               pathname === "/settings"
-                ? "text-foreground bg-muted"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
             title="Settings"
           >
-            <SettingsIcon className="w-4 h-4" />
+            <SettingsIcon className="h-4 w-4" />
           </Link>
           <UserMenu user={authSession?.user} />
         </div>
       </div>
 
       {/* Nav links */}
-      <div className="px-3 pt-2 pb-1 flex flex-col gap-0.5">
+      <div className="flex flex-col gap-0.5 px-3 pb-1 pt-2">
         <Link
           href="/automations"
           onClick={handleNavigationSelect}
-          className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition ${
+          className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition ${
             pathname?.startsWith("/automations")
-              ? "text-foreground bg-muted"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
           }`}
         >
-          <AutomationsIcon className="w-4 h-4" />
+          <AutomationsIcon className="h-4 w-4" />
           Automations
         </Link>
         <Link
           href="/analytics"
           onClick={handleNavigationSelect}
-          className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition ${
+          className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition ${
             pathname?.startsWith("/analytics")
-              ? "text-foreground bg-muted"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
           }`}
         >
-          <DataControlsIcon className="w-4 h-4" />
+          <DataControlsIcon className="h-4 w-4" />
           Analytics
         </Link>
       </div>
@@ -430,7 +431,7 @@ export function SessionSidebar({ onNewSession, onToggle, onSessionSelect }: Sess
       >
         {loading ? (
           <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-6 w-6 border-2 border-current border-t-transparent text-muted-foreground" />
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-current border-t-transparent text-muted-foreground" />
           </div>
         ) : sessions.length === 0 ? (
           <div className="px-4 py-8 text-center text-sm text-muted-foreground">{emptyMessage}</div>
@@ -453,8 +454,8 @@ export function SessionSidebar({ onNewSession, onToggle, onSessionSelect }: Sess
             {/* Inactive Divider */}
             {inactiveSessions.length > 0 && (
               <>
-                <div className="px-4 py-2 mt-2">
-                  <span className="text-xs font-medium text-secondary-foreground uppercase tracking-wider">
+                <div className="mt-2 px-4 py-2">
+                  <span className="text-xs font-medium uppercase tracking-wider text-secondary-foreground">
                     Inactive
                   </span>
                 </div>
@@ -475,7 +476,7 @@ export function SessionSidebar({ onNewSession, onToggle, onSessionSelect }: Sess
 
             {loadingMore && (
               <div className="flex justify-center py-3">
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent text-muted-foreground" />
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent text-muted-foreground" />
               </div>
             )}
           </>
@@ -490,7 +491,7 @@ function UserMenu({ user }: { user?: { name?: string | null; image?: string | nu
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="w-7 h-7 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary"
+          className="h-7 w-7 overflow-hidden rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
           aria-label={`Signed in as ${user?.name || "User"}`}
           title={`Signed in as ${user?.name || "User"}`}
         >
@@ -498,23 +499,23 @@ function UserMenu({ user }: { user?: { name?: string | null; image?: string | nu
             <img
               src={user.image}
               alt={user.name || "User"}
-              className="w-full h-full object-cover"
+              className="h-full w-full object-cover"
             />
           ) : (
-            <span className="w-full h-full rounded-full bg-card flex items-center justify-center text-xs font-medium text-foreground">
+            <span className="flex h-full w-full items-center justify-center rounded-full bg-card text-xs font-medium text-foreground">
               {user?.name?.charAt(0).toUpperCase() || "?"}
             </span>
           )}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" sideOffset={4}>
-        <DropdownMenuLabel className="font-medium truncate">
+        <DropdownMenuLabel className="truncate font-medium">
           {user?.name || "User"}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => signOut()}>
           <svg
-            className="w-4 h-4"
+            className="h-4 w-4"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -782,7 +783,7 @@ function SessionListItem({
   return (
     <>
       <div
-        className={`group relative block px-4 py-2.5 border-l-2 transition ${
+        className={`group relative block border-l-2 px-4 py-2.5 transition ${
           isActive ? "border-l-accent bg-accent-muted" : "border-l-transparent hover:bg-muted"
         }`}
       >
@@ -805,9 +806,9 @@ function SessionListItem({
                   handleCancelRename();
                 }
               }}
-              className="w-full text-sm bg-transparent text-foreground outline-none focus:ring-inset focus:ring-ring font-medium pr-8"
+              className="w-full bg-transparent pr-8 text-sm font-medium text-foreground outline-none focus:ring-inset focus:ring-ring"
             />
-            <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
+            <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
               <span>{relativeTime}</span>
               <span>·</span>
               <span className="truncate">{repoInfo}</span>
@@ -838,7 +839,7 @@ function SessionListItem({
             className="block pr-8"
           >
             <div className="truncate text-sm font-medium text-foreground">{displayTitle}</div>
-            <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
+            <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
               <span>{relativeTime}</span>
               <span>·</span>
               <span className="truncate">{repoInfo}</span>
@@ -851,7 +852,7 @@ function SessionListItem({
               {session.baseBranch && session.baseBranch !== "main" && (
                 <>
                   <span>·</span>
-                  <BranchIcon className="w-3 h-3 flex-shrink-0" />
+                  <BranchIcon className="h-3 w-3 flex-shrink-0" />
                   <span className="truncate">{session.baseBranch}</span>
                 </>
               )}
@@ -867,13 +868,13 @@ function SessionListItem({
                 aria-label="Session actions"
                 aria-hidden={isMobile ? "true" : undefined}
                 tabIndex={isMobile ? -1 : undefined}
-                className={`h-6 w-6 items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition data-[state=open]:opacity-100 ${
+                className={`h-6 w-6 items-center justify-center text-muted-foreground transition hover:bg-muted hover:text-foreground data-[state=open]:opacity-100 ${
                   isMobile
                     ? "pointer-events-none flex opacity-0"
-                    : "flex opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                    : "flex opacity-0 group-focus-within:opacity-100 group-hover:opacity-100"
                 }`}
               >
-                <MoreIcon className="w-4 h-4" />
+                <MoreIcon className="h-4 w-4" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -887,7 +888,7 @@ function SessionListItem({
             >
               <DropdownMenuItem onSelect={handleStartRename}>Rename</DropdownMenuItem>
               <DropdownMenuItem onClick={handleStartArchive} disabled={isArchiving}>
-                <ArchiveIcon className="w-4 h-4" />
+                <ArchiveIcon className="h-4 w-4" />
                 Archive
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -929,7 +930,7 @@ function ChildSessionListItem({
           onSessionSelect?.();
         }
       }}
-      className={`block pr-4 py-1.5 border-l-2 transition ${
+      className={`block border-l-2 py-1.5 pr-4 transition ${
         isActive ? "border-l-accent bg-accent-muted" : "border-l-transparent hover:bg-muted"
       }`}
       style={{ paddingLeft: `${paddingLeftRem}rem` }}

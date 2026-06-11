@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+
 import type { Logger } from "../logger";
 import type { ClientInfo } from "../types";
 import { PresenceService, type PresenceServiceDeps } from "./presence-service";
@@ -172,7 +173,7 @@ describe("PresenceService", () => {
       const result = harness.service.getPresenceList();
 
       expect(result).toHaveLength(2);
-      const ids = result.map((p) => p.participantId).sort();
+      const ids = result.map((p) => p.participantId).toSorted();
       expect(ids).toEqual(["part-1", "part-2"]);
     });
   });

@@ -2,6 +2,10 @@
  * Test helpers for trigger source modules.
  */
 
+import type { Automation } from "../types";
+import type { TriggerCondition } from "./conditions";
+import { matchesConditions } from "./conditions";
+import { conditionRegistry } from "./registry";
 import type {
   AutomationEvent,
   AutomationEventSource,
@@ -10,10 +14,6 @@ import type {
   GitHubAutomationEvent,
   LinearAutomationEvent,
 } from "./types";
-import type { TriggerCondition } from "./conditions";
-import { matchesConditions } from "./conditions";
-import { conditionRegistry } from "./registry";
-import type { Automation } from "../types";
 
 type EventForSource<S extends AutomationEventSource> = Extract<AutomationEvent, { source: S }>;
 

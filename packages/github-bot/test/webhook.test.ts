@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import type { Env } from "../src/types";
+
 import app from "../src/index";
+import type { Env } from "../src/types";
 
 /** Generate a valid GitHub webhook signature for a given secret and body. */
 async function sign(secret: string, body: string): Promise<string> {

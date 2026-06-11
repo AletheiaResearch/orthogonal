@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { initializeSession, type SessionInitInput } from "./initialize";
+
 import { SessionIndexStore } from "../db/session-index";
 import { SessionInternalPaths } from "./contracts";
+import { initializeSession, type SessionInitInput } from "./initialize";
 
 vi.mock("../db/session-index", () => ({
   SessionIndexStore: vi.fn(),

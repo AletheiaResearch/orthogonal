@@ -9,11 +9,11 @@
 
 import { decryptToken, encryptToken } from "../auth/crypto";
 import { refreshAccessToken } from "../auth/github";
-import type { SourceControlAuthContext, SourceControlProviderName } from "../source-control";
-import type { Logger } from "../logger";
-import type { ParticipantRow } from "./types";
-import type { CreateParticipantData } from "./repository";
 import { DEFAULT_TOKEN_LIFETIME_MS, type UserScmTokenStore } from "../db/user-scm-tokens";
+import type { Logger } from "../logger";
+import type { SourceControlAuthContext, SourceControlProviderName } from "../source-control";
+import type { CreateParticipantData } from "./repository";
+import type { ParticipantRow } from "./types";
 
 /**
  * Narrow repository interface — only the methods ParticipantService needs.

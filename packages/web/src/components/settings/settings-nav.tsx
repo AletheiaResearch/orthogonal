@@ -1,6 +1,5 @@
 "use client";
 
-import { useIsMobile } from "@/hooks/use-media-query";
 import {
   KeyIcon,
   ModelIcon,
@@ -12,6 +11,7 @@ import {
   TerminalIcon,
   ChevronRightIcon,
 } from "@/components/ui/icons";
+import { useIsMobile } from "@/hooks/use-media-query";
 import { supportsRepoImages } from "@/lib/sandbox-provider";
 
 const NAV_ITEMS = [
@@ -79,7 +79,7 @@ export function SettingsNav({ activeCategory, onSelect, onNavigate }: SettingsNa
   if (isMobile) {
     return (
       <nav className="p-4">
-        <h2 className="text-lg font-semibold text-foreground mb-4">Settings</h2>
+        <h2 className="mb-4 text-lg font-semibold text-foreground">Settings</h2>
         <ul className="space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -90,11 +90,11 @@ export function SettingsNav({ activeCategory, onSelect, onNavigate }: SettingsNa
                     onSelect(item.id);
                     onNavigate?.();
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-3 text-sm rounded transition text-foreground hover:bg-muted"
+                  className="flex w-full items-center gap-2 rounded px-3 py-3 text-sm text-foreground transition hover:bg-muted"
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="h-4 w-4" />
                   <span className="flex-1 text-left">{item.label}</span>
-                  <ChevronRightIcon className="w-4 h-4 text-muted-foreground" />
+                  <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />
                 </button>
               </li>
             );
@@ -106,7 +106,7 @@ export function SettingsNav({ activeCategory, onSelect, onNavigate }: SettingsNa
 
   return (
     <nav className="w-48 flex-shrink-0 border-r border-border-muted p-4">
-      <h2 className="text-lg font-semibold text-foreground mb-4">Settings</h2>
+      <h2 className="mb-4 text-lg font-semibold text-foreground">Settings</h2>
       <ul className="space-y-1">
         {navItems.map((item) => {
           const isActive = activeCategory === item.id;
@@ -116,13 +116,13 @@ export function SettingsNav({ activeCategory, onSelect, onNavigate }: SettingsNa
               <button
                 onClick={() => onSelect(item.id)}
                 aria-current={isActive ? "page" : undefined}
-                className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded transition ${
+                className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm transition ${
                   isActive
-                    ? "text-foreground bg-muted font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    ? "bg-muted font-medium text-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="h-4 w-4" />
                 {item.label}
               </button>
             </li>

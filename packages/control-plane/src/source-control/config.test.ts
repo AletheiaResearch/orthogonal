@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { SourceControlProviderError } from "./errors";
+
 import { DEFAULT_SCM_PROVIDER, resolveScmProviderFromEnv } from "./config";
+import { SourceControlProviderError } from "./errors";
 
 describe("resolveScmProviderFromEnv", () => {
   it("defaults to github when SCM_PROVIDER is unset", () => {

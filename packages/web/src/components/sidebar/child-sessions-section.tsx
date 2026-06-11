@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import useSWR from "swr";
-import { CollapsibleSection } from "./collapsible-section";
+
+import type { SessionItem } from "@/components/session-sidebar";
 import { Badge } from "@/components/ui/badge";
 import { formatRelativeTime } from "@/lib/time";
-import type { SessionItem } from "@/components/session-sidebar";
+
+import { CollapsibleSection } from "./collapsible-section";
 
 interface ChildSessionsSectionProps {
   sessionId: string;
@@ -49,14 +51,14 @@ export function ChildSessionsSection({ sessionId }: ChildSessionsSectionProps) {
           <Link
             key={child.id}
             href={`/session/${child.id}`}
-            className="block p-2 hover:bg-muted transition-colors rounded"
+            className="block rounded p-2 transition-colors hover:bg-muted"
           >
             <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-1.5">
-                <span className="text-xs text-muted-foreground shrink-0">
+                <span className="shrink-0 text-xs text-muted-foreground">
                   {formatRelativeTime(child.updatedAt || child.createdAt)}
                 </span>
-                <span className="text-sm truncate">
+                <span className="truncate text-sm">
                   {child.title || `${child.repoOwner}/${child.repoName}`}
                 </span>
               </div>

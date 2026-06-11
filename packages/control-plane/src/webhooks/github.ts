@@ -5,6 +5,7 @@
  */
 
 import type { GitHubAutomationEvent } from "@open-inspect/shared";
+
 import { verifyInternalToken } from "../auth/internal";
 import type { Route, RequestContext } from "../routes/shared";
 import { parsePattern, json, error } from "../routes/shared";

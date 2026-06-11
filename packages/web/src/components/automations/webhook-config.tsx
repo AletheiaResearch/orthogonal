@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -53,7 +54,7 @@ export function WebhookConfig({
 
   if (!currentUrl && !currentKey) {
     return (
-      <div className="text-sm text-muted-foreground p-4 border border-border-muted rounded-md">
+      <div className="rounded-md border border-border-muted p-4 text-sm text-muted-foreground">
         {isSentry
           ? "Sentry webhook URL will be shown after the automation is created."
           : "Webhook URL and API key will be shown after the automation is created."}
@@ -62,12 +63,12 @@ export function WebhookConfig({
   }
 
   return (
-    <div className="space-y-4 p-4 border border-border-muted rounded-md bg-background">
+    <div className="space-y-4 rounded-md border border-border-muted bg-background p-4">
       {/* URL */}
       <div>
-        <label className="block text-xs font-medium text-muted-foreground mb-1">{urlLabel}</label>
+        <label className="mb-1 block text-xs font-medium text-muted-foreground">{urlLabel}</label>
         <div className="flex gap-2">
-          <Input type="text" value={currentUrl || ""} readOnly className="text-xs font-mono" />
+          <Input type="text" value={currentUrl || ""} readOnly className="font-mono text-xs" />
           <Button
             type="button"
             variant="outline"
@@ -78,7 +79,7 @@ export function WebhookConfig({
           </Button>
         </div>
         {isSentry && (
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="mt-1 text-xs text-muted-foreground">
             Paste this URL into your Sentry Custom Integration webhook settings.
           </p>
         )}
@@ -87,9 +88,9 @@ export function WebhookConfig({
       {/* API Key (webhook variant only) */}
       {currentKey && (
         <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1">{keyLabel}</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">{keyLabel}</label>
           <div className="flex gap-2">
-            <Input type="text" value={currentKey} readOnly className="text-xs font-mono" />
+            <Input type="text" value={currentKey} readOnly className="font-mono text-xs" />
             <Button
               type="button"
               variant="outline"
@@ -99,7 +100,7 @@ export function WebhookConfig({
               {copied === "key" ? "Copied" : "Copy"}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="mt-1 text-xs text-muted-foreground">
             Save this key — it won&apos;t be shown again after you leave this page.
           </p>
         </div>

@@ -1,18 +1,19 @@
 "use client";
 
-import { useRepos } from "@/hooks/use-repos";
-import { useState, useCallback } from "react";
-import { Button } from "@/components/ui/button";
-import { ChevronDownIcon, CheckIcon, PlusIcon } from "@/components/ui/icons";
-import { Combobox } from "@/components/ui/combobox";
-import { Input } from "@/components/ui/input";
-import useSWR from "swr";
 import type { SandboxSettings } from "@open-inspect/shared";
 import {
   DEFAULT_MAX_CONCURRENT_CHILD_SESSIONS,
   DEFAULT_MAX_TOTAL_CHILD_SESSIONS,
   MAX_TUNNEL_PORTS,
 } from "@open-inspect/shared";
+import { useState, useCallback } from "react";
+import useSWR from "swr";
+
+import { Button } from "@/components/ui/button";
+import { Combobox } from "@/components/ui/combobox";
+import { ChevronDownIcon, CheckIcon, PlusIcon } from "@/components/ui/icons";
+import { Input } from "@/components/ui/input";
+import { useRepos } from "@/hooks/use-repos";
 
 const GLOBAL_SCOPE = "__global__";
 type ResourceField = "cpuCores" | "memoryMib";
@@ -349,7 +350,7 @@ function SandboxSettingsEditor({
             }`}
           >
             <span
-              className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
                 resolvedTerminalEnabled ? "translate-x-4" : "translate-x-0"
               }`}
             />
@@ -358,7 +359,7 @@ function SandboxSettingsEditor({
       </div>
 
       <div>
-        <div className="flex items-center justify-between max-w-sm mb-1.5">
+        <div className="mb-1.5 flex max-w-sm items-center justify-between">
           <label className="block text-sm font-medium text-foreground">Tunnel Ports</label>
           <Button
             type="button"
@@ -366,18 +367,18 @@ function SandboxSettingsEditor({
             size="xs"
             onClick={handleAddRow}
             disabled={rows.length >= MAX_TUNNEL_PORTS}
-            className="text-accent hover:text-accent/80"
+            className="hover:text-accent/80 text-accent"
           >
-            <PlusIcon className="w-3 h-3" />
+            <PlusIcon className="h-3 w-3" />
             Add port
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground mb-2">
+        <p className="mb-2 text-xs text-muted-foreground">
           Expose additional ports from sandboxes via public tunnel URLs (e.g., dev server ports).
         </p>
-        <div className="space-y-2 max-w-sm">
+        <div className="max-w-sm space-y-2">
           {rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-2">No tunnel ports configured.</p>
+            <p className="py-2 text-sm text-muted-foreground">No tunnel ports configured.</p>
           ) : (
             rows.map((value, index) => (
               <div key={index} className="flex items-center gap-2">
@@ -404,15 +405,15 @@ function SandboxSettingsEditor({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1.5">Child Sessions</label>
-        <p className="text-xs text-muted-foreground mb-2">
+        <label className="mb-1.5 block text-sm font-medium text-foreground">Child Sessions</label>
+        <p className="mb-2 text-xs text-muted-foreground">
           Limit agent-spawned child sessions to prevent runaway sandbox usage.
         </p>
-        <div className="grid gap-3 max-w-sm sm:grid-cols-2">
+        <div className="grid max-w-sm gap-3 sm:grid-cols-2">
           <div>
             <label
               htmlFor="max-concurrent-child-sessions"
-              className="block text-xs font-medium text-muted-foreground mb-1"
+              className="mb-1 block text-xs font-medium text-muted-foreground"
             >
               Max concurrent child sessions
             </label>
@@ -428,7 +429,7 @@ function SandboxSettingsEditor({
           <div>
             <label
               htmlFor="max-total-child-sessions"
-              className="block text-xs font-medium text-muted-foreground mb-1"
+              className="mb-1 block text-xs font-medium text-muted-foreground"
             >
               Max total child sessions
             </label>
@@ -445,16 +446,16 @@ function SandboxSettingsEditor({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1.5">Resources</label>
-        <p className="text-xs text-muted-foreground mb-2">
+        <label className="mb-1.5 block text-sm font-medium text-foreground">Resources</label>
+        <p className="mb-2 text-xs text-muted-foreground">
           Reserve CPU and memory for each sandbox. Leave blank to use the provider&apos;s default
           reservation.
         </p>
-        <div className="grid gap-3 max-w-sm sm:grid-cols-2">
+        <div className="grid max-w-sm gap-3 sm:grid-cols-2">
           <div>
             <label
               htmlFor="sandbox-cpu-cores"
-              className="block text-xs font-medium text-muted-foreground mb-1"
+              className="mb-1 block text-xs font-medium text-muted-foreground"
             >
               CPU cores
             </label>
@@ -470,7 +471,7 @@ function SandboxSettingsEditor({
           <div>
             <label
               htmlFor="sandbox-memory-mib"
-              className="block text-xs font-medium text-muted-foreground mb-1"
+              className="mb-1 block text-xs font-medium text-muted-foreground"
             >
               Memory (MiB)
             </label>
@@ -515,14 +516,14 @@ export function SandboxSettingsPage() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-foreground mb-1">Sandbox</h2>
-      <p className="text-sm text-muted-foreground mb-6">
+      <h2 className="mb-1 text-xl font-semibold text-foreground">Sandbox</h2>
+      <p className="mb-6 text-sm text-muted-foreground">
         Configure sandbox environment settings. Per-repo settings override global defaults.
       </p>
 
       {/* Repo selector */}
       <div className="mb-6">
-        <label className="block text-sm font-medium text-foreground mb-1.5">Repository</label>
+        <label className="mb-1.5 block text-sm font-medium text-foreground">Repository</label>
         <Combobox
           value={selectedRepo}
           onChange={setSelectedRepo}
@@ -547,7 +548,7 @@ export function SandboxSettingsPage() {
               <button
                 type="button"
                 onClick={() => select(GLOBAL_SCOPE)}
-                className={`w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-muted transition ${
+                className={`flex w-full items-center justify-between px-3 py-2 text-sm transition hover:bg-muted ${
                   isGlobal ? "text-foreground" : "text-muted-foreground"
                 }`}
               >
@@ -557,14 +558,14 @@ export function SandboxSettingsPage() {
                     Shared across all repositories
                   </span>
                 </div>
-                {isGlobal && <CheckIcon className="w-4 h-4 text-accent" />}
+                {isGlobal && <CheckIcon className="h-4 w-4 text-accent" />}
               </button>
-              {repos.length > 0 && <div className="border-t border-border my-1" />}
+              {repos.length > 0 && <div className="my-1 border-t border-border" />}
             </>
           )}
         >
           <span className="truncate">{displayRepoName}</span>
-          <ChevronDownIcon className="w-3 h-3 flex-shrink-0" />
+          <ChevronDownIcon className="h-3 w-3 flex-shrink-0" />
         </Combobox>
       </div>
 

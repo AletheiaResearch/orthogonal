@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { resolveHeadBranchForPr, sanitizeBranchName } from "./branch-resolution";
 
 describe("sanitizeBranchName", () => {

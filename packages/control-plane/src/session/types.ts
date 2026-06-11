@@ -2,6 +2,7 @@
  * Session-specific type definitions.
  */
 
+import type { GitPushSpec } from "../source-control";
 import type {
   Attachment,
   SessionStatus,
@@ -14,7 +15,6 @@ import type {
   ArtifactType,
   EventType,
 } from "../types";
-import type { GitPushSpec } from "../source-control";
 
 // Database row types (match SQLite schema)
 

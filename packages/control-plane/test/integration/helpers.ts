@@ -1,6 +1,7 @@
 import { SELF, env, runInDurableObject } from "cloudflare:test";
-import type { SessionDO } from "../../src/session/durable-object";
+
 import { hashToken } from "../../src/auth/crypto";
+import type { SessionDO } from "../../src/session/durable-object";
 
 const DEFAULT_WAIT_FOR_SANDBOX_STATUS_TIMEOUT_MS = 3000;
 

@@ -6,11 +6,12 @@ import {
   type SlackNotifySuccessOutput,
   type SlackNotifyToolEnvelope,
 } from "@open-inspect/shared";
-import type { SandboxEvent } from "@/types/session";
+
+import { ChevronRightIcon, ErrorIcon, LinkIcon, SlackIcon } from "@/components/ui/icons";
+import { APP_NAME } from "@/lib/site-config";
 import { formatSessionEventTime } from "@/lib/time";
 import { getSafeExternalUrl } from "@/lib/urls";
-import { APP_NAME } from "@/lib/site-config";
-import { ChevronRightIcon, ErrorIcon, LinkIcon, SlackIcon } from "@/components/ui/icons";
+import type { SandboxEvent } from "@/types/session";
 
 type ToolCallEvent = Extract<SandboxEvent, { type: "tool_call" }>;
 type ParsedDenial = Exclude<SlackNotifyToolEnvelope, SlackNotifySuccessOutput>;
@@ -113,26 +114,26 @@ export function SlackNotifyEvent({
     <div className="py-0.5">
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-1.5 text-sm text-left text-muted-foreground hover:text-foreground transition-colors"
+        className="flex w-full items-center gap-1.5 text-left text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ChevronRightIcon
-          className={`w-3.5 h-3.5 text-secondary-foreground transition-transform duration-200 ${
+          className={`h-3.5 w-3.5 text-secondary-foreground transition-transform duration-200 ${
             isExpanded ? "rotate-90" : ""
           }`}
         />
         {denial ? (
-          <ErrorIcon className="w-3.5 h-3.5 text-destructive" />
+          <ErrorIcon className="h-3.5 w-3.5 text-destructive" />
         ) : (
-          <SlackIcon className="w-3.5 h-3.5 text-secondary-foreground" />
+          <SlackIcon className="h-3.5 w-3.5 text-secondary-foreground" />
         )}
         <span className="truncate">slack-notify {summaryLine}</span>
         {showTime && (
-          <span className="text-xs text-secondary-foreground flex-shrink-0 ml-auto">{time}</span>
+          <span className="ml-auto flex-shrink-0 text-xs text-secondary-foreground">{time}</span>
         )}
       </button>
 
       {isExpanded && (
-        <div className="mt-2 ml-5 p-3 bg-card border border-border-muted text-xs overflow-hidden">
+        <div className="ml-5 mt-2 overflow-hidden border border-border-muted bg-card p-3 text-xs">
           {success ? (
             <SlackNotifySuccessBody success={success} />
           ) : denial ? (
@@ -161,25 +162,25 @@ function SlackNotifySuccessBody({ success }: { success: SlackNotifySuccessOutput
   return (
     <div className="space-y-2">
       <div>
-        <div className="text-muted-foreground mb-1 font-medium">Channel</div>
+        <div className="mb-1 font-medium text-muted-foreground">Channel</div>
         <div className="text-foreground">{success.channelInput}</div>
       </div>
       {safePermalink ? (
         <div>
-          <div className="text-muted-foreground mb-1 font-medium">Slack message</div>
+          <div className="mb-1 font-medium text-muted-foreground">Slack message</div>
           <a
             href={safePermalink}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary inline-flex items-center gap-1 hover:underline"
+            className="inline-flex items-center gap-1 text-primary hover:underline"
           >
-            <LinkIcon className="w-3 h-3" />
+            <LinkIcon className="h-3 w-3" />
             View in Slack
           </a>
         </div>
       ) : null}
       {notes.length > 0 ? (
-        <ul className="text-secondary-foreground list-disc pl-4 space-y-0.5">
+        <ul className="list-disc space-y-0.5 pl-4 text-secondary-foreground">
           {notes.map((note) => (
             <li key={note}>{note}</li>
           ))}

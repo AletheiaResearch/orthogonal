@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+
 import { DOFetcherAdapter } from "./do-fetcher-adapter";
 
 function createMockNamespace() {

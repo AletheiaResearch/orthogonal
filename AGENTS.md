@@ -50,22 +50,24 @@ it at build time.
 
 ```bash
 # Install & build
-npm install
-npm run build                                    # all packages
-npm run build -w @open-inspect/shared            # shared only (build first!)
+corepack enable
+pnpm install
+pnpm run build                                   # all packages
+pnpm --filter @open-inspect/shared build         # shared only (build first!)
 
 # Lint & format
-npm run lint:fix                                 # ESLint + Prettier fix
-npm run format                                   # Prettier only
-npm run typecheck                                # tsc across all TS packages
+pnpm run lint:fix                                # oxlint --fix
+pnpm run fmt                                     # oxfmt
+pnpm run fmt:check                               # oxfmt --check
+pnpm run typecheck                               # tsc across all TS packages
 
 # Tests — TypeScript (Vitest)
-npm test -w @open-inspect/control-plane          # unit tests (node env)
-npm run test:integration -w @open-inspect/control-plane  # integration (workerd/Miniflare + real D1)
-npm test -w @open-inspect/web
-npm test -w @open-inspect/github-bot
-npm test -w @open-inspect/slack-bot
-npm test -w @open-inspect/linear-bot
+pnpm --filter @open-inspect/control-plane test   # unit tests (node env)
+pnpm --filter @open-inspect/control-plane run test:integration  # integration (workerd/Miniflare + real D1)
+pnpm --filter @open-inspect/web test
+pnpm --filter @open-inspect/github-bot test
+pnpm --filter @open-inspect/slack-bot test
+pnpm --filter @open-inspect/linear-bot test
 
 # Tests — Python (pytest)
 cd packages/modal-infra && pytest tests/ -v

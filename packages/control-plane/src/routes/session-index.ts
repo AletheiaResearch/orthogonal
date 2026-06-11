@@ -1,20 +1,21 @@
 import { isCanonicalUserId, type SessionStatus } from "@open-inspect/shared";
-import { SessionIndexStore } from "../db/session-index";
-import { error, json, parsePattern, type RequestContext, type Route } from "./shared";
-import type { Env } from "../types";
 
-const SESSION_STATUSES: SessionStatus[] = [
+import { SessionIndexStore } from "../db/session-index";
+import type { Env } from "../types";
+import { error, json, parsePattern, type RequestContext, type Route } from "./shared";
+
+const SESSION_STATUSES: ReadonlySet<SessionStatus> = new Set([
   "created",
   "active",
   "completed",
   "failed",
   "archived",
   "cancelled",
-];
+]);
 
 function parseSessionStatus(value: string | null): SessionStatus | undefined {
   if (!value) return undefined;
-  return SESSION_STATUSES.includes(value as SessionStatus) ? (value as SessionStatus) : undefined;
+  return SESSION_STATUSES.has(value as SessionStatus) ? (value as SessionStatus) : undefined;
 }
 
 function parseCreatedByFilters(searchParams: URLSearchParams): string[] | Response {

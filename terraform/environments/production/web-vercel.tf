@@ -10,9 +10,9 @@ module "web_app" {
   team_id      = var.vercel_team_id
   framework    = "nextjs"
 
-  # No git_repository - deploy via CLI/CI instead of auto-deploy on push
+  # No git_repository - deploy via CLI instead of auto-deploy on push
   root_directory  = "packages/web"
-  install_command = "cd ../.. && npm install && npm run build -w @open-inspect/shared"
+  install_command = "cd ../.. && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @open-inspect/shared build"
   build_command   = "next build"
 
   environment_variables = [

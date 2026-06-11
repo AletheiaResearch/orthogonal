@@ -1,14 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import type { Logger } from "../logger";
 import type { SourceControlProvider } from "../source-control";
 import * as branchResolution from "../source-control/branch-resolution";
-import type { ArtifactRow, SessionRow } from "./types";
 import {
   SessionPullRequestService,
   type CreatePullRequestInput,
   type PullRequestRepository,
   type PullRequestServiceDeps,
 } from "./pull-request-service";
+import type { ArtifactRow, SessionRow } from "./types";
 
 function createMockLogger(): Logger {
   return {

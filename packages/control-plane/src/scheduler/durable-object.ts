@@ -8,7 +8,6 @@
  * - RunComplete: callback from SessionDO on execution completion
  */
 
-import { DurableObject } from "cloudflare:workers";
 import {
   nextCronOccurrence,
   matchesConditions,
@@ -17,18 +16,20 @@ import {
   type AutomationEvent,
   type TriggerConfig,
 } from "@open-inspect/shared";
-import { AutomationStore, toAutomationRun, type AutomationRow } from "../db/automation-store";
-import { UserStore } from "../db/user-store";
-import { createRequestMetrics } from "../db/instrumented-d1";
+import { DurableObject } from "cloudflare:workers";
+
 import { generateId } from "../auth/crypto";
+import { AutomationStore, toAutomationRun, type AutomationRow } from "../db/automation-store";
+import { createRequestMetrics } from "../db/instrumented-d1";
+import { UserStore } from "../db/user-store";
 import { createLogger, parseLogLevel } from "../logger";
 import type { Logger } from "../logger";
-import type { Env } from "../types";
 import { initializeSession } from "../session/initialize";
 import {
   resolveCodeServerEnabled,
   resolveSandboxSettings,
 } from "../session/integration-settings-resolution";
+import type { Env } from "../types";
 
 /** Max automations to process per tick (backpressure). */
 const MAX_PER_TICK = 25;

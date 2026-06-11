@@ -1,6 +1,6 @@
-import useSWR from "swr";
-import { useSession } from "next-auth/react";
 import type { McpServerConfig, McpServerMetadata } from "@open-inspect/shared";
+import { useSession } from "next-auth/react";
+import useSWR from "swr";
 
 const MCP_SERVERS_KEY = "/api/mcp-servers";
 

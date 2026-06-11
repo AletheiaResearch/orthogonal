@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+
 import { matchesConditions, validateConditions } from "./conditions";
 import { conditionRegistry } from "./registry";
 import { buildMockEvent } from "./testing";

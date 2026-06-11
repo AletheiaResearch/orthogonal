@@ -2,7 +2,7 @@
  * Cron expression utilities for the automation engine.
  *
  * Thin wrappers around `cron-parser` enforcing 5-field expressions only,
- * with timezone support via `Intl`.
+ * with timezone support (cron-parser + luxon are bundled at build time).
  */
 
 import { CronExpressionParser } from "cron-parser";

@@ -4,11 +4,12 @@
 
 import { computeHmacHex, postMessage, removeReaction, timingSafeEqual } from "@open-inspect/shared";
 import { Hono } from "hono";
-import type { Env, CompletionCallback, ToolCallCallback } from "./types";
-import { extractAgentResponse } from "./completion/extractor";
-import { buildCompletionBlocks, getFallbackText, truncateError } from "./completion/blocks";
-import { createLogger } from "./logger";
+
 import { formatToolStatus, setAssistantThreadStatusBestEffort } from "./activity-status";
+import { buildCompletionBlocks, getFallbackText, truncateError } from "./completion/blocks";
+import { extractAgentResponse } from "./completion/extractor";
+import { createLogger } from "./logger";
+import type { Env, CompletionCallback, ToolCallCallback } from "./types";
 
 const log = createLogger("callback");
 

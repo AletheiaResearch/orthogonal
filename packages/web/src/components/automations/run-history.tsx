@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import type { AutomationRun } from "@open-inspect/shared";
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -44,7 +45,7 @@ interface RunHistoryProps {
 export function RunHistory({ runs, total, loading, onLoadMore, hasMore }: RunHistoryProps) {
   if (!loading && runs.length === 0) {
     return (
-      <div className="border border-border-muted rounded-md bg-card p-6 text-center">
+      <div className="rounded-md border border-border-muted bg-card p-6 text-center">
         <p className="text-sm text-muted-foreground">No runs yet.</p>
       </div>
     );
@@ -52,23 +53,23 @@ export function RunHistory({ runs, total, loading, onLoadMore, hasMore }: RunHis
 
   return (
     <div>
-      <div className="border border-border-muted rounded-md bg-card divide-y divide-border-muted">
+      <div className="divide-y divide-border-muted rounded-md border border-border-muted bg-card">
         {runs.map((run) => {
           const duration = formatDuration(run.startedAt, run.completedAt);
           return (
             <div key={run.id} className="px-4 py-3">
               <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex min-w-0 items-center gap-2">
                   {runStatusBadge(run.status)}
                   {run.sessionTitle && (
-                    <span className="text-sm text-foreground truncate">{run.sessionTitle}</span>
+                    <span className="truncate text-sm text-foreground">{run.sessionTitle}</span>
                   )}
                   {duration && <span className="text-xs text-muted-foreground">{duration}</span>}
                   {run.artifactSummary && (
                     <span className="text-xs text-muted-foreground">{run.artifactSummary}</span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex flex-shrink-0 items-center gap-2">
                   <span className="text-xs text-muted-foreground">
                     {new Date(run.scheduledAt).toLocaleString()}
                   </span>
@@ -95,7 +96,7 @@ export function RunHistory({ runs, total, loading, onLoadMore, hasMore }: RunHis
 
       {loading && (
         <div className="flex justify-center py-4">
-          <div className="animate-spin rounded-full h-6 w-6 border-2 border-current border-t-transparent text-muted-foreground" />
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-current border-t-transparent text-muted-foreground" />
         </div>
       )}
 

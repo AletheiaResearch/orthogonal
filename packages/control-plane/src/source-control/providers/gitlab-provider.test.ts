@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { GitLabSourceControlProvider } from "./gitlab-provider";
+
 import { SourceControlProviderError } from "../errors";
+import { GitLabSourceControlProvider } from "./gitlab-provider";
 
 // Mock global fetch
 const mockFetch = vi.fn();

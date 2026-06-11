@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+
 import { SessionIndexStore } from "./session-index";
 import type { SessionEntry } from "./session-index";
 
@@ -102,7 +103,7 @@ class FakeD1Database {
       whereArgs.push(...allArgs);
 
       const filtered = this.applyWhereConditions(normalized, whereArgs);
-      const sorted = filtered.sort((a, b) => b.updated_at - a.updated_at);
+      const sorted = filtered.toSorted((a, b) => b.updated_at - a.updated_at);
       const paged = sorted.slice(offset, offset + limit);
       return paged;
     }
@@ -111,7 +112,7 @@ class FakeD1Database {
       const parentId = args[0] as string;
       const children = Array.from(this.rows.values())
         .filter((r) => r.parent_session_id === parentId)
-        .sort((a, b) => b.created_at - a.created_at);
+        .toSorted((a, b) => b.created_at - a.created_at);
       return children;
     }
 

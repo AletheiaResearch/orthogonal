@@ -3,6 +3,7 @@
  */
 
 import { DEFAULT_ENABLED_MODELS } from "@open-inspect/shared";
+
 import { ModelPreferencesStore, ModelPreferencesValidationError } from "../db/model-preferences";
 import { createLogger } from "../logger";
 import type { Env } from "../types";

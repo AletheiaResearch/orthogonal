@@ -1,4 +1,5 @@
 import { publishView, resolveAppName } from "@open-inspect/shared";
+
 import { getUserRepoBranchPreferences } from "../branch-preferences";
 import { getAvailableRepos } from "../classifier/repos";
 import { createLogger } from "../logger";

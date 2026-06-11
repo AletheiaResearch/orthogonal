@@ -1,7 +1,7 @@
 "use client";
 
-import type { Task } from "@/types/session";
 import { ClockIcon, CheckCircleIcon, EmptyCircleIcon } from "@/components/ui/icons";
+import type { Task } from "@/types/session";
 
 interface TasksSectionProps {
   tasks: Task[];
@@ -39,20 +39,20 @@ function TaskStatusIcon({ status }: { status: Task["status"] }) {
     case "in_progress":
       return (
         <span className="mt-0.5 flex-shrink-0">
-          <ClockIcon className="w-4 h-4 text-accent animate-pulse" />
+          <ClockIcon className="h-4 w-4 animate-pulse text-accent" />
         </span>
       );
     case "completed":
       return (
         <span className="mt-0.5 flex-shrink-0">
-          <CheckCircleIcon className="w-4 h-4 text-success" />
+          <CheckCircleIcon className="h-4 w-4 text-success" />
         </span>
       );
     case "pending":
     default:
       return (
         <span className="mt-0.5 flex-shrink-0">
-          <EmptyCircleIcon className="w-4 h-4 text-secondary-foreground" />
+          <EmptyCircleIcon className="h-4 w-4 text-secondary-foreground" />
         </span>
       );
   }

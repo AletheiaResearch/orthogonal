@@ -12,13 +12,14 @@ import {
   type LinearBotSettings,
   type SandboxSettings,
 } from "@open-inspect/shared";
+
 import {
   IntegrationSettingsStore,
   IntegrationSettingsValidationError,
   isValidIntegrationId,
 } from "../db/integration-settings";
-import type { Env } from "../types";
 import { createLogger } from "../logger";
+import type { Env } from "../types";
 import {
   type Route,
   type RequestContext,

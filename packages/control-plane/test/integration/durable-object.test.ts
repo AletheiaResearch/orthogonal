@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
 import { env, runInDurableObject } from "cloudflare:test";
+import { describe, it, expect } from "vitest";
+
 import type { SessionDO } from "../../src/session/durable-object";
 import { MIGRATIONS } from "../../src/session/schema";
 

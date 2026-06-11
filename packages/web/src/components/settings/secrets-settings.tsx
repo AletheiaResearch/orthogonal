@@ -1,10 +1,11 @@
 "use client";
 
-import { SecretsEditor } from "@/components/secrets-editor";
-import { useRepos } from "@/hooks/use-repos";
 import { useState } from "react";
-import { ChevronDownIcon, CheckIcon } from "@/components/ui/icons";
+
+import { SecretsEditor } from "@/components/secrets-editor";
 import { Combobox } from "@/components/ui/combobox";
+import { ChevronDownIcon, CheckIcon } from "@/components/ui/icons";
+import { useRepos } from "@/hooks/use-repos";
 
 const GLOBAL_SCOPE = "__global__";
 
@@ -24,14 +25,14 @@ export function SecretsSettings() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-foreground mb-1">Secrets</h2>
-      <p className="text-sm text-muted-foreground mb-6">
+      <h2 className="mb-1 text-xl font-semibold text-foreground">Secrets</h2>
+      <p className="mb-6 text-sm text-muted-foreground">
         Manage environment variables that are injected into sandbox sessions.
       </p>
 
       {/* Repo selector */}
       <div className="mb-6">
-        <label className="block text-sm font-medium text-foreground mb-1.5">Repository</label>
+        <label className="mb-1.5 block text-sm font-medium text-foreground">Repository</label>
         <Combobox
           value={selectedRepo}
           onChange={setSelectedRepo}
@@ -56,7 +57,7 @@ export function SecretsSettings() {
               <button
                 type="button"
                 onClick={() => select(GLOBAL_SCOPE)}
-                className={`w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-muted transition ${
+                className={`flex w-full items-center justify-between px-3 py-2 text-sm transition hover:bg-muted ${
                   isGlobal ? "text-foreground" : "text-muted-foreground"
                 }`}
               >
@@ -66,14 +67,14 @@ export function SecretsSettings() {
                     Shared across all repositories
                   </span>
                 </div>
-                {isGlobal && <CheckIcon className="w-4 h-4 text-accent" />}
+                {isGlobal && <CheckIcon className="h-4 w-4 text-accent" />}
               </button>
-              {repos.length > 0 && <div className="border-t border-border my-1" />}
+              {repos.length > 0 && <div className="my-1 border-t border-border" />}
             </>
           )}
         >
           <span className="truncate">{displayRepoName}</span>
-          <ChevronDownIcon className="w-3 h-3 flex-shrink-0" />
+          <ChevronDownIcon className="h-3 w-3 flex-shrink-0" />
         </Combobox>
       </div>
 

@@ -24,7 +24,6 @@ check_cmd() {
 info "Checking prerequisites…"
 
 check_cmd node
-check_cmd npm
 
 NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]')
 if (( NODE_MAJOR < 20 )); then
@@ -33,17 +32,29 @@ if (( NODE_MAJOR < 20 )); then
 fi
 info "Node $(node -v) ✓"
 
+if ! command -v corepack &>/dev/null; then
+  error "corepack is not available. Install Node.js >= 20 with Corepack included."
+  exit 1
+fi
+corepack enable
+
+if ! command -v pnpm &>/dev/null; then
+  error "pnpm is not available after corepack enable."
+  exit 1
+fi
+info "pnpm $(pnpm -v) ✓"
+
 # ---------------------------------------------------------------------------
-# 2. Install npm dependencies (also triggers husky via prepare script)
+# 2. Install pnpm dependencies (also triggers husky via prepare script)
 # ---------------------------------------------------------------------------
-info "Installing npm dependencies…"
-npm install
+info "Installing pnpm dependencies…"
+pnpm install
 
 # ---------------------------------------------------------------------------
 # 3. Build shared package (other packages depend on it)
 # ---------------------------------------------------------------------------
 info "Building @open-inspect/shared…"
-npm run build -w @open-inspect/shared
+pnpm --filter @open-inspect/shared build
 
 # ---------------------------------------------------------------------------
 # 4. Verify git hooks
@@ -52,7 +63,7 @@ if [ -f .git/hooks/pre-commit ]; then
   info "Git hooks (husky) installed ✓"
 else
   warn "Git hooks not installed. Running husky…"
-  npx husky
+  pnpm exec husky
 fi
 
 # ---------------------------------------------------------------------------
@@ -116,7 +127,7 @@ fi
 # 6. Verify the setup
 # ---------------------------------------------------------------------------
 info "Running type check…"
-if npm run typecheck; then
+if pnpm run typecheck; then
   info "Type check passed ✓"
 else
   warn "Type check had issues — you may need to build additional packages."
@@ -127,7 +138,7 @@ fi
 # ---------------------------------------------------------------------------
 printf '\n'
 info "Setup complete! You can now:"
-info "  npm run dev -w @open-inspect/web        # Start web dev server"
-info "  npm run test -w @open-inspect/control-plane  # Run control-plane tests"
-info "  npm run lint                             # Lint all packages"
-info "  npm run typecheck                        # Type-check all packages"
+info "  pnpm --filter @open-inspect/web dev           # Start web dev server"
+info "  pnpm --filter @open-inspect/control-plane test  # Run control-plane tests"
+info "  pnpm run lint                                  # Lint all packages"
+info "  pnpm run typecheck                             # Type-check all packages"

@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { Hono } from "hono";
 import { computeHmacHex } from "@open-inspect/shared";
+import { Hono } from "hono";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { callbacksRouter } from "./callbacks";
 import type { Env } from "./types";
 

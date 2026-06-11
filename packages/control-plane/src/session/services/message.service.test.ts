@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ArtifactRow, EventRow, MessageRow } from "../types";
-import type { SessionRepository } from "../repository";
+
 import type { SessionMessageQueue } from "../message-queue";
+import type { SessionRepository } from "../repository";
+import type { ArtifactRow, EventRow, MessageRow } from "../types";
 import { MessageService } from "./message.service";
 
 function createService() {

@@ -7,6 +7,7 @@ import {
   type ChildSessionTrajectory,
   type EventResponse,
 } from "@open-inspect/shared";
+
 import {
   encodeEventTimelineCursor,
   parseEventTimelineCursor,

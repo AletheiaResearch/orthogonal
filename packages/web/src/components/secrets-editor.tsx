@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ClipboardEvent } from "react";
-import useSWR, { mutate } from "swr";
 import { toast } from "sonner";
+import useSWR, { mutate } from "swr";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
 import { normalizeKey, parseMaybeEnvContent, type ParsedEnvEntry } from "@/lib/env-paste";
 
 const VALID_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -339,7 +339,7 @@ export function SecretsEditor({
 
   return (
     <div className="mt-4 rounded-md border border-border bg-background p-4">
-      <div className="flex items-center justify-between mb-3">
+      <div className="mb-3 flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Secrets</h3>
           <p className="text-xs text-muted-foreground">{descriptionText}</p>
@@ -395,7 +395,7 @@ export function SecretsEditor({
                     placeholder="KEY_NAME"
                     disabled={disabled || row.existing}
                     onPaste={handlePasteIntoRow}
-                    className="flex-1 min-w-[160px] h-auto px-2 py-1 text-xs"
+                    className="h-auto min-w-[160px] flex-1 px-2 py-1 text-xs"
                   />
                   <Input
                     type="password"
@@ -409,7 +409,7 @@ export function SecretsEditor({
                     placeholder={row.existing ? "••••••••" : "value"}
                     disabled={disabled}
                     onPaste={handlePasteIntoRow}
-                    className="flex-1 min-w-[200px] h-auto px-2 py-1 text-xs"
+                    className="h-auto min-w-[200px] flex-1 px-2 py-1 text-xs"
                   />
                   <Button
                     type="button"
@@ -433,7 +433,7 @@ export function SecretsEditor({
           {/* Inherited global secrets (repo scope only) */}
           {!isGlobal && globalRows.length > 0 && (
             <div className="mt-4">
-              <p className="text-xs text-muted-foreground mb-2">Inherited from global scope</p>
+              <p className="mb-2 text-xs text-muted-foreground">Inherited from global scope</p>
               <div className="space-y-2">
                 {globalRows.map((g) => {
                   const overridden = existingKeySet.has(g.key);
@@ -445,13 +445,13 @@ export function SecretsEditor({
                       }`}
                     >
                       <Badge variant="info">Global</Badge>
-                      <span className="text-xs text-foreground font-mono">{g.key}</span>
+                      <span className="font-mono text-xs text-foreground">{g.key}</span>
                       <Input
                         type="password"
                         value=""
                         placeholder="••••••••"
                         disabled
-                        className="flex-1 min-w-[200px] h-auto px-2 py-1 text-xs"
+                        className="h-auto min-w-[200px] flex-1 px-2 py-1 text-xs"
                       />
                       {overridden && (
                         <span className="text-xs text-muted-foreground">(overridden by repo)</span>

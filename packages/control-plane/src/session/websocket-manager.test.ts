@@ -6,12 +6,13 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { SessionWebSocketManagerImpl } from "./websocket-manager";
-import type { WebSocketManagerConfig } from "./websocket-manager";
+
 import type { Logger } from "../logger";
 import type { ClientInfo } from "../types";
 import type { SessionRepository, WsClientMappingResult } from "./repository";
 import type { SandboxRow } from "./types";
+import { SessionWebSocketManagerImpl } from "./websocket-manager";
+import type { WebSocketManagerConfig } from "./websocket-manager";
 
 // ---------------------------------------------------------------------------
 // Fakes & Helpers

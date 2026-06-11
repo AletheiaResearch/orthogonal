@@ -1,9 +1,10 @@
+import { getServerSession } from "next-auth";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+
+import { buildAnalyticsSummaryPath } from "@/lib/analytics-query";
 import { authOptions } from "@/lib/auth";
 import { controlPlaneFetch } from "@/lib/control-plane";
-import { buildAnalyticsSummaryPath } from "@/lib/analytics-query";
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);

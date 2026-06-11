@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+
 import { refreshOpenAIToken, extractOpenAIAccountId, OpenAITokenRefreshError } from "./openai";
 import type { OpenAITokenResponse } from "./openai";
 

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { fetchUser } from "./linear-client";
 import type { LinearApiClient } from "./linear-client";
 

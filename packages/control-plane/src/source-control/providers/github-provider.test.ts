@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { GitHubSourceControlProvider } from "./github-provider";
+
 import { SourceControlProviderError } from "../errors";
+import { GitHubSourceControlProvider } from "./github-provider";
 
 // Mock the upstream GitHub App auth functions
 vi.mock("../../auth/github-app", () => ({

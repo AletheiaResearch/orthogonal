@@ -1,5 +1,5 @@
-import { APP_ICON_URL, APP_NAME } from "@/lib/site-config";
 import { InspectIcon } from "@/components/ui/icons";
+import { APP_ICON_URL, APP_NAME } from "@/lib/site-config";
 
 interface AppIconProps {
   className?: string;

@@ -1,9 +1,9 @@
 "use client";
 
-import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "@/components/ui/icons";
+import * as React from "react";
 
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 
 const Select = SelectPrimitive.Root;
@@ -21,7 +21,7 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex w-full items-center justify-between gap-2 rounded-sm border border-border bg-input text-foreground transition hover:border-foreground/20 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
+      "hover:border-foreground/20 focus-visible:ring-ring/40 flex w-full items-center justify-between gap-2 rounded-sm border border-border bg-input text-foreground transition focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
       density === "compact" ? "px-2 py-1 text-sm" : "px-3 py-2 text-sm",
       className
     )}

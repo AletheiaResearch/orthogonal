@@ -11,9 +11,15 @@
  */
 
 import type { McpServerConfig, SandboxSettings } from "@open-inspect/shared";
-import type { SandboxStatus } from "../../types";
+
+import { hashToken } from "../../auth/crypto";
+import { mintJwt } from "../../auth/jwt";
+import { createLogger, type Logger } from "../../logger";
 import type { SandboxRow, SessionRow } from "../../session/types";
+import type { SandboxStatus } from "../../types";
+import { extractProviderAndModel } from "../../utils/models";
 import { SandboxProviderError, type SandboxProvider, type CreateSandboxConfig } from "../provider";
+import { normalizeSandboxSettings } from "../settings";
 import {
   evaluateCircuitBreaker,
   evaluateSpawnDecision,
@@ -32,11 +38,6 @@ import {
   type HeartbeatConfig,
   type ConnectingTimeoutConfig,
 } from "./decisions";
-import { extractProviderAndModel } from "../../utils/models";
-import { createLogger, type Logger } from "../../logger";
-import { hashToken } from "../../auth/crypto";
-import { mintJwt } from "../../auth/jwt";
-import { normalizeSandboxSettings } from "../settings";
 
 const log = createLogger("lifecycle-manager");
 

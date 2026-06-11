@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+
 import { MOBILE_BREAKPOINT } from "./use-media-query";
 
 const SIDEBAR_STORAGE_KEY = "open-inspect-sidebar-open";

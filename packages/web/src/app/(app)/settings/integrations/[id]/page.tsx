@@ -1,16 +1,17 @@
 "use client";
 
+import { INTEGRATION_DEFINITIONS, type IntegrationId } from "@open-inspect/shared";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { INTEGRATION_DEFINITIONS, type IntegrationId } from "@open-inspect/shared";
-import { useSidebarContext } from "@/components/sidebar-layout";
-import { SidebarIcon, BackIcon } from "@/components/ui/icons";
-import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
-import { useIsMobile } from "@/hooks/use-media-query";
+
 import { CodeServerIntegrationSettings } from "@/components/settings/integrations/code-server-integration-settings";
 import { GitHubIntegrationSettings } from "@/components/settings/integrations/github-integration-settings";
 import { LinearIntegrationSettings } from "@/components/settings/integrations/linear-integration-settings";
 import { SlackIntegrationSettings } from "@/components/settings/integrations/slack-integration-settings";
+import { useSidebarContext } from "@/components/sidebar-layout";
+import { SidebarIcon, BackIcon } from "@/components/ui/icons";
+import { useIsMobile } from "@/hooks/use-media-query";
+import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
 
 function getIntegration(id: string) {
   return INTEGRATION_DEFINITIONS.find((d) => d.id === id);
@@ -33,32 +34,32 @@ export default function IntegrationDetailPage() {
 
   if (!integration) {
     return (
-      <div className="h-full flex items-center justify-center text-muted-foreground">
+      <div className="flex h-full items-center justify-center text-muted-foreground">
         Integration not found.
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <header className="border-b border-border-muted flex-shrink-0">
-        <div className="px-4 py-3 flex items-center gap-2">
+    <div className="flex h-full flex-col">
+      <header className="flex-shrink-0 border-b border-border-muted">
+        <div className="flex items-center gap-2 px-4 py-3">
           {(!isOpen || isMobile) && (
             <button
               onClick={toggle}
-              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition"
+              className="p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
               title={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
               aria-label={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
             >
-              <SidebarIcon className="w-4 h-4" />
+              <SidebarIcon className="h-4 w-4" />
             </button>
           )}
           <Link
             href="/settings?tab=integrations"
-            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition"
+            className="p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
             aria-label="Back to integrations"
           >
-            <BackIcon className="w-4 h-4" />
+            <BackIcon className="h-4 w-4" />
           </Link>
           <h2 className="text-sm font-medium text-foreground">{integration.name}</h2>
         </div>

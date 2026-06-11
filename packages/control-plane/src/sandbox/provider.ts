@@ -6,8 +6,9 @@
  */
 
 import type { SandboxSettings } from "@open-inspect/shared";
-import type { CorrelationContext } from "../logger";
 import type { McpServerConfig } from "@open-inspect/shared";
+
+import type { CorrelationContext } from "../logger";
 
 /** Default sandbox lifetime in seconds (2 hours). */
 export const DEFAULT_SANDBOX_TIMEOUT_SECONDS = 7200;

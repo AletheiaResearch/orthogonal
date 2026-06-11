@@ -6,6 +6,7 @@
  * AgentResponse.
  */
 
+import { buildInternalAuthHeaders } from "../auth";
 import type {
   EventResponse,
   ListEventsResponse,
@@ -16,7 +17,6 @@ import type {
   ArtifactType,
   Logger,
 } from "../types";
-import { buildInternalAuthHeaders } from "../auth";
 
 /**
  * Tool names included in summary display.
@@ -192,7 +192,7 @@ export function buildAgentResponseFromEvents(
 }
 
 function sortEventsChronologically(events: EventResponse[]): EventResponse[] {
-  return [...events].sort((a, b) => {
+  return [...events].toSorted((a, b) => {
     const timeDiff = a.createdAt - b.createdAt;
     if (timeDiff !== 0) return timeDiff;
     return a.id.localeCompare(b.id);

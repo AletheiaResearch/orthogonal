@@ -3,15 +3,14 @@
  */
 
 import type { ConditionRegistry } from "./conditions";
-import type { TriggerSourceDefinition } from "./types";
-import { sentrySource, sentryConditions } from "./sentry";
-import { webhookSource, webhookConditions } from "./webhook";
 import { githubSource } from "./github";
-
 // GitHub and Linear condition handlers (stubs for Phase 2c).
 // These need to exist so that the ConditionRegistry is complete.
 import { matchGlob } from "./glob";
+import { sentrySource, sentryConditions } from "./sentry";
+import type { TriggerSourceDefinition } from "./types";
 import type { AutomationEvent } from "./types";
+import { webhookSource, webhookConditions } from "./webhook";
 
 /**
  * GitHub + Linear condition handlers defined here (cross-source).
@@ -51,8 +50,8 @@ const sharedConditions = {
       if (event.source !== "github" && event.source !== "linear") return true;
       const labels = event.labels;
       if (!labels?.length) return c.operator === "none_of";
-      const lowerLabels = labels.map((l) => l.toLowerCase());
-      const hasOverlap = c.value.some((l: string) => lowerLabels.includes(l.toLowerCase()));
+      const lowerLabels = new Set(labels.map((l) => l.toLowerCase()));
+      const hasOverlap = c.value.some((l: string) => lowerLabels.has(l.toLowerCase()));
       return c.operator === "any_of" ? hasOverlap : !hasOverlap;
     },
   },

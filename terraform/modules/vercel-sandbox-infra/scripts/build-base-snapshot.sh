@@ -29,7 +29,7 @@ cd "${PROJECT_ROOT}" || {
     exit 1
 }
 
-npm run build:vercel-base-snapshot -w @open-inspect/control-plane
+pnpm --filter @open-inspect/control-plane run build:vercel-base-snapshot
 
 output_file="$(mktemp)"
 node packages/control-plane/dist/vercel-base-snapshot.js --output "${output_file}"

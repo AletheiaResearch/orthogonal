@@ -1,16 +1,17 @@
 // @vitest-environment jsdom
 /// <reference types="@testing-library/jest-dom" />
 
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import * as matchers from "@testing-library/jest-dom/matchers";
-import { SWRConfig } from "swr";
 import {
   DEFAULT_MAX_CONCURRENT_CHILD_SESSIONS,
   DEFAULT_MAX_TOTAL_CHILD_SESSIONS,
   MAX_TUNNEL_PORTS,
 } from "@open-inspect/shared";
+import * as matchers from "@testing-library/jest-dom/matchers";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { SWRConfig } from "swr";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { SandboxSettingsPage } from "./sandbox-settings";
 
 expect.extend(matchers);

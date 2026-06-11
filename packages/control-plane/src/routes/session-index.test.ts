@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { Env } from "../types";
 import { sessionIndexRoutes } from "./session-index";
 import type { RequestContext } from "./shared";
-import type { Env } from "../types";
 
 const mockSessionIndexStore = {
   list: vi.fn(),

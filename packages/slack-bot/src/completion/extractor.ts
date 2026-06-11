@@ -5,10 +5,11 @@
  * the package-specific Env bindings into the generic ExtractorDeps interface.
  */
 
-import type { Env } from "../types";
 import type { AgentResponse } from "@open-inspect/shared";
 import { extractAgentResponse as sharedExtract } from "@open-inspect/shared";
+
 import { createLogger } from "../logger";
+import type { Env } from "../types";
 
 const log = createLogger("extractor");
 

@@ -3,8 +3,9 @@
  */
 
 import { normalizeWebhookEvent } from "@open-inspect/shared";
-import { AutomationStore } from "../db/automation-store";
+
 import { verifyWebhookApiKey } from "../auth/webhook-key";
+import { AutomationStore } from "../db/automation-store";
 import type { Route, RequestContext } from "../routes/shared";
 import { parsePattern, json, error } from "../routes/shared";
 import type { Env } from "../types";

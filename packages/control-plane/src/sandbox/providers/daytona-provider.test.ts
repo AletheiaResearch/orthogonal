@@ -5,11 +5,9 @@
  * tunnel URL generation, and error handling for create/resume/stop flows.
  */
 
-import { describe, it, expect, vi, afterEach } from "vitest";
 import { computeHmacHex } from "@open-inspect/shared";
-import { DaytonaSandboxProvider, type DaytonaProviderConfig } from "./daytona-provider";
-import { SandboxProviderError } from "../provider";
-import type { CreateSandboxConfig, ResumeConfig, StopConfig } from "../provider";
+import { describe, it, expect, vi, afterEach } from "vitest";
+
 import {
   DaytonaNotFoundError,
   DaytonaApiError,
@@ -19,6 +17,9 @@ import {
   type DaytonaCreateSandboxParams,
   type DaytonaRestConfig,
 } from "../daytona-rest-client";
+import { SandboxProviderError } from "../provider";
+import type { CreateSandboxConfig, ResumeConfig, StopConfig } from "../provider";
+import { DaytonaSandboxProvider, type DaytonaProviderConfig } from "./daytona-provider";
 
 // ==================== Mock Factories ====================
 

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
 import {
   DEFAULT_MODEL,
   getReasoningConfig,
@@ -12,14 +11,12 @@ import {
   type AutomationEventSource,
   type TriggerCondition,
 } from "@open-inspect/shared";
-import { useRepos } from "@/hooks/use-repos";
-import { useBranches } from "@/hooks/use-branches";
-import { useEnabledModels } from "@/hooks/use-enabled-models";
-import { formatModelNameLower } from "@/lib/format";
-import { Combobox, type ComboboxGroup } from "@/components/ui/combobox";
+import { useState, useCallback, useEffect, useMemo } from "react";
+
 import { Button } from "@/components/ui/button";
+import { Combobox, type ComboboxGroup } from "@/components/ui/combobox";
+import { RepoIcon, BranchIcon, ModelIcon, ChevronDownIcon } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -27,11 +24,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RepoIcon, BranchIcon, ModelIcon, ChevronDownIcon } from "@/components/ui/icons";
+import { Textarea } from "@/components/ui/textarea";
+import { useBranches } from "@/hooks/use-branches";
+import { useEnabledModels } from "@/hooks/use-enabled-models";
+import { useRepos } from "@/hooks/use-repos";
+import { formatModelNameLower } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
+import { ConditionBuilder } from "./condition-builder";
 import { CronPicker } from "./cron-picker";
 import { TriggerTypeSelector } from "./trigger-type-selector";
-import { ConditionBuilder } from "./condition-builder";
-import { cn } from "@/lib/utils";
 
 const COMMON_TIMEZONES = [
   "UTC",
@@ -74,7 +76,7 @@ function FieldDescription({
   className?: string;
 }) {
   return (
-    <p className={cn("text-xs text-muted-foreground mt-1 leading-normal", className)}>{children}</p>
+    <p className={cn("mt-1 text-xs leading-normal text-muted-foreground", className)}>{children}</p>
   );
 }
 
@@ -223,7 +225,7 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
       {/* Trigger Type */}
       {mode === "create" ? (
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Trigger Type</label>
+          <label className="mb-1.5 block text-sm font-medium text-foreground">Trigger Type</label>
           <FieldDescription className="my-1">
             Scheduled automations run on a repeating timer. Other types run when the connected
             service sends an event (for example a GitHub webhook or Sentry alert).
@@ -232,8 +234,8 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
         </div>
       ) : (
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Trigger Type</label>
-          <div className="text-sm text-muted-foreground px-3 py-2 border border-border-muted rounded-md bg-muted/30">
+          <label className="mb-1.5 block text-sm font-medium text-foreground">Trigger Type</label>
+          <div className="bg-muted/30 rounded-md border border-border-muted px-3 py-2 text-sm text-muted-foreground">
             {{
               schedule: "Schedule",
               sentry: "Sentry Alert",
@@ -241,7 +243,7 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
               github_event: "GitHub Event",
               linear_event: "Linear Event",
             }[triggerType] || triggerType}
-            <span className="text-xs ml-2">(cannot be changed)</span>
+            <span className="ml-2 text-xs">(cannot be changed)</span>
           </div>
           <FieldDescription>
             Trigger type is fixed after the automation is created. Create a new automation to use a
@@ -252,7 +254,7 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
 
       {/* Name */}
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1.5">Name</label>
+        <label className="mb-1.5 block text-sm font-medium text-foreground">Name</label>
         <Input
           type="text"
           value={name}
@@ -265,7 +267,7 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
 
       {/* Repository */}
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1.5">Repository</label>
+        <label className="mb-1.5 block text-sm font-medium text-foreground">Repository</label>
         <Combobox
           value={selectedRepo}
           onChange={handleRepoChange}
@@ -285,11 +287,11 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
           disabled={loadingRepos || mode === "edit"}
           triggerClassName="flex w-full items-center gap-1.5 px-3 py-2 text-sm border border-border bg-input text-foreground hover:border-foreground/20 transition"
         >
-          <RepoIcon className="w-4 h-4 text-muted-foreground" />
-          <span className="truncate flex-1 text-left">
+          <RepoIcon className="h-4 w-4 text-muted-foreground" />
+          <span className="flex-1 truncate text-left">
             {loadingRepos ? "Loading..." : displayRepoName}
           </span>
-          <ChevronDownIcon className="w-3 h-3 text-muted-foreground" />
+          <ChevronDownIcon className="h-3 w-3 text-muted-foreground" />
         </Combobox>
         <FieldDescription>
           Runs clone and execute against this repository.
@@ -299,7 +301,7 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
 
       {/* Branch */}
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1.5">Branch</label>
+        <label className="mb-1.5 block text-sm font-medium text-foreground">Branch</label>
         <Combobox
           value={baseBranch}
           onChange={setBaseBranch}
@@ -314,11 +316,11 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
           disabled={!selectedRepo || loadingBranches}
           triggerClassName="flex w-full items-center gap-1.5 px-3 py-2 text-sm border border-border bg-input text-foreground hover:border-foreground/20 transition"
         >
-          <BranchIcon className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="truncate flex-1 text-left">
+          <BranchIcon className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="flex-1 truncate text-left">
             {loadingBranches ? "Loading..." : baseBranch || "Select branch"}
           </span>
-          <ChevronDownIcon className="w-3 h-3 text-muted-foreground" />
+          <ChevronDownIcon className="h-3 w-3 text-muted-foreground" />
         </Combobox>
         <FieldDescription>
           Default branch checked out when a session run starts. Selecting a repository resets this
@@ -329,7 +331,7 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
 
       {/* Model */}
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1.5">Model</label>
+        <label className="mb-1.5 block text-sm font-medium text-foreground">Model</label>
         <Combobox
           value={model}
           onChange={(nextModel) => {
@@ -351,9 +353,9 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
           dropdownWidth="w-56"
           triggerClassName="flex w-full items-center gap-1.5 px-3 py-2 text-sm border border-border bg-input text-foreground hover:border-foreground/20 transition"
         >
-          <ModelIcon className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="truncate flex-1 text-left">{formatModelNameLower(model)}</span>
-          <ChevronDownIcon className="w-3 h-3 text-muted-foreground" />
+          <ModelIcon className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="flex-1 truncate text-left">{formatModelNameLower(model)}</span>
+          <ChevronDownIcon className="h-3 w-3 text-muted-foreground" />
         </Combobox>
         <FieldDescription>
           Model used for the agent on each run of this automation.
@@ -361,7 +363,7 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1.5">Reasoning Effort</label>
+        <label className="mb-1.5 block text-sm font-medium text-foreground">Reasoning Effort</label>
         <Select
           value={reasoningConfig ? reasoningEffort || DEFAULT_REASONING_VALUE : ""}
           onValueChange={(value) =>
@@ -393,7 +395,7 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
       {isSchedule && (
         <>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Schedule</label>
+            <label className="mb-1.5 block text-sm font-medium text-foreground">Schedule</label>
             <CronPicker value={scheduleCron} onChange={setScheduleCron} timezone={scheduleTz} />
             <FieldDescription>
               How often this automation runs. Use a preset or a five-field cron expression (minute,
@@ -401,7 +403,7 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
             </FieldDescription>
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Timezone</label>
+            <label className="mb-1.5 block text-sm font-medium text-foreground">Timezone</label>
             <Combobox
               value={scheduleTz}
               onChange={setScheduleTz}
@@ -416,8 +418,8 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
               dropdownWidth="w-64"
               triggerClassName="flex w-full items-center gap-1.5 px-3 py-2 text-sm border border-border bg-input text-foreground hover:border-foreground/20 transition"
             >
-              <span className="truncate flex-1 text-left">{scheduleTz.replace(/_/g, " ")}</span>
-              <ChevronDownIcon className="w-3 h-3 text-muted-foreground" />
+              <span className="flex-1 truncate text-left">{scheduleTz.replace(/_/g, " ")}</span>
+              <ChevronDownIcon className="h-3 w-3 text-muted-foreground" />
             </Combobox>
             <FieldDescription>
               The schedule is evaluated in this time zone (for example, &quot;9:00&quot; is 9:00
@@ -430,7 +432,7 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
       {/* Event type selector (for trigger sources with event type support) */}
       {showEventTypeSelector && (
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Event Type</label>
+          <label className="mb-1.5 block text-sm font-medium text-foreground">Event Type</label>
           <Select
             value={eventType}
             onValueChange={(value) => {
@@ -445,7 +447,7 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
               {eventTypes.map((et) => (
                 <SelectItem key={et.eventType} value={et.eventType}>
                   {et.displayName}
-                  <span className="text-muted-foreground ml-2 text-xs">{et.description}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">{et.description}</span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -460,7 +462,7 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
       {/* Sentry Client Secret (create mode only) */}
       {triggerType === "sentry" && mode === "create" && (
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
             Sentry Client Secret
           </label>
           <Input
@@ -470,7 +472,7 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
             placeholder="Paste your Sentry Custom Integration client secret"
             required
           />
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="mt-1 text-xs text-muted-foreground">
             Found in your Sentry Custom Integration settings. This will be encrypted and stored
             securely.
           </p>
@@ -480,9 +482,9 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
       {/* Conditions (for non-schedule types) */}
       {!isSchedule && TRIGGER_TYPE_TO_SOURCE[triggerType] && (
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
             Conditions
-            <span className="text-xs text-muted-foreground ml-1 font-normal">(optional)</span>
+            <span className="ml-1 text-xs font-normal text-muted-foreground">(optional)</span>
           </label>
           <ConditionBuilder
             conditions={conditions}
@@ -498,7 +500,7 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
 
       {/* Instructions */}
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1.5">Instructions</label>
+        <label className="mb-1.5 block text-sm font-medium text-foreground">Instructions</label>
         <FieldDescription className="mb-1.5">
           Main prompt for the agent when a run starts. For event-based triggers, a short summary of
           the event is inserted above this text.
@@ -524,7 +526,7 @@ export function AutomationForm({ mode, initialValues, onSubmit, submitting }: Au
         <div
           id="instructions-counter"
           aria-live="polite"
-          className={`mt-1 text-xs text-right ${
+          className={`mt-1 text-right text-xs ${
             instructions.length >= INSTRUCTIONS_MAX_LENGTH
               ? "text-destructive"
               : instructions.length >= INSTRUCTIONS_WARNING_THRESHOLD

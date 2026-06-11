@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { SELF, env } from "cloudflare:test";
 import { computeHmacHex } from "@open-inspect/shared";
+import { SELF, env } from "cloudflare:test";
+import { describe, it, expect, beforeEach } from "vitest";
+
 import { generateInternalToken } from "../../src/auth/internal";
 import { RepoImageStore } from "../../src/db/repo-images";
 import { RepoMetadataStore } from "../../src/db/repo-metadata";
@@ -681,7 +682,7 @@ describe("Repo image HTTP routes", () => {
       repos: Array<{ repoOwner: string; repoName: string }>;
     }>();
     expect(body.repos).toHaveLength(2);
-    const names = body.repos.map((r) => r.repoName).sort();
+    const names = body.repos.map((r) => r.repoName).toSorted();
     expect(names).toEqual(["repo-a", "repo-c"]);
   });
 

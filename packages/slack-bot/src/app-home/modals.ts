@@ -1,4 +1,5 @@
 import { openView } from "@open-inspect/shared";
+
 import {
   BRANCH_INPUT_ACTION_ID,
   BRANCH_INPUT_BLOCK_ID,

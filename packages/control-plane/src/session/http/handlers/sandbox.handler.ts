@@ -1,11 +1,12 @@
-import type { Logger } from "../../../logger";
 import type { SessionArtifact } from "@open-inspect/shared";
+
+import type { Logger } from "../../../logger";
 import type { ParticipantRole, SandboxEvent, ServerMessage } from "../../../types";
-import type { OpenAITokenRefreshResult } from "../../openai-token-refresh-service";
-import type { ScmCredentialsResult } from "../../scm-credentials-service";
-import type { SessionRepository } from "../../repository";
-import type { SandboxRow, SessionRow } from "../../types";
 import { assertArtifactType } from "../../artifacts";
+import type { OpenAITokenRefreshResult } from "../../openai-token-refresh-service";
+import type { SessionRepository } from "../../repository";
+import type { ScmCredentialsResult } from "../../scm-credentials-service";
+import type { SandboxRow, SessionRow } from "../../types";
 
 interface AddParticipantRequest {
   userId: string;

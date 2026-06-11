@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+
 import { TerminalIcon, LinkIcon } from "@/components/ui/icons";
 import { buildAuthenticatedUrl } from "@/lib/urls";
 
@@ -19,9 +20,9 @@ export function TerminalPanel({ url, token, onClose }: TerminalPanelProps) {
   if (!authenticatedUrl) return null;
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="flex h-full flex-col bg-background">
       {/* Terminal toolbar */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-muted bg-muted/50">
+      <div className="bg-muted/50 flex items-center justify-between border-b border-border-muted px-3 py-1.5">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <TerminalIcon className="h-3.5 w-3.5" />
           <span className="font-medium">Terminal</span>
@@ -31,14 +32,14 @@ export function TerminalPanel({ url, token, onClose }: TerminalPanelProps) {
             href={authenticatedUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-1 text-muted-foreground hover:text-foreground transition"
+            className="p-1 text-muted-foreground transition hover:text-foreground"
             title="Open in new tab"
           >
             <LinkIcon className="h-3.5 w-3.5" />
           </a>
           <button
             onClick={onClose}
-            className="p-1 text-muted-foreground hover:text-foreground transition"
+            className="p-1 text-muted-foreground transition hover:text-foreground"
             title="Close terminal"
           >
             <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -54,14 +55,14 @@ export function TerminalPanel({ url, token, onClose }: TerminalPanelProps) {
       </div>
 
       {/* iframe */}
-      <div className="flex-1 relative">
+      <div className="relative flex-1">
         {isLoading && !hasError && (
           <div className="absolute inset-0 flex items-center justify-center bg-background">
             <span className="text-sm text-muted-foreground">Connecting to terminal...</span>
           </div>
         )}
         {hasError && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background gap-2">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background">
             <span className="text-sm text-muted-foreground">
               Terminal session expired or failed to load.
             </span>
@@ -70,7 +71,7 @@ export function TerminalPanel({ url, token, onClose }: TerminalPanelProps) {
         )}
         <iframe
           src={authenticatedUrl}
-          className="w-full h-full border-0"
+          className="h-full w-full border-0"
           allow="clipboard-read; clipboard-write"
           sandbox="allow-scripts allow-same-origin allow-popups"
           onLoad={() => setIsLoading(false)}

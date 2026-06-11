@@ -12,7 +12,7 @@ latest commits — typically cutting startup from minutes to seconds.
 Every time you start a new session without pre-built images, the sandbox has to:
 
 1. Clone your repository from scratch
-2. Install dependencies (`npm install`, `pip install`, etc.)
+2. Install dependencies (`pnpm install`, `pip install`, etc.)
 3. Run any setup commands you've configured
 
 For large repositories with many dependencies, this can take anywhere from 30 seconds to several
@@ -99,9 +99,9 @@ from starting a session.
 The more work you front-load into your `.openinspect/setup.sh`, the faster your sessions start. Here
 are some tips:
 
-- **Install all dependencies** — `npm install`, `pip install -r requirements.txt`, `bundle install`,
-  etc.
-- **Run build steps** — `npm run build`, `cargo build`, code generation, compiled assets
+- **Install all dependencies** — `pnpm install`, `pip install -r requirements.txt`,
+  `bundle install`, etc.
+- **Run build steps** — `pnpm run build`, `cargo build`, code generation, compiled assets
 - **Warm caches** — Running your test suite once during setup means cached files are available for
   subsequent runs in the session
 - **Pre-download large resources** — Models, datasets, or any large files the agent might need

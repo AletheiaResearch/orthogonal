@@ -12,19 +12,19 @@
     }
   },
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
+    "build": "vite build && tsc --emitDeclarationOnly",
+    "dev": "vite build --watch",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix"
-  },
-  "devDependencies": {
-    "typescript": "^5.7.2",
-    "vitest": "^4.1.0"
+    "test": "vitest run"
   },
   "dependencies": {
-    "@octokit/webhooks-types": "^7.6.1",
-    "cron-parser": "^5.5.0"
+    "@octokit/webhooks-types": "catalog:",
+    "cron-parser": "catalog:"
+  },
+  "devDependencies": {
+    "@orthogonal/tooling-configs": "workspace:*",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
   }
 }

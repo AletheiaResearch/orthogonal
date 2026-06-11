@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it } from "vitest";
 import { env } from "cloudflare:test";
+import { beforeEach, describe, expect, it } from "vitest";
+
 import { UserStore } from "../../src/db/user-store";
 import { cleanD1Tables } from "./cleanup";
 
@@ -93,7 +94,7 @@ describe("UserStore", () => {
 
       const identities = await store.getIdentitiesForUser(github.id);
       expect(identities).toHaveLength(2);
-      expect(identities.map((i) => i.provider).sort()).toEqual(["github", "slack"]);
+      expect(identities.map((i) => i.provider).toSorted()).toEqual(["github", "slack"]);
     });
 
     it("backfills email on existing user when email becomes available", async () => {
@@ -179,7 +180,7 @@ describe("UserStore", () => {
       // Both identities now belong to User A
       const identities = await store.getIdentitiesForUser(userA.id);
       expect(identities).toHaveLength(2);
-      expect(identities.map((i) => i.provider).sort()).toEqual(["github", "slack"]);
+      expect(identities.map((i) => i.provider).toSorted()).toEqual(["github", "slack"]);
     });
 
     it("stores avatar_url on new user", async () => {

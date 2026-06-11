@@ -61,7 +61,8 @@ brew install node@22
 brew install python@3.12 uv
 
 # Wrangler CLI (for initial R2 bucket setup)
-npm install -g wrangler
+corepack enable
+pnpm add -g wrangler
 ```
 
 ---
@@ -75,10 +76,11 @@ account or organization.
 # Clone your fork
 git clone https://github.com/YOUR-USERNAME/background-agents.git
 cd background-agents
-npm install
+corepack enable
+pnpm install
 
 # Build the shared package (required before Terraform deployment)
-npm run build -w @open-inspect/shared
+pnpm --filter @open-inspect/shared build
 
 # Install Python dependencies for Modal deployment (includes sandbox-runtime)
 cd packages/modal-infra && uv sync --frozen && cd -
@@ -493,7 +495,7 @@ enable_service_bindings        = false
 
 ```bash
 # From the repository root
-npm run build -w @open-inspect/control-plane -w @open-inspect/slack-bot -w @open-inspect/github-bot
+pnpm --filter @open-inspect/control-plane --filter @open-inspect/slack-bot --filter @open-inspect/github-bot build
 ```
 
 Then run:
@@ -644,7 +646,8 @@ npx vercel --prod
 > **Note**: The Vercel project is configured with custom build commands for the monorepo structure.
 > Terraform sets these automatically:
 >
-> - Install: `cd ../.. && npm install && npm run build -w @open-inspect/shared`
+> - Install:
+>   `cd ../.. && corepack enable && pnpm install && pnpm --filter @open-inspect/shared build`
 > - Build: `next build`
 
 #### Option B: Link Git Repository (For Automatic Deployments)
@@ -698,102 +701,6 @@ curl -I https://open-inspect-web-{deployment_name}.YOUR-SUBDOMAIN.workers.dev
 
 ---
 
-## Step 10: Set Up CI/CD (Optional)
-
-Enable automatic deployments when you push to main by adding GitHub Secrets.
-
-Go to your fork's Settings → Secrets and variables → Actions, and add:
-
-| Secret Name                      | Value                                                                                       |
-| -------------------------------- | ------------------------------------------------------------------------------------------- |
-| `CLOUDFLARE_API_TOKEN`           | Your Cloudflare API token                                                                   |
-| `CLOUDFLARE_ACCOUNT_ID`          | Your Cloudflare account ID                                                                  |
-| `CLOUDFLARE_WORKER_SUBDOMAIN`    | Your workers.dev subdomain                                                                  |
-| `DEPLOYMENT_NAME`                | Your deployment name                                                                        |
-| `R2_ACCESS_KEY_ID`               | R2 access key ID                                                                            |
-| `R2_SECRET_ACCESS_KEY`           | R2 secret access key                                                                        |
-| `WEB_PLATFORM`                   | `vercel` or `cloudflare`                                                                    |
-| `VERCEL_API_TOKEN`               | Vercel API token _(only if `web_platform = "vercel"`)_                                      |
-| `VERCEL_TEAM_ID`                 | Vercel team/account ID _(only if `web_platform = "vercel"`)_                                |
-| `VERCEL_PROJECT_ID`              | Vercel project ID _(only if `web_platform = "vercel"`)_                                     |
-| `NEXTAUTH_URL`                   | Your web app URL                                                                            |
-| `MODAL_TOKEN_ID`                 | Modal token ID                                                                              |
-| `MODAL_TOKEN_SECRET`             | Modal token secret                                                                          |
-| `MODAL_WORKSPACE`                | Modal workspace name                                                                        |
-| `MODAL_ENVIRONMENT`              | Modal environment name (defaults to `main`)                                                 |
-| `MODAL_ENVIRONMENT_WEB_SUFFIX`   | Modal environment web suffix for endpoint URLs; lowercase letters, digits, dashes, or empty |
-| `SANDBOX_PROVIDER`               | `modal`, `daytona`, or `vercel`                                                             |
-| `DAYTONA_API_URL`                | Daytona API URL _(only if `sandbox_provider = "daytona"`)_                                  |
-| `DAYTONA_API_KEY`                | Daytona API key _(only if `sandbox_provider = "daytona"`)_                                  |
-| `DAYTONA_BASE_SNAPSHOT`          | Daytona base snapshot name _(only if `sandbox_provider = "daytona"`)_                       |
-| `DAYTONA_TARGET`                 | Optional Daytona target name                                                                |
-| `VERCEL_SANDBOX_TOKEN`           | Vercel API token _(only if `sandbox_provider = "vercel"`)_                                  |
-| `VERCEL_SANDBOX_PROJECT_ID`      | Vercel project ID for sandbox sessions _(only if `sandbox_provider = "vercel"`)_            |
-| `VERCEL_SANDBOX_TEAM_ID`         | Optional Vercel team/account ID for sandbox sessions                                        |
-| `VERCEL_BASE_SNAPSHOT_ID`        | Optional manual Vercel base-runtime snapshot; skips Terraform-managed snapshot builds       |
-| `VERCEL_SANDBOX_RUNTIME`         | Optional Vercel Sandbox runtime (defaults to `node24`)                                      |
-| `VERCEL_SNAPSHOT_EXPIRATION_MS`  | Optional Vercel runtime snapshot expiration in milliseconds (`0` means no expiration)       |
-| `VERCEL_SANDBOX_API_BASE_URL`    | Optional advanced Vercel Sandbox API base URL override                                      |
-| `GH_OAUTH_CLIENT_ID`             | GitHub App OAuth client ID                                                                  |
-| `GH_OAUTH_CLIENT_SECRET`         | GitHub App OAuth client secret                                                              |
-| `GH_APP_ID`                      | GitHub App ID                                                                               |
-| `GH_APP_PRIVATE_KEY`             | GitHub App private key (PKCS#8 format)                                                      |
-| `GH_APP_INSTALLATION_ID`         | GitHub App installation ID                                                                  |
-| `ENABLE_SLACK_BOT`               | `true` to deploy Slack bot, `false` to skip (default: `true`)                               |
-| `SLACK_BOT_TOKEN`                | Slack bot token (required if enabled)                                                       |
-| `SLACK_SIGNING_SECRET`           | Slack signing secret (required if enabled)                                                  |
-| `ENABLE_LINEAR_BOT`              | `true` to deploy Linear bot, `false` to skip (default: `false`)                             |
-| `LINEAR_CLIENT_ID`               | Linear OAuth application client ID (required if Linear enabled)                             |
-| `LINEAR_CLIENT_SECRET`           | Linear OAuth application client secret (required if Linear enabled)                         |
-| `LINEAR_WEBHOOK_SECRET`          | Linear webhook signing secret (required if Linear enabled)                                  |
-| `ANTHROPIC_API_KEY`              | Anthropic API key                                                                           |
-| `TOKEN_ENCRYPTION_KEY`           | Generated encryption key (OAuth tokens)                                                     |
-| `REPO_SECRETS_ENCRYPTION_KEY`    | Generated encryption key (repo secrets)                                                     |
-| `INTERNAL_CALLBACK_SECRET`       | Generated callback secret                                                                   |
-| `MODAL_API_SECRET`               | Generated Modal API secret                                                                  |
-| `NEXTAUTH_SECRET`                | Generated NextAuth secret                                                                   |
-| `ALLOWED_USERS`                  | Comma-separated GitHub usernames (or empty for all users)                                   |
-| `ALLOWED_EMAIL_DOMAINS`          | Comma-separated email domains (or empty for all domains)                                    |
-| `ENABLE_DURABLE_OBJECT_BINDINGS` | Optional Terraform CI flag for Durable Object phase 1 (defaults to `true`)                  |
-| `ENABLE_GITHUB_BOT`              | `true` to deploy GitHub bot worker (or empty to skip)                                       |
-| `GH_WEBHOOK_SECRET`              | GitHub webhook secret (required if GitHub bot enabled)                                      |
-| `GH_BOT_USERNAME`                | GitHub App bot username, e.g., `my-app[bot]` (required if GitHub bot enabled)               |
-| `APP_NAME`                       | Optional display name for whitelabeling (default: `Open-Inspect`)                           |
-| `APP_SHORT_NAME`                 | Optional short label for sidebar header (default: `Inspect`)                                |
-| `APP_ICON_URL`                   | Optional URL to a custom logo/favicon (default: built-in icon)                              |
-
-**Bulk upload secrets with `gh` CLI:**
-
-Instead of adding secrets one by one, create a `.secrets` file (don't commit this!):
-
-```
-CLOUDFLARE_API_TOKEN=your-token
-CLOUDFLARE_ACCOUNT_ID=your-account-id
-ANTHROPIC_API_KEY=sk-ant-...
-# ... add all secrets
-```
-
-Then upload all at once (run from your fork's directory, or use
-`-R {your_github_username}/{background-agents}`):
-
-```bash
-gh secret set -f .secrets
-```
-
-If you bulk upload from a file, set multiline secrets like `GH_APP_PRIVATE_KEY` separately so the
-PEM formatting is preserved:
-
-```bash
-gh secret set GH_APP_PRIVATE_KEY < private-key-pkcs8.pem
-```
-
-Once configured, the GitHub Actions workflow will:
-
-- Run `terraform plan` on pull requests (with PR comment)
-- Run `terraform apply` when merged to main
-
----
-
 ## Updating Your Deployment
 
 To update after pulling changes from upstream:
@@ -803,7 +710,7 @@ To update after pulling changes from upstream:
 git pull upstream main
 
 # Rebuild shared package if it changed
-npm run build -w @open-inspect/shared
+pnpm --filter @open-inspect/shared build
 
 # Re-run Terraform (it only changes what's needed)
 cd terraform/environments/production
@@ -867,10 +774,10 @@ Terraform references the built worker bundles. Build them before running `terraf
 
 ```bash
 # Build shared package first
-npm run build -w @open-inspect/shared
+pnpm --filter @open-inspect/shared build
 
 # Build workers (required before Terraform)
-npm run build -w @open-inspect/control-plane -w @open-inspect/slack-bot -w @open-inspect/github-bot
+pnpm --filter @open-inspect/control-plane --filter @open-inspect/slack-bot --filter @open-inspect/github-bot build
 
 # Verify bundles exist
 ls packages/control-plane/dist/index.js
@@ -942,7 +849,7 @@ This occurs on first deployment. Follow the two-phase deployment process:
 
 - **Never commit** `terraform.tfvars` or `backend.tfvars` to source control
 - The `.gitignore` already excludes these files
-- Use GitHub Secrets for CI/CD, not hardcoded values
+- Keep secrets in `terraform.tfvars` / `backend.tfvars`, not hardcoded in source
 - Rotate secrets periodically using `terraform apply` after updating `terraform.tfvars`
 - Review the [Security Model](../README.md#security-model-single-tenant-only) - this system is
   designed for single-tenant deployment

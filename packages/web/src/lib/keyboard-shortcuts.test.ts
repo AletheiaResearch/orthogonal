@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from "vitest";
+
 import { matchGlobalShortcut, shouldIgnoreGlobalShortcutForAction } from "./keyboard-shortcuts";
 
 function createKeyEvent(overrides: Partial<KeyboardEvent> = {}) {

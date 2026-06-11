@@ -1,5 +1,7 @@
 "use client";
 
+import { SunIcon, MoonIcon, MonitorIcon } from "@/components/ui/icons";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   useSyntaxHighlightPreferences,
   LIGHT_THEMES,
@@ -7,8 +9,6 @@ import {
   type ColorSchemeMode,
   type SyntaxHighlightThemeDefinition,
 } from "@/hooks/use-syntax-highlight-preferences";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { SunIcon, MoonIcon, MonitorIcon } from "@/components/ui/icons";
 
 const COLOR_SCHEME_OPTIONS: { value: ColorSchemeMode; label: string; icon: typeof SunIcon }[] = [
   { value: "light", label: "Light", icon: SunIcon },
@@ -33,12 +33,12 @@ function ThemeRow({
     <div className="flex items-center justify-between px-4 py-3">
       <div>
         <span className="text-sm text-foreground">{label}</span>
-        <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
       </div>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="text-sm bg-background border border-border rounded px-2 py-1.5 text-foreground"
+        className="rounded border border-border bg-background px-2 py-1.5 text-sm text-foreground"
       >
         {themes.map((t) => (
           <option key={t.id} value={t.id}>
@@ -56,24 +56,24 @@ export function AppearanceSettings() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-foreground mb-1">Appearance</h2>
-      <p className="text-sm text-muted-foreground mb-6">
+      <h2 className="mb-1 text-xl font-semibold text-foreground">Appearance</h2>
+      <p className="mb-6 text-sm text-muted-foreground">
         Customize the appearance of the application.
       </p>
 
       {/* Code Highlighting section */}
       <div>
-        <h3 className="text-base font-medium text-foreground mb-1">Code highlighting</h3>
-        <p className="text-sm text-muted-foreground mb-4">
+        <h3 className="mb-1 text-base font-medium text-foreground">Code highlighting</h3>
+        <p className="mb-4 text-sm text-muted-foreground">
           Customize how code is displayed in sessions.
         </p>
 
-        <div className="border border-border rounded-md divide-y divide-border-muted">
+        <div className="divide-y divide-border-muted rounded-md border border-border">
           {/* Color scheme mode toggle */}
           <div className="flex items-center justify-between px-4 py-3">
             <div>
               <span className="text-sm text-foreground">Color scheme</span>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 Choose light, dark, or match your system theme
               </p>
             </div>
@@ -90,7 +90,7 @@ export function AppearanceSettings() {
                 const Icon = opt.icon;
                 return (
                   <ToggleGroupItem key={opt.value} value={opt.value}>
-                    <Icon className="w-3.5 h-3.5" />
+                    <Icon className="h-3.5 w-3.5" />
                     {opt.label}
                   </ToggleGroupItem>
                 );

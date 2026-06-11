@@ -1,7 +1,7 @@
 import { SessionInternalPaths, type SessionInternalPath } from "../session/contracts";
 import type { Env } from "../types";
-import { error, parseJsonBody, parsePattern, type Route } from "./shared";
 import { sessionRoute, type SessionRouteContext } from "./session-route";
+import { error, parseJsonBody, parsePattern, type Route } from "./shared";
 
 type SimpleProxyRouteConfig = {
   method: string;

@@ -1,17 +1,17 @@
 "use client";
 
-import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
 import { Badge } from "@/components/ui/badge";
+import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
 
 export function KeyboardShortcutsSettings() {
   return (
     <div>
-      <h2 className="text-xl font-semibold text-foreground mb-1">Keyboard Shortcuts</h2>
-      <p className="text-sm text-muted-foreground mb-6">
+      <h2 className="mb-1 text-xl font-semibold text-foreground">Keyboard Shortcuts</h2>
+      <p className="mb-6 text-sm text-muted-foreground">
         Use shortcuts for quick navigation and sending prompts.
       </p>
 
-      <div className="border border-border rounded-md divide-y divide-border-muted">
+      <div className="divide-y divide-border-muted rounded-md border border-border">
         <ShortcutRow label="Send prompt" shortcut={SHORTCUT_LABELS.SEND_PROMPT} />
         <ShortcutRow label="Command menu" shortcut={SHORTCUT_LABELS.COMMAND_MENU} />
         <ShortcutRow label="New session" shortcut={SHORTCUT_LABELS.NEW_SESSION} />

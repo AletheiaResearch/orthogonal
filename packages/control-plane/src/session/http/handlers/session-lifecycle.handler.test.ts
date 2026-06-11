@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+
+import { getValidModelOrDefault } from "../../../utils/models";
 import type { ParticipantRow, SandboxRow, SessionRow } from "../../types";
 import { createSessionLifecycleHandler } from "./session-lifecycle.handler";
-import { getValidModelOrDefault } from "../../../utils/models";
 
 function createSession(overrides: Partial<SessionRow> = {}): SessionRow {
   return {

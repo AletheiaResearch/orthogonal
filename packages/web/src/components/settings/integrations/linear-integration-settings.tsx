@@ -1,8 +1,5 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import useSWR, { mutate } from "swr";
-import { toast } from "sonner";
 import {
   MODEL_REASONING_CONFIG,
   isValidReasoningEffort,
@@ -11,21 +8,10 @@ import {
   type LinearGlobalConfig,
   type ValidModel,
 } from "@open-inspect/shared";
-import { useEnabledModels } from "@/hooks/use-enabled-models";
-import { IntegrationSettingsSkeleton } from "./integration-settings-skeleton";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
-import { RadioCard } from "@/components/ui/form-controls";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useEffect, useState, type ReactNode } from "react";
+import { toast } from "sonner";
+import useSWR, { mutate } from "swr";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +22,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioCard } from "@/components/ui/form-controls";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useEnabledModels } from "@/hooks/use-enabled-models";
+
+import { IntegrationSettingsSkeleton } from "./integration-settings-skeleton";
 
 const GLOBAL_SETTINGS_KEY = "/api/integration-settings/linear";
 const REPO_SETTINGS_KEY = "/api/integration-settings/linear/repos";
@@ -75,8 +77,8 @@ export function LinearIntegrationSettings() {
 
   return (
     <div>
-      <h3 className="text-lg font-semibold text-foreground mb-1">Linear Agent</h3>
-      <p className="text-sm text-muted-foreground mb-6">
+      <h3 className="mb-1 text-lg font-semibold text-foreground">Linear Agent</h3>
+      <p className="mb-6 text-sm text-muted-foreground">
         Configure model defaults, repository targeting, and runtime behavior for Linear-triggered
         sessions.
       </p>
@@ -88,7 +90,7 @@ export function LinearIntegrationSettings() {
             selected allowlist.
           </p>
         ) : (
-          <p className="text-sm text-warning bg-warning-muted border border-warning/20 px-4 py-3 rounded-sm">
+          <p className="border-warning/20 rounded-sm border bg-warning-muted px-4 py-3 text-sm text-warning">
             No repositories are currently accessible from the control plane. Repository filtering is
             unavailable until repository access is configured.
           </p>
@@ -261,9 +263,9 @@ function GlobalSettingsSection({
     >
       {error && <Message tone="error" text={error} />}
 
-      <div className="grid sm:grid-cols-2 gap-3 mb-4">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2">
         <label className="text-sm">
-          <span className="block text-foreground font-medium mb-1">Default model</span>
+          <span className="mb-1 block font-medium text-foreground">Default model</span>
           <Select
             value={model}
             onValueChange={(nextModel) => {
@@ -294,7 +296,7 @@ function GlobalSettingsSection({
         </label>
 
         <label className="text-sm">
-          <span className="block text-foreground font-medium mb-1">Default reasoning effort</span>
+          <span className="mb-1 block font-medium text-foreground">Default reasoning effort</span>
           <Select
             value={effort}
             onValueChange={(v) => {
@@ -318,8 +320,8 @@ function GlobalSettingsSection({
         </label>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-2 mb-4">
-        <label className="flex items-center justify-between px-3 py-2 border border-border rounded-sm cursor-pointer hover:bg-muted/50 transition text-sm">
+      <div className="mb-4 grid gap-2 sm:grid-cols-2">
+        <label className="hover:bg-muted/50 flex cursor-pointer items-center justify-between rounded-sm border border-border px-3 py-2 text-sm transition">
           <span>Allow user model preferences</span>
           <Checkbox
             checked={allowUserPreferenceOverride}
@@ -330,7 +332,7 @@ function GlobalSettingsSection({
             }}
           />
         </label>
-        <label className="flex items-center justify-between px-3 py-2 border border-border rounded-sm cursor-pointer hover:bg-muted/50 transition text-sm">
+        <label className="hover:bg-muted/50 flex cursor-pointer items-center justify-between rounded-sm border border-border px-3 py-2 text-sm transition">
           <span>Allow model labels (model:*)</span>
           <Checkbox
             checked={allowLabelModelOverride}
@@ -344,7 +346,7 @@ function GlobalSettingsSection({
       </div>
 
       <div className="mb-4">
-        <label className="flex items-center justify-between px-3 py-2 border border-border rounded-sm cursor-pointer hover:bg-muted/50 transition text-sm">
+        <label className="hover:bg-muted/50 flex cursor-pointer items-center justify-between rounded-sm border border-border px-3 py-2 text-sm transition">
           <span>Emit tool progress activities</span>
           <Checkbox
             checked={emitToolProgressActivities}
@@ -358,10 +360,10 @@ function GlobalSettingsSection({
       </div>
 
       <div className="mb-4">
-        <label className="block text-sm font-medium text-foreground mb-1">
+        <label className="mb-1 block text-sm font-medium text-foreground">
           Issue Session Instructions
         </label>
-        <p className="text-xs text-muted-foreground mb-2">
+        <p className="mb-2 text-xs text-muted-foreground">
           Custom instructions appended to agent prompts for all Linear issue sessions. Use this to
           guide how the agent approaches issues (e.g., coding standards, preferred tools, MR
           conventions).
@@ -380,8 +382,8 @@ function GlobalSettingsSection({
       </div>
 
       <div className="mb-4">
-        <p className="text-sm font-medium text-foreground mb-2">Repository Scope</p>
-        <div className="grid sm:grid-cols-2 gap-2 mb-3">
+        <p className="mb-2 text-sm font-medium text-foreground">Repository Scope</p>
+        <div className="mb-3 grid gap-2 sm:grid-cols-2">
           <RadioCard
             name="linear-repo-scope"
             checked={repoScopeMode === "all"}
@@ -409,11 +411,11 @@ function GlobalSettingsSection({
         {repoScopeMode === "selected" && (
           <>
             {availableRepos.length === 0 ? (
-              <p className="text-sm text-muted-foreground px-4 py-3 border border-border rounded-sm">
+              <p className="rounded-sm border border-border px-4 py-3 text-sm text-muted-foreground">
                 Repository filtering is unavailable because no repositories are accessible.
               </p>
             ) : (
-              <div className="border border-border max-h-56 overflow-y-auto rounded-sm">
+              <div className="max-h-56 overflow-y-auto rounded-sm border border-border">
                 {availableRepos.map((repo) => {
                   const fullName = repo.fullName.toLowerCase();
                   const isChecked = enabledRepos.includes(fullName);
@@ -421,7 +423,7 @@ function GlobalSettingsSection({
                   return (
                     <label
                       key={repo.fullName}
-                      className="flex items-center gap-2 px-4 py-2 hover:bg-muted/50 transition cursor-pointer text-sm"
+                      className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm transition"
                     >
                       <Checkbox
                         checked={isChecked}
@@ -435,7 +437,7 @@ function GlobalSettingsSection({
             )}
 
             {enabledRepos.length === 0 && availableRepos.length > 0 && (
-              <p className="text-xs text-warning mt-1">
+              <p className="mt-1 text-xs text-warning">
                 No repositories selected. The Linear integration will ignore all issues.
               </p>
             )}
@@ -514,7 +516,7 @@ function RepoOverridesSection({
   return (
     <div>
       {overrides.length > 0 ? (
-        <div className="space-y-2 mb-4">
+        <div className="mb-4 space-y-2">
           {overrides.map((entry) => (
             <RepoOverrideRow
               key={entry.repo}
@@ -524,7 +526,7 @@ function RepoOverridesSection({
           ))}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground mb-4">
+        <p className="mb-4 text-sm text-muted-foreground">
           No repository overrides yet. Add one to customize model behavior per repo.
         </p>
       )}
@@ -637,10 +639,10 @@ function RepoOverrideRow({
   };
 
   return (
-    <div className="grid gap-2 px-4 py-3 border border-border rounded-sm">
+    <div className="grid gap-2 rounded-sm border border-border px-4 py-3">
       <div className="text-sm font-medium text-foreground">{entry.repo}</div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         <Select value={model} onValueChange={handleModelChange}>
           <SelectTrigger density="compact">
             <SelectValue placeholder="Default model" />
@@ -679,7 +681,7 @@ function RepoOverrideRow({
           </SelectContent>
         </Select>
 
-        <label className="flex items-center justify-between px-2 py-1 text-sm border border-border rounded-sm">
+        <label className="flex items-center justify-between rounded-sm border border-border px-2 py-1 text-sm">
           <span>Tool updates</span>
           <Checkbox
             checked={emitToolProgressActivities}
@@ -691,8 +693,8 @@ function RepoOverrideRow({
         </label>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-2">
-        <label className="flex items-center justify-between px-2 py-1 text-sm border border-border rounded-sm">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="flex items-center justify-between rounded-sm border border-border px-2 py-1 text-sm">
           <span>User preference override</span>
           <Checkbox
             checked={allowUserPreferenceOverride}
@@ -702,7 +704,7 @@ function RepoOverrideRow({
             }}
           />
         </label>
-        <label className="flex items-center justify-between px-2 py-1 text-sm border border-border rounded-sm">
+        <label className="flex items-center justify-between rounded-sm border border-border px-2 py-1 text-sm">
           <span>Label model override</span>
           <Checkbox
             checked={allowLabelModelOverride}
@@ -737,11 +739,11 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="border border-border-muted rounded-md p-5 mb-5">
-      <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-1">
+    <section className="mb-5 rounded-md border border-border-muted p-5">
+      <h4 className="mb-1 text-sm font-semibold uppercase tracking-wider text-foreground">
         {title}
       </h4>
-      <p className="text-sm text-muted-foreground mb-4">{description}</p>
+      <p className="mb-4 text-sm text-muted-foreground">{description}</p>
       {children}
     </section>
   );

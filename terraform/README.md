@@ -155,108 +155,6 @@ terraform plan
 terraform apply
 ```
 
-## CI/CD Pipeline
-
-The GitHub Actions workflow (`.github/workflows/terraform.yml`) automates:
-
-| Trigger       | Action                           |
-| ------------- | -------------------------------- |
-| Pull Request  | `terraform plan` with PR comment |
-| Merge to main | `terraform apply` (auto-approve) |
-
-### Required GitHub Secrets
-
-Add these secrets to your repository settings:
-
-```
-# Deployment
-DEPLOYMENT_NAME          # Unique name for your deployment (e.g., 'acme', 'johndoe')
-
-# Cloudflare
-CLOUDFLARE_API_TOKEN
-CLOUDFLARE_ACCOUNT_ID
-CLOUDFLARE_WORKER_SUBDOMAIN
-R2_ACCESS_KEY_ID
-R2_SECRET_ACCESS_KEY
-WEB_PLATFORM # Optional; defaults to vercel
-
-# Vercel web app (only if WEB_PLATFORM=vercel)
-VERCEL_API_TOKEN
-VERCEL_TEAM_ID
-VERCEL_PROJECT_ID
-NEXTAUTH_URL # Used by the Vercel web deploy workflow
-
-# Modal
-MODAL_TOKEN_ID
-MODAL_TOKEN_SECRET
-MODAL_WORKSPACE
-MODAL_ENVIRONMENT # Optional; defaults to main
-MODAL_ENVIRONMENT_WEB_SUFFIX # Optional; lowercase letters, digits, dashes; empty for workspace--... endpoints
-MODAL_API_SECRET
-
-# Sandbox provider
-SANDBOX_PROVIDER
-
-# Daytona (only if SANDBOX_PROVIDER=daytona)
-DAYTONA_API_URL
-DAYTONA_API_KEY
-DAYTONA_BASE_SNAPSHOT
-DAYTONA_TARGET # Optional
-
-# Vercel Sandboxes (only if SANDBOX_PROVIDER=vercel)
-VERCEL_SANDBOX_TOKEN
-VERCEL_SANDBOX_PROJECT_ID
-VERCEL_SANDBOX_TEAM_ID # Optional
-VERCEL_BASE_SNAPSHOT_ID # Optional manual fallback; skips Terraform-managed snapshot builds
-VERCEL_SANDBOX_RUNTIME # Optional; defaults to node24
-VERCEL_SNAPSHOT_EXPIRATION_MS # Optional; defaults to 0
-VERCEL_SANDBOX_API_BASE_URL # Optional advanced Vercel Sandbox API base URL override
-
-# GitHub OAuth App
-GH_OAUTH_CLIENT_ID
-GH_OAUTH_CLIENT_SECRET
-
-# GitHub App
-GH_APP_ID
-GH_APP_PRIVATE_KEY
-GH_APP_INSTALLATION_ID
-
-# Slack
-ENABLE_SLACK_BOT # Optional; defaults to true
-SLACK_BOT_TOKEN
-SLACK_SIGNING_SECRET
-
-# GitHub bot
-ENABLE_GITHUB_BOT # Optional; defaults to false
-GH_WEBHOOK_SECRET
-GH_BOT_USERNAME
-
-# Linear bot
-ENABLE_LINEAR_BOT # Optional; defaults to false
-LINEAR_CLIENT_ID
-LINEAR_CLIENT_SECRET
-LINEAR_WEBHOOK_SECRET
-
-# API Keys
-ANTHROPIC_API_KEY
-
-# Security Secrets
-TOKEN_ENCRYPTION_KEY
-REPO_SECRETS_ENCRYPTION_KEY
-INTERNAL_CALLBACK_SECRET
-NEXTAUTH_SECRET
-
-# Access control
-ALLOWED_USERS
-ALLOWED_EMAIL_DOMAINS
-ENABLE_DURABLE_OBJECT_BINDINGS # Optional; defaults to true
-
-# Branding
-APP_NAME # Optional; defaults to Open-Inspect
-APP_SHORT_NAME
-APP_ICON_URL
-```
-
 ## Module Reference
 
 ### cloudflare-kv
@@ -461,7 +359,7 @@ variables.
 
 ### Worker deployment fails
 
-1. Build workers first: `npm run build -w @open-inspect/control-plane`
+1. Build workers first: `pnpm --filter @open-inspect/control-plane build`
 2. Check script exists: `ls packages/control-plane/dist/index.js`
 3. Verify Cloudflare API token permissions:
    - `Workers Scripts: Edit`
@@ -494,6 +392,6 @@ terraform apply
 
 - All sensitive variables are marked with `sensitive = true`
 - Never commit `terraform.tfvars` files
-- Use GitHub Secrets for CI/CD
+- Keep secrets in `terraform.tfvars` / `backend.tfvars` (never commit them)
 - Rotate secrets regularly
 - Review plan output before applying

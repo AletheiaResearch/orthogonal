@@ -1,8 +1,10 @@
 "use client";
 
-import { getSafeExternalUrl } from "@/lib/urls";
-import { GlobeIcon } from "@/components/ui/icons";
 import type { SandboxStatus } from "@open-inspect/shared";
+
+import { GlobeIcon } from "@/components/ui/icons";
+import { getSafeExternalUrl } from "@/lib/urls";
+
 import { ACTIVE_SANDBOX_STATUSES } from "./sandbox-statuses";
 
 interface TunnelUrlsSectionProps {
@@ -21,19 +23,19 @@ export function TunnelUrlsSection({ urls, sandboxStatus }: TunnelUrlsSectionProp
         return (
           <div key={port} className="flex items-center gap-2 text-sm">
             <GlobeIcon
-              className={`w-4 h-4 shrink-0 ${isActive && safeUrl ? "text-muted-foreground" : "text-muted-foreground/50"}`}
+              className={`h-4 w-4 shrink-0 ${isActive && safeUrl ? "text-muted-foreground" : "text-muted-foreground/50"}`}
             />
             {isActive && safeUrl ? (
               <a
                 href={safeUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-accent hover:underline truncate"
+                className="truncate text-accent hover:underline"
               >
                 Port {port}
               </a>
             ) : (
-              <span className="text-muted-foreground truncate">Port {port}</span>
+              <span className="truncate text-muted-foreground">Port {port}</span>
             )}
           </div>
         );

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+
 import { generateWebhookApiKey, hashApiKey, verifyWebhookApiKey } from "./webhook-key";
 
 describe("webhook-key", () => {

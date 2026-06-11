@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { handleRequest } from "./router";
+
 import { generateInternalToken } from "./auth/internal";
 import { SessionIndexStore } from "./db/session-index";
+import { handleRequest } from "./router";
 import { SessionInternalPaths } from "./session/contracts";
 
 const integrationSettingsMocks = vi.hoisted(() => ({

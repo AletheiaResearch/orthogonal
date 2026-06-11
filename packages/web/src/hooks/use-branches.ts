@@ -1,5 +1,5 @@
-import useSWR from "swr";
 import { useSession } from "next-auth/react";
+import useSWR from "swr";
 
 interface BranchesResponse {
   branches: { name: string }[];

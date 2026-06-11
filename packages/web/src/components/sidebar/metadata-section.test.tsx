@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 /// <reference types="@testing-library/jest-dom" />
 
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
 import * as matchers from "@testing-library/jest-dom/matchers";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
 import { MetadataSection } from "./metadata-section";
 
 expect.extend(matchers);

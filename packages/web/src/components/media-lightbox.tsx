@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Artifact } from "@/types/session";
-import { buildSessionMediaUrl } from "@/lib/media";
+
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { buildSessionMediaUrl } from "@/lib/media";
+import type { Artifact } from "@/types/session";
 
 interface MediaLightboxProps {
   sessionId: string;

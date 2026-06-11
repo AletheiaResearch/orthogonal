@@ -12,8 +12,9 @@
  * which mock the GitHub API.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SELF } from "cloudflare:test";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
 import { cleanD1Tables } from "./cleanup";
 import { initNamedSession, seedSandboxAuth } from "./helpers";
 

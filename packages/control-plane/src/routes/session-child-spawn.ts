@@ -8,6 +8,7 @@ import {
   type SpawnChildSessionRequest,
   type SpawnContext,
 } from "@open-inspect/shared";
+
 import { generateId } from "../auth/crypto";
 import { SessionIndexStore } from "../db/session-index";
 import { createLogger } from "../logger";
@@ -18,8 +19,8 @@ import {
   resolveSandboxSettings,
 } from "../session/integration-settings-resolution";
 import type { Env } from "../types";
-import { error, json, parsePattern, type Route } from "./shared";
 import { sessionRoute, type SessionRouteContext } from "./session-route";
+import { error, json, parsePattern, type Route } from "./shared";
 
 const logger = createLogger("router:session-child-spawn");
 const MAX_SPAWN_DEPTH = 2;

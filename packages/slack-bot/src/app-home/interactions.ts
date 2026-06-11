@@ -1,4 +1,5 @@
 import { isValidModel, isValidReasoningEffort } from "@open-inspect/shared";
+
 import {
   BRANCH_INPUT_BLOCK_ID,
   BRANCH_MODAL_CALLBACK_ID,
@@ -14,6 +15,7 @@ import {
 import { getAvailableRepos } from "../classifier/repos";
 import { createLogger } from "../logger";
 import type { Env, SlackInteractionPayload } from "../types";
+import { getResolvedUserPreferences, updateUserPreferences } from "../user-preferences";
 import {
   CLEAR_BRANCH_PREFERENCE_ACTION_ID,
   MAX_REPO_SUGGESTION_OPTIONS,
@@ -32,7 +34,6 @@ import type {
   SlackSelectOption,
 } from "./slack-types";
 import { buildRepoBranchSelectOptions } from "./view";
-import { getResolvedUserPreferences, updateUserPreferences } from "../user-preferences";
 
 const log = createLogger("app-home");
 

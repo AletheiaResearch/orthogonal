@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { extractChangedFiles, parseApplyPatch } from "./files";
+
 import type { SandboxEvent } from "@/types/session";
+
+import { extractChangedFiles, parseApplyPatch } from "./files";
 
 type ToolCallEvent = Extract<SandboxEvent, { type: "tool_call" }>;
 

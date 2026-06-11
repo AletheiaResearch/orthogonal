@@ -29,7 +29,6 @@ Use TodoWrite to create a checklist tracking these phases:
 10. Post-deployment GitHub Bot setup (if enabled)
 11. Web app deployment
 12. Verification
-13. CI/CD setup (optional)
 
 ## Phase 1: Initial Questions
 
@@ -64,8 +63,9 @@ git clone git@github.com:ColeMurray/open-inspect.git .
 git remote rename origin upstream
 git remote add origin git@github.com:{github_account}/open-inspect-{name}.git
 git push -u origin main
-npm install
-npm run build -w @open-inspect/shared
+corepack enable
+pnpm install
+pnpm --filter @open-inspect/shared build
 ```
 
 ## Phase 3: Credential Collection
@@ -198,7 +198,7 @@ github_bot_username   = "{app-slug}[bot]"
 **Important**: Build the workers before running Terraform (Terraform references the built bundles):
 
 ```bash
-npm run build -w @open-inspect/control-plane -w @open-inspect/slack-bot -w @open-inspect/github-bot
+pnpm --filter @open-inspect/control-plane --filter @open-inspect/slack-bot --filter @open-inspect/github-bot build
 ```
 
 **Phase 1** (bindings disabled):
@@ -286,10 +286,6 @@ curl -I https://open-inspect-{deployment_name}.vercel.app
 Present deployment summary table. Instruct user to test: visit web app, sign in with GitHub, create
 session, send prompt.
 
-## Phase 13: CI/CD Setup (Optional)
-
-Ask if user wants GitHub Actions CI/CD. If yes, use `gh secret set` for all required secrets.
-
 ## Error Handling
 
 - **"redirect_uri is not associated"**: Callback URL mismatch - update GitHub App settings
@@ -300,8 +296,9 @@ Ask if user wants GitHub Actions CI/CD. If yes, use `gh secret set` for all requ
   `github_bot_username` matches the App's bot login
 - **Vercel build fails**: Terraform configures the monorepo build commands automatically
 - **"no such file or directory" for dist/index.js**: Build workers before Terraform:
-  `npm run build -w @open-inspect/control-plane -w @open-inspect/slack-bot -w @open-inspect/github-bot`
-- **Worker deployment fails**: Build shared package first: `npm run build -w @open-inspect/shared`
+  `pnpm --filter @open-inspect/control-plane --filter @open-inspect/slack-bot --filter @open-inspect/github-bot build`
+- **Worker deployment fails**: Build shared package first:
+  `pnpm --filter @open-inspect/shared build`
 
 ## Important Notes
 

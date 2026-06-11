@@ -1,6 +1,6 @@
 import { generateBranchName, type SessionArtifact } from "@open-inspect/shared";
+
 import type { Logger } from "../logger";
-import { resolveHeadBranchForPr, sanitizeBranchName } from "../source-control/branch-resolution";
 import {
   SourceControlProviderError,
   type SourceControlProvider,
@@ -8,6 +8,7 @@ import {
   type GitPushAuthContext,
   type GitPushSpec,
 } from "../source-control";
+import { resolveHeadBranchForPr, sanitizeBranchName } from "../source-control/branch-resolution";
 import type { ArtifactRow, SessionRow } from "./types";
 
 /**

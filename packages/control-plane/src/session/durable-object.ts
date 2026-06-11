@@ -7,20 +7,23 @@
  * - Prompt queue and event streaming
  */
 
-import { DurableObject } from "cloudflare:workers";
-import { initSchema } from "./schema";
-import { buildSessionInternalUrl, SessionInternalPaths } from "./contracts";
 import { resolveAppName, timingSafeEqual } from "@open-inspect/shared";
+import { DurableObject } from "cloudflare:workers";
+
 import { generateId, hashToken, encryptToken, decryptToken } from "../auth/crypto";
-import { buildModalSandboxDashboardUrl, createModalClient } from "../sandbox/client";
-import { createDaytonaRestClient } from "../sandbox/daytona-rest-client";
-import { createVercelSandboxClient } from "../sandbox/providers/vercel/client";
-import { createModalProvider } from "../sandbox/providers/modal-provider";
-import { createDaytonaProvider } from "../sandbox/providers/daytona-provider";
-import { createVercelProvider } from "../sandbox/providers/vercel/provider";
-import { resolveSandboxBackendName, supportsRepoImageBackend } from "../sandbox/provider-name";
+import { GlobalSecretsStore } from "../db/global-secrets";
+import { IntegrationSettingsStore, resolveSlackSettings } from "../db/integration-settings";
+import { McpServerStore } from "../db/mcp-servers";
+import { RepoImageStore } from "../db/repo-images";
+import { RepoSecretsStore } from "../db/repo-secrets";
+import { mergeSecrets } from "../db/secrets-validation";
+import { SessionIndexStore } from "../db/session-index";
+import { UserScmTokenStore } from "../db/user-scm-tokens";
 import { createLogger, parseLogLevel } from "../logger";
 import type { Logger } from "../logger";
+import { buildModalSandboxDashboardUrl, createModalClient } from "../sandbox/client";
+import { createDaytonaRestClient } from "../sandbox/daytona-rest-client";
+import { DEFAULT_EXECUTION_TIMEOUT_MS } from "../sandbox/lifecycle/decisions";
 import {
   SandboxLifecycleManager,
   DEFAULT_LIFECYCLE_CONFIG,
@@ -33,18 +36,18 @@ import {
   type McpServerLookup,
   type SlackAgentNotifyLookup,
 } from "../sandbox/lifecycle/manager";
-import { RepoImageStore } from "../db/repo-images";
-import { McpServerStore } from "../db/mcp-servers";
-import { IntegrationSettingsStore, resolveSlackSettings } from "../db/integration-settings";
-import { SessionIndexStore } from "../db/session-index";
-import { DEFAULT_EXECUTION_TIMEOUT_MS } from "../sandbox/lifecycle/decisions";
+import { resolveSandboxBackendName, supportsRepoImageBackend } from "../sandbox/provider-name";
+import { createDaytonaProvider } from "../sandbox/providers/daytona-provider";
+import { createModalProvider } from "../sandbox/providers/modal-provider";
+import { createVercelSandboxClient } from "../sandbox/providers/vercel/client";
+import { createVercelProvider } from "../sandbox/providers/vercel/provider";
+import { DOFetcherAdapter } from "../scheduler/do-fetcher-adapter";
 import {
   createSourceControlProviderFromEnv,
   resolveScmProviderFromEnv,
   type SourceControlProvider,
   type GitPushSpec,
 } from "../source-control";
-import { DEFAULT_MODEL, isValidReasoningEffort } from "../utils/models";
 import type {
   Env,
   ClientInfo,
@@ -55,49 +58,47 @@ import type {
   SessionStatus,
   SandboxStatus,
 } from "../types";
-import type { SessionRow, ArtifactRow, SandboxRow } from "./types";
-import { SessionRepository } from "./repository";
-import { SessionWebSocketManagerImpl, type SessionWebSocketManager } from "./websocket-manager";
-import { SessionPullRequestService } from "./pull-request-service";
-import { RepoSecretsStore } from "../db/repo-secrets";
-import { GlobalSecretsStore } from "../db/global-secrets";
-import { mergeSecrets } from "../db/secrets-validation";
-import { OpenAITokenRefreshService } from "./openai-token-refresh-service";
-import { ScmCredentialsService } from "./scm-credentials-service";
-import { ParticipantService, getAvatarUrl } from "./participant-service";
-import { UserScmTokenStore } from "../db/user-scm-tokens";
+import { DEFAULT_MODEL, isValidReasoningEffort } from "../utils/models";
+import { createAlarmHandler, type AlarmHandler } from "./alarm/handler";
 import { CallbackNotificationService } from "./callback-notification-service";
-import { DOFetcherAdapter } from "../scheduler/do-fetcher-adapter";
-import { PresenceService } from "./presence-service";
-import { SessionMessageQueue } from "./message-queue";
-import { SessionSandboxEventProcessor } from "./sandbox-events";
-import { createSessionInternalRoutes } from "./http/routes";
-import { createMessagesHandler, type MessagesHandler } from "./http/handlers/messages.handler";
+import { buildSessionInternalUrl, SessionInternalPaths } from "./contracts";
 import {
   createChildSessionsHandler,
   type ChildSessionsHandler,
 } from "./http/handlers/child-sessions.handler";
+import { createMessagesHandler, type MessagesHandler } from "./http/handlers/messages.handler";
+import {
+  createParticipantsHandler,
+  type ParticipantsHandler,
+} from "./http/handlers/participants.handler";
+import {
+  createPullRequestHandler,
+  type PullRequestHandler,
+} from "./http/handlers/pull-request.handler";
 import { createSandboxHandler, type SandboxHandler } from "./http/handlers/sandbox.handler";
-import { createWsTokenHandler, type WsTokenHandler } from "./http/handlers/ws-token.handler";
 import {
   createSessionLifecycleHandler,
   type SessionLifecycleHandler,
 } from "./http/handlers/session-lifecycle.handler";
+import { createWsTokenHandler, type WsTokenHandler } from "./http/handlers/ws-token.handler";
+import { createSessionInternalRoutes } from "./http/routes";
+import { SessionMessageQueue } from "./message-queue";
+import { OpenAITokenRefreshService } from "./openai-token-refresh-service";
+import { ParticipantService, getAvatarUrl } from "./participant-service";
+import { PresenceService } from "./presence-service";
+import { SessionPullRequestService } from "./pull-request-service";
+import { SessionRepository } from "./repository";
+import { SessionSandboxEventProcessor } from "./sandbox-events";
+import { initSchema } from "./schema";
+import { ScmCredentialsService } from "./scm-credentials-service";
+import { MessageService } from "./services/message.service";
 import {
   normalizeSessionTitle,
   type SessionTitleUpdateOptions,
   type SessionTitleUpdateResult,
 } from "./title";
-import {
-  createPullRequestHandler,
-  type PullRequestHandler,
-} from "./http/handlers/pull-request.handler";
-import {
-  createParticipantsHandler,
-  type ParticipantsHandler,
-} from "./http/handlers/participants.handler";
-import { MessageService } from "./services/message.service";
-import { createAlarmHandler, type AlarmHandler } from "./alarm/handler";
+import type { SessionRow, ArtifactRow, SandboxRow } from "./types";
+import { SessionWebSocketManagerImpl, type SessionWebSocketManager } from "./websocket-manager";
 
 /**
  * Timeout for WebSocket authentication (in milliseconds).
@@ -115,7 +116,7 @@ const WS_AUTH_TIMEOUT_MS = 30000; // 30 seconds
 const WS_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /** Statuses that indicate a session is finished — metrics are synced to D1 on these transitions. */
-const TERMINAL_STATUSES: SessionStatus[] = ["completed", "failed", "cancelled"];
+const TERMINAL_STATUSES: ReadonlySet<SessionStatus> = new Set(["completed", "failed", "cancelled"]);
 
 export class SessionDO extends DurableObject<Env> {
   private sql: SqlStorage;
@@ -974,7 +975,7 @@ export class SessionDO extends DurableObject<Env> {
         });
 
         // Process any pending messages now that sandbox is connected
-        this.processMessageQueue();
+        this.ctx.waitUntil(this.processMessageQueue());
       } else {
         const wsId = `ws-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
         this.wsManager.acceptClientSocket(server, wsId);
@@ -1576,7 +1577,7 @@ export class SessionDO extends DurableObject<Env> {
     const publicSessionId = this.getPublicSessionId(session);
     if (session.status === status) {
       this.syncSessionIndexStatus(publicSessionId, status, session.updated_at);
-      if (TERMINAL_STATUSES.includes(status)) {
+      if (TERMINAL_STATUSES.has(status)) {
         this.syncSessionMetrics(publicSessionId);
       }
       return false;
@@ -1588,7 +1589,7 @@ export class SessionDO extends DurableObject<Env> {
 
     this.broadcast({ type: "session_status", status });
 
-    if (TERMINAL_STATUSES.includes(status)) {
+    if (TERMINAL_STATUSES.has(status)) {
       this.syncSessionMetrics(publicSessionId);
     }
 

@@ -3,8 +3,8 @@ import { DEFAULT_TOKEN_LIFETIME_MS, UserScmTokenStore } from "../db/user-scm-tok
 import { createLogger } from "../logger";
 import { SessionInternalPaths } from "../session/contracts";
 import type { Env } from "../types";
-import { error, parsePattern, type Route } from "./shared";
 import { sessionRoute, type SessionRouteContext } from "./session-route";
+import { error, parsePattern, type Route } from "./shared";
 
 const logger = createLogger("router:session-ws-token");
 

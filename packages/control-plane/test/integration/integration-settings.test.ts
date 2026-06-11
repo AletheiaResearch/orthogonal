@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { SELF, env } from "cloudflare:test";
 import {
   DEFAULT_MAX_CONCURRENT_CHILD_SESSIONS,
   DEFAULT_MAX_TOTAL_CHILD_SESSIONS,
 } from "@open-inspect/shared";
+import { SELF, env } from "cloudflare:test";
+import { describe, it, expect, beforeEach } from "vitest";
+
 import { generateInternalToken } from "../../src/auth/internal";
 import { cleanD1Tables } from "./cleanup";
 

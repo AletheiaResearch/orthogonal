@@ -10,8 +10,8 @@ set -euo pipefail
 
 echo "Uploading secrets to worker: ${WORKER_NAME}"
 
-echo "${GITHUB_CLIENT_SECRET}" | npx wrangler secret put GITHUB_CLIENT_SECRET --name "${WORKER_NAME}"
-echo "${NEXTAUTH_SECRET}" | npx wrangler secret put NEXTAUTH_SECRET --name "${WORKER_NAME}"
-echo "${INTERNAL_CALLBACK_SECRET}" | npx wrangler secret put INTERNAL_CALLBACK_SECRET --name "${WORKER_NAME}"
+echo "${GITHUB_CLIENT_SECRET}" | pnpm exec wrangler secret put GITHUB_CLIENT_SECRET --name "${WORKER_NAME}"
+echo "${NEXTAUTH_SECRET}" | pnpm exec wrangler secret put NEXTAUTH_SECRET --name "${WORKER_NAME}"
+echo "${INTERNAL_CALLBACK_SECRET}" | pnpm exec wrangler secret put INTERNAL_CALLBACK_SECRET --name "${WORKER_NAME}"
 
 echo "Secrets uploaded successfully"

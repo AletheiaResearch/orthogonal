@@ -6,6 +6,8 @@
  */
 
 import type { InstallationRepository } from "@open-inspect/shared";
+
+import { SourceControlProviderError } from "../errors";
 import type {
   SourceControlProvider,
   SourceControlAuthContext,
@@ -20,9 +22,8 @@ import type {
   GitPushAuthContext,
   CredentialHelperAuth,
 } from "../types";
-import { SourceControlProviderError } from "../errors";
-import type { GitLabProviderConfig } from "./types";
 import { USER_AGENT } from "./constants";
+import type { GitLabProviderConfig } from "./types";
 
 /** GitLab API base URL. */
 export const GITLAB_API_BASE = "https://gitlab.com/api/v4";

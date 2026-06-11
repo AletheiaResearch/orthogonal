@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+
 import { matchGlobalShortcut, shouldIgnoreGlobalShortcutForAction } from "@/lib/keyboard-shortcuts";
 
 interface UseGlobalShortcutsOptions {

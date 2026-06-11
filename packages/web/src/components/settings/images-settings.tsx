@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import useSWR, { mutate } from "swr";
-import { useRepos } from "@/hooks/use-repos";
+
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { RefreshIcon } from "@/components/ui/icons";
-import { formatRelativeTime } from "@/lib/time";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useRepos } from "@/hooks/use-repos";
 import { supportsRepoImages } from "@/lib/sandbox-provider";
+import { formatRelativeTime } from "@/lib/time";
 
 interface RepoImage {
   repo_owner: string;
@@ -41,7 +42,7 @@ export function ImagesSettings() {
   if (!repoImagesSupported) {
     return (
       <div>
-        <h2 className="text-xl font-semibold text-foreground mb-1">Pre-Built Images</h2>
+        <h2 className="mb-1 text-xl font-semibold text-foreground">Pre-Built Images</h2>
         <p className="text-sm text-muted-foreground">
           Pre-built images are only available when <code>SANDBOX_PROVIDER=modal</code> or{" "}
           <code>SANDBOX_PROVIDER=vercel</code>.
@@ -122,7 +123,7 @@ export function ImagesSettings() {
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-muted-foreground">
-        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
         Loading image settings...
       </div>
     );
@@ -131,8 +132,8 @@ export function ImagesSettings() {
   return (
     <TooltipProvider>
       <div>
-        <h2 className="text-xl font-semibold text-foreground mb-1">Pre-Built Images</h2>
-        <p className="text-sm text-muted-foreground mb-6">
+        <h2 className="mb-1 text-xl font-semibold text-foreground">Pre-Built Images</h2>
+        <p className="mb-6 text-sm text-muted-foreground">
           Enable pre-built images to speed up sandbox creation. Images are rebuilt automatically
           when the default branch changes.
         </p>
@@ -150,21 +151,21 @@ export function ImagesSettings() {
             return (
               <div
                 key={repo.id}
-                className="flex items-center justify-between px-4 py-3 border border-border hover:bg-muted/50 transition"
+                className="hover:bg-muted/50 flex items-center justify-between border border-border px-4 py-3 transition"
               >
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex min-w-0 items-center gap-3">
                   <Switch
                     checked={isEnabled}
                     onCheckedChange={(checked) => handleToggle(repo.owner, repo.name, checked)}
                     disabled={isToggling}
                     aria-label={`Toggle pre-built images for ${repo.owner}/${repo.name}`}
                   />
-                  <span className="text-sm font-medium text-foreground truncate">
+                  <span className="truncate text-sm font-medium text-foreground">
                     {repo.owner}/{repo.name}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                <div className="ml-4 flex flex-shrink-0 items-center gap-3">
                   <ImageStatus image={image} isEnabled={isEnabled} />
                   <Button
                     variant="ghost"
@@ -173,7 +174,7 @@ export function ImagesSettings() {
                     disabled={!isEnabled || isTriggering || image?.status === "building"}
                     title="Rebuild image"
                   >
-                    <RefreshIcon className={`w-4 h-4 ${isTriggering ? "animate-spin" : ""}`} />
+                    <RefreshIcon className={`h-4 w-4 ${isTriggering ? "animate-spin" : ""}`} />
                   </Button>
                 </div>
               </div>
@@ -210,7 +211,7 @@ function ImageStatus({ image, isEnabled }: { image: RepoImage | undefined; isEna
     return (
       <div className="text-right">
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-success flex-shrink-0" />
+          <span className="h-2 w-2 flex-shrink-0 rounded-full bg-success" />
           <span className="text-xs text-foreground">
             Ready {formatRelativeTime(image.created_at)}
           </span>
@@ -223,7 +224,7 @@ function ImageStatus({ image, isEnabled }: { image: RepoImage | undefined; isEna
   if (image.status === "building") {
     return (
       <div className="flex items-center gap-1.5">
-        <span className="w-2 h-2 rounded-full bg-warning animate-pulse flex-shrink-0" />
+        <span className="h-2 w-2 flex-shrink-0 animate-pulse rounded-full bg-warning" />
         <span className="text-xs text-foreground">
           Building... {formatRelativeTime(image.created_at)}
         </span>
@@ -235,13 +236,13 @@ function ImageStatus({ image, isEnabled }: { image: RepoImage | undefined; isEna
     return (
       <div className="text-right">
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-destructive flex-shrink-0" />
+          <span className="h-2 w-2 flex-shrink-0 rounded-full bg-destructive" />
           <span className="text-xs text-foreground">Failed</span>
         </div>
         {image.error_message && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="text-xs text-muted-foreground truncate max-w-[200px] block cursor-help">
+              <span className="block max-w-[200px] cursor-help truncate text-xs text-muted-foreground">
                 {image.error_message}
               </span>
             </TooltipTrigger>

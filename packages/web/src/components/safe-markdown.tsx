@@ -1,10 +1,10 @@
 "use client";
 
+import type { ComponentPropsWithoutRef } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
-import type { ComponentPropsWithoutRef } from "react";
 
 // Strict sanitization schema to prevent XSS
 // Based on GitHub's sanitization but even more restrictive
@@ -63,7 +63,7 @@ interface SafeMarkdownProps {
 
 export function SafeMarkdown({ content, className = "" }: SafeMarkdownProps) {
   return (
-    <div className={`prose prose-sm dark:prose-invert max-w-none break-words ${className}`}>
+    <div className={`prose prose-sm max-w-none break-words dark:prose-invert ${className}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight, [rehypeSanitize, sanitizeSchema]]}
@@ -82,7 +82,7 @@ export function SafeMarkdown({ content, className = "" }: SafeMarkdownProps) {
           ),
           // Code blocks with styling
           pre: ({ children, ...props }: ComponentPropsWithoutRef<"pre">) => (
-            <pre className="not-prose overflow-x-auto text-sm leading-relaxed rounded" {...props}>
+            <pre className="not-prose overflow-x-auto rounded text-sm leading-relaxed" {...props}>
               {children}
             </pre>
           ),
@@ -98,7 +98,7 @@ export function SafeMarkdown({ content, className = "" }: SafeMarkdownProps) {
             // Inline code: explicit styling with background, border, and monospace
             return (
               <code
-                className="font-mono bg-muted border border-border rounded px-1.5 py-0.5 text-[0.85em]"
+                className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[0.85em]"
                 {...props}
               >
                 {children}
@@ -113,12 +113,12 @@ export function SafeMarkdown({ content, className = "" }: SafeMarkdownProps) {
           ),
           // Lists
           ul: ({ children, ...props }: ComponentPropsWithoutRef<"ul">) => (
-            <ul className="list-disc pl-4 mb-2" {...props}>
+            <ul className="mb-2 list-disc pl-4" {...props}>
               {children}
             </ul>
           ),
           ol: ({ children, ...props }: ComponentPropsWithoutRef<"ol">) => (
-            <ol className="list-decimal pl-4 mb-2" {...props}>
+            <ol className="mb-2 list-decimal pl-4" {...props}>
               {children}
             </ol>
           ),
@@ -140,7 +140,7 @@ export function SafeMarkdown({ content, className = "" }: SafeMarkdownProps) {
             </div>
           ),
           th: ({ children, ...props }: ComponentPropsWithoutRef<"th">) => (
-            <th className="border border-border px-3 py-1 bg-card font-medium" {...props}>
+            <th className="border border-border bg-card px-3 py-1 font-medium" {...props}>
               {children}
             </th>
           ),

@@ -5,7 +5,7 @@ DATABASE_NAME="${1:?Usage: d1-migrate.sh <database-name> [migrations-dir]}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MIGRATIONS_DIR="${2:-$SCRIPT_DIR/../terraform/d1/migrations}"
 
-WRANGLER="npx wrangler"
+WRANGLER="pnpm exec wrangler"
 
 # 1. Ensure tracking table exists
 $WRANGLER d1 execute "$DATABASE_NAME" --remote \

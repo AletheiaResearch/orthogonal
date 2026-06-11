@@ -11,7 +11,7 @@ resource "null_resource" "web_app_cloudflare_build" {
   }
 
   provisioner "local-exec" {
-    command     = "npm run build -w @open-inspect/shared && npm run build:cloudflare -w @open-inspect/web"
+    command     = "pnpm --filter @open-inspect/shared build && pnpm --filter @open-inspect/web run build:cloudflare"
     working_dir = var.project_root
 
     environment = {

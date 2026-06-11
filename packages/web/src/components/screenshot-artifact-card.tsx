@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Artifact } from "@/types/session";
+
 import { buildSessionMediaUrl } from "@/lib/media";
 import { cn } from "@/lib/utils";
+import type { Artifact } from "@/types/session";
 
 interface ScreenshotArtifactCardProps {
   sessionId: string;
@@ -79,7 +80,7 @@ export function ScreenshotArtifactCard({
           ) : null}
           {isVideo && !hasError && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-background/80 text-foreground shadow-sm">
+              <span className="bg-background/80 flex h-10 w-10 items-center justify-center rounded-full text-foreground shadow-sm">
                 <span className="ml-0.5 h-0 w-0 border-y-[7px] border-l-[11px] border-y-transparent border-l-current" />
               </span>
             </div>

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
 import { getEventCategory, TokenAggregator } from "./events";
 
 describe("event utilities", () => {

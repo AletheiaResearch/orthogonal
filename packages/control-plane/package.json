@@ -4,25 +4,24 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --format=esm --outfile=dist/index.js --platform=browser --target=es2022 --external:cloudflare:* --external:node:*",
-    "build:vercel-base-snapshot": "esbuild scripts/build-vercel-base-snapshot.ts --bundle --format=esm --platform=node --target=node22 --outfile=dist/vercel-base-snapshot.js",
+    "build": "vite build",
+    "build:vercel-base-snapshot": "vite build --config vite.vercel-base-snapshot.config.ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
-    "@cloudflare/workers-types": "^4.20241230.0",
-    "@open-inspect/shared": "file:../shared"
+    "@cloudflare/workers-types": "catalog:",
+    "@open-inspect/shared": "workspace:*"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.16.13",
-    "esbuild": "^0.25.1",
-    "typescript": "^5.7.2",
-    "@vitest/coverage-v8": "^4.1.0",
-    "vitest": "^4.1.0",
-    "wrangler": "^4.0.0"
+    "@cloudflare/vitest-pool-workers": "catalog:",
+    "@orthogonal/tooling-configs": "workspace:*",
+    "@vitest/coverage-v8": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
   }
 }

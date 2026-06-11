@@ -2,6 +2,7 @@
  * KV accessor helpers for config, issue sessions, and event deduplication.
  */
 
+import { createLogger } from "./logger";
 import type {
   Env,
   TriggerConfig,
@@ -10,7 +11,6 @@ import type {
   UserPreferences,
   IssueSession,
 } from "./types";
-import { createLogger } from "./logger";
 
 const log = createLogger("kv-store");
 

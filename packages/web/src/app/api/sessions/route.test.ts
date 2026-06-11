@@ -18,8 +18,10 @@ vi.mock("@/lib/control-plane", () => ({
 }));
 
 import { getServerSession } from "next-auth";
+
 import { controlPlaneFetch } from "@/lib/control-plane";
 import { clearCurrentUserIdCacheForTests } from "@/lib/current-user";
+
 import { GET } from "./route";
 
 function request(path: string) {

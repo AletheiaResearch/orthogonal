@@ -2,8 +2,9 @@
  * Provider-specific types.
  */
 
-import type { GitHubAppConfig } from "../../auth/github-app";
 import type { CacheStore } from "@open-inspect/shared";
+
+import type { GitHubAppConfig } from "../../auth/github-app";
 
 /**
  * Configuration for GitHubSourceControlProvider.

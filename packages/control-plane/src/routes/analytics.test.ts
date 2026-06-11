@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { analyticsRoutes } from "./analytics";
+
 import { HUMAN_SPAWN_SOURCES } from "../db/analytics-store";
-import type { RequestContext } from "./shared";
 import type { Env } from "../types";
+import { analyticsRoutes } from "./analytics";
+import type { RequestContext } from "./shared";
 
 const FIXED_NOW = 1_700_000_000_000;
 

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { SessionSandboxEventProcessor } from "./sandbox-events";
+
 import type { SandboxEvent, ServerMessage } from "../types";
+import { SessionSandboxEventProcessor } from "./sandbox-events";
 
 function createProcessor() {
   const repository = {

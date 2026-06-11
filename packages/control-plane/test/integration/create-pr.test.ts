@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
 import { env, runInDurableObject } from "cloudflare:test";
-import type { SourceControlProvider } from "../../src/source-control";
+import { describe, expect, it } from "vitest";
+
 import type { SessionDO } from "../../src/session/durable-object";
+import type { SourceControlProvider } from "../../src/source-control";
 import { initSession, queryDO, seedMessage } from "./helpers";
 
 describe("POST /internal/create-pr", () => {

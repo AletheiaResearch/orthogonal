@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import type { TriggerCondition, AutomationEventSource, JsonPathFilter } from "@open-inspect/shared";
 import { conditionRegistry } from "@open-inspect/shared";
-import { Input } from "@/components/ui/input";
+import { useState } from "react";
+
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -106,7 +107,7 @@ export function ConditionBuilder({ conditions, onChange, triggerSource }: Condit
       {conditions.map((condition, index) => (
         <div
           key={index}
-          className="flex items-start gap-2 p-3 border border-border-muted rounded-md bg-card"
+          className="flex items-start gap-2 rounded-md border border-border-muted bg-card p-3"
         >
           <div className="flex-1 space-y-2">
             <div className="text-xs font-medium text-muted-foreground">
@@ -119,7 +120,7 @@ export function ConditionBuilder({ conditions, onChange, triggerSource }: Condit
             variant="ghost"
             size="xs"
             onClick={() => removeCondition(index)}
-            className="text-muted-foreground hover:text-destructive mt-0.5"
+            className="mt-0.5 text-muted-foreground hover:text-destructive"
           >
             Remove
           </Button>
@@ -278,7 +279,7 @@ function TagInput({
         {values.map((v) => (
           <span
             key={v}
-            className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-muted text-foreground rounded"
+            className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-foreground"
           >
             {v}
             <button
@@ -363,7 +364,7 @@ function JsonPathEditor({
             value={filter.path}
             onChange={(e) => updateFilter(index, { ...filter, path: e.target.value })}
             placeholder="$.path.to.field"
-            className="text-xs w-40"
+            className="w-40 text-xs"
           />
           <Select
             value={filter.comparison}
@@ -398,7 +399,7 @@ function JsonPathEditor({
                 });
               }}
               placeholder="value"
-              className="text-xs w-32"
+              className="w-32 text-xs"
             />
           )}
           <Button type="button" variant="ghost" size="xs" onClick={() => removeFilter(index)}>

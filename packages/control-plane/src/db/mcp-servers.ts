@@ -1,4 +1,5 @@
 import type { McpServerConfig, McpServerMetadata } from "@open-inspect/shared";
+
 import { encryptToken, decryptToken } from "../auth/crypto";
 import { createLogger } from "../logger";
 

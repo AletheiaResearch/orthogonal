@@ -1,4 +1,5 @@
 import type { InputHTMLAttributes, ReactNode } from "react";
+
 import { cn } from "@/lib/utils";
 
 interface RadioCardProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type"> {
@@ -17,7 +18,7 @@ export function RadioCard({
     <label
       className={cn(
         "flex cursor-pointer items-start gap-2 rounded-sm border px-3 py-2 text-sm transition",
-        checked ? "border-accent bg-accent-muted/70" : "border-border hover:bg-muted/50",
+        checked ? "bg-accent-muted/70 border-accent" : "hover:bg-muted/50 border-border",
         className
       )}
     >

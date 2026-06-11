@@ -1,10 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
 import type { Session } from "@open-inspect/shared";
-import { formatRelativeTime } from "@/lib/time";
-import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
-import { AutomationsIcon, BranchIcon, PlusIcon, SettingsIcon } from "@/components/ui/icons";
+import { useMemo } from "react";
+
 import { AppIcon } from "@/components/ui/app-icon";
 import {
   Command,
@@ -18,6 +16,9 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { AutomationsIcon, BranchIcon, PlusIcon, SettingsIcon } from "@/components/ui/icons";
+import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
+import { formatRelativeTime } from "@/lib/time";
 
 interface GlobalCommandMenuProps {
   open: boolean;
@@ -107,7 +108,7 @@ export function GlobalCommandMenu({
                       <BranchIcon className="mt-0.5 h-4 w-4 shrink-0" />
                       <div className="min-w-0 flex-1">
                         <div className="truncate">{sessionTitle}</div>
-                        <div className="text-xs text-muted-foreground truncate">{repoLabel}</div>
+                        <div className="truncate text-xs text-muted-foreground">{repoLabel}</div>
                       </div>
                       <CommandShortcut>{formatRelativeTime(timestamp)}</CommandShortcut>
                     </CommandItem>

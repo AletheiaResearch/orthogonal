@@ -1,12 +1,7 @@
 import { generateId } from "../auth/crypto";
 import { SessionIndexStore } from "../db/session-index";
 import type { Logger } from "../logger";
-import {
-  DEFAULT_MODEL,
-  getDefaultReasoningEffort,
-  getValidModelOrDefault,
-  isValidModel,
-} from "../utils/models";
+import type { SourceControlProviderName } from "../source-control";
 import type {
   ClientInfo,
   Env,
@@ -15,14 +10,19 @@ import type {
   ServerMessage,
   SessionStatus,
 } from "../types";
-import type { SourceControlProviderName } from "../source-control";
-import type { SessionRow, ParticipantRow, SandboxCommand } from "./types";
-import type { SessionRepository } from "./repository";
-import type { SessionWebSocketManager } from "./websocket-manager";
-import type { ParticipantService } from "./participant-service";
+import {
+  DEFAULT_MODEL,
+  getDefaultReasoningEffort,
+  getValidModelOrDefault,
+  isValidModel,
+} from "../utils/models";
 import type { CallbackNotificationService } from "./callback-notification-service";
-import type { EnqueuePromptRequest } from "./services/message.service";
+import type { ParticipantService } from "./participant-service";
 import { getAvatarUrl } from "./participant-service";
+import type { SessionRepository } from "./repository";
+import type { EnqueuePromptRequest } from "./services/message.service";
+import type { SessionRow, ParticipantRow, SandboxCommand } from "./types";
+import type { SessionWebSocketManager } from "./websocket-manager";
 
 interface PromptMessageData {
   content: string;

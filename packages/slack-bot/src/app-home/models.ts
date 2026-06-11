@@ -3,6 +3,7 @@ import {
   MODEL_OPTIONS,
   buildInternalAuthHeaders,
 } from "@open-inspect/shared";
+
 import type { Env } from "../types";
 import type { ModelOption } from "./slack-types";
 

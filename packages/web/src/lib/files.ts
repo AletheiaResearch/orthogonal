@@ -3,6 +3,7 @@
  */
 
 import { diffLines } from "diff";
+
 import type { FileChange, SandboxEvent } from "@/types/session";
 
 /**
@@ -161,5 +162,5 @@ export function extractChangedFiles(events: SandboxEvent[]): FileChange[] {
     }
   }
 
-  return Array.from(fileMap.values()).sort((a, b) => a.filename.localeCompare(b.filename));
+  return Array.from(fileMap.values()).toSorted((a, b) => a.filename.localeCompare(b.filename));
 }

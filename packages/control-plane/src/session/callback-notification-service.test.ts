@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
 import type { Logger } from "../logger";
 import {
   CallbackNotificationService,

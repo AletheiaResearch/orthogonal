@@ -1,18 +1,19 @@
 "use client";
 
-import { useState, use } from "react";
+import { describeCron, getReasoningConfig } from "@open-inspect/shared";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { describeCron, getReasoningConfig } from "@open-inspect/shared";
-import { useSidebarContext } from "@/components/sidebar-layout";
-import { useAutomation, useAutomationRuns } from "@/hooks/use-automations";
-import { RunHistory } from "@/components/automations/run-history";
+import { useState, use } from "react";
+
 import { AutomationStatusBadge } from "@/components/automations/automation-status-badge";
+import { RunHistory } from "@/components/automations/run-history";
+import { useSidebarContext } from "@/components/sidebar-layout";
 import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { SidebarIcon, BackIcon, PencilIcon } from "@/components/ui/icons";
-import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
+import { useAutomation, useAutomationRuns } from "@/hooks/use-automations";
 import { formatModelNameLower } from "@/lib/format";
+import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
 
 const RUNS_PAGE_SIZE = 20;
 
@@ -68,15 +69,15 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-6 w-6 border-2 border-current border-t-transparent text-muted-foreground" />
+      <div className="flex h-full items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-current border-t-transparent text-muted-foreground" />
       </div>
     );
   }
 
   if (!automation) {
     return (
-      <div className="h-full flex flex-col items-center justify-center gap-4">
+      <div className="flex h-full flex-col items-center justify-center gap-4">
         <p className="text-muted-foreground">Automation not found.</p>
         <Link href="/automations">
           <Button variant="outline" size="sm">
@@ -88,10 +89,10 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex h-full flex-col">
       {!isOpen && (
-        <header className="border-b border-border-muted flex-shrink-0">
-          <div className="px-4 py-3 flex items-center gap-2">
+        <header className="flex-shrink-0 border-b border-border-muted">
+          <div className="flex items-center gap-2 px-4 py-3">
             <Button
               variant="ghost"
               size="icon"
@@ -99,21 +100,21 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
               title={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
               aria-label={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
             >
-              <SidebarIcon className="w-4 h-4" />
+              <SidebarIcon className="h-4 w-4" />
             </Button>
             <Link
               href="/automations"
-              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition"
+              className="p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
               aria-label="Back to automations"
             >
-              <BackIcon className="w-4 h-4" />
+              <BackIcon className="h-4 w-4" />
             </Link>
           </div>
         </header>
       )}
 
       <div className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-3xl mx-auto">
+        <div className="mx-auto max-w-3xl">
           {actionError && (
             <ErrorBanner className="mb-4" role="alert">
               {actionError}
@@ -127,7 +128,7 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
                 <h1 className="text-3xl font-semibold text-foreground">{automation.name}</h1>
                 <AutomationStatusBadge automation={automation} />
               </div>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="mt-1 text-sm text-muted-foreground">
                 {automation.repoOwner}/{automation.repoName}
                 {automation.baseBranch && ` · ${automation.baseBranch}`}
               </p>
@@ -136,7 +137,7 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
               <Link href={`/automations/${id}/edit`} className="w-full sm:w-auto">
                 <Button variant="outline" size="sm" className="w-full sm:w-auto">
                   <span className="flex items-center gap-1.5">
-                    <PencilIcon className="w-3.5 h-3.5" />
+                    <PencilIcon className="h-3.5 w-3.5" />
                     Edit
                   </span>
                 </Button>
@@ -201,8 +202,8 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
           </div>
 
           {/* Config section */}
-          <div className="border border-border-muted rounded-md bg-background p-4 mb-8">
-            <h2 className="text-lg font-medium text-foreground mb-3">Configuration</h2>
+          <div className="mb-8 rounded-md border border-border-muted bg-background p-4">
+            <h2 className="mb-3 text-lg font-medium text-foreground">Configuration</h2>
             <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
               <div>
                 <dt className="text-muted-foreground">Trigger</dt>
@@ -218,7 +219,7 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
                         linear_event: "Linear Event",
                       }[automation.triggerType] || automation.triggerType}
                   {automation.eventType && (
-                    <span className="text-muted-foreground ml-1">({automation.eventType})</span>
+                    <span className="ml-1 text-muted-foreground">({automation.eventType})</span>
                   )}
                 </dd>
               </div>
@@ -231,7 +232,7 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
               {automation.triggerType === "webhook" && (
                 <div className="sm:col-span-2">
                   <dt className="text-muted-foreground">Webhook URL</dt>
-                  <dd className="text-foreground font-mono text-xs break-all">
+                  <dd className="break-all font-mono text-xs text-foreground">
                     POST /webhooks/automation/{automation.id}
                   </dd>
                 </div>
@@ -239,7 +240,7 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
               {automation.triggerType === "sentry" && (
                 <div className="sm:col-span-2">
                   <dt className="text-muted-foreground">Sentry Webhook URL</dt>
-                  <dd className="text-foreground font-mono text-xs break-all">
+                  <dd className="break-all font-mono text-xs text-foreground">
                     POST /webhooks/sentry/{automation.id}
                   </dd>
                 </div>
@@ -252,7 +253,7 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
                       {automation.triggerConfig.conditions.map((c, i) => (
                         <span
                           key={i}
-                          className="inline-block mr-2 mb-1 px-2 py-0.5 bg-muted rounded text-xs"
+                          className="mb-1 mr-2 inline-block rounded bg-muted px-2 py-0.5 text-xs"
                         >
                           {c.type}: {c.operator}{" "}
                           {Array.isArray(c.value) ? c.value.join(", ") : String(c.value)}
@@ -279,7 +280,7 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
               )}
               <div className="sm:col-span-2">
                 <dt className="text-muted-foreground">Instructions</dt>
-                <dd className="text-foreground whitespace-pre-wrap mt-1">
+                <dd className="mt-1 whitespace-pre-wrap text-foreground">
                   {automation.instructions}
                 </dd>
               </div>
@@ -288,7 +289,7 @@ export default function AutomationDetailPage({ params }: { params: Promise<{ id:
 
           {/* Run history */}
           <div>
-            <h2 className="text-lg font-medium text-foreground mb-3">Run History</h2>
+            <h2 className="mb-3 text-lg font-medium text-foreground">Run History</h2>
             <RunHistory
               runs={runs}
               total={totalRuns}

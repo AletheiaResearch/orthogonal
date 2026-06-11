@@ -1,0 +1,63 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
+  "semi": true,
+  "singleQuote": false,
+  "tabWidth": 2,
+  "trailingComma": "es5",
+  "bracketSpacing": true,
+  "arrowParens": "always",
+  "endOfLine": "lf",
+  "sortImports": true,
+  "sortTailwindcss": {
+    "functions": ["cn", "clsx", "cva", "tw"]
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    "**/node_modules/",
+    "dist/",
+    "build/",
+    ".next/",
+    ".wrangler/",
+    "coverage/",
+    "packages/modal-infra/",
+    "__pycache__/",
+    "*.pyc",
+    ".venv/",
+    "venv/",
+    "opencode-reference/",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "*.d.ts",
+    "*.min.js",
+    "*.min.css",
+    "packages/sandbox-runtime/**"
+  ],
+  "overrides": [
+    {
+      "files": ["*.md"],
+      "options": {
+        "proseWrap": "always"
+      }
+    },
+    {
+      "files": ["packages/web/**/*.{ts,tsx,js,jsx}"],
+      "options": {
+        "sortTailwindcss": {
+          "config": "packages/web/tailwind.config.ts",
+          "functions": ["cn", "clsx", "cva", "tw"]
+        }
+      }
+    },
+    {
+      "files": ["apps/landing/**/*.{ts,tsx,js,jsx}"],
+      "options": {
+        "sortTailwindcss": {
+          "stylesheet": "apps/landing/src/app/globals.css",
+          "functions": ["cn", "clsx", "cva", "tw"]
+        }
+      }
+    }
+  ]
+}

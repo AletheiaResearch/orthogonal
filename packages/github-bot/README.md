@@ -222,19 +222,19 @@ Key log events:
 
 ```bash
 # Install dependencies (from repo root)
-npm install
+corepack enable && pnpm install
 
 # Build
-npm run build -w @open-inspect/github-bot
+pnpm --filter @open-inspect/github-bot build
 
 # Run tests (46 tests)
-npm run test -w @open-inspect/github-bot
+pnpm --filter @open-inspect/github-bot test
 
 # Type check
-npm run typecheck -w @open-inspect/github-bot
+pnpm --filter @open-inspect/github-bot typecheck
 
 # Lint
-npm run lint -w @open-inspect/github-bot
+pnpm --filter @open-inspect/github-bot lint
 ```
 
 Tests run in Node.js via Vitest (no `@cloudflare/vitest-pool-workers` needed — the bot has no

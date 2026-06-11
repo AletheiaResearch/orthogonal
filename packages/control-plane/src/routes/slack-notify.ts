@@ -12,6 +12,7 @@ import {
   type SlackNotifySuccessOutput,
   type SlackWireDenialReason,
 } from "@open-inspect/shared";
+
 import { IntegrationSettingsStore, resolveSlackSettings } from "../db/integration-settings";
 import { SessionIndexStore } from "../db/session-index";
 import { createLogger } from "../logger";

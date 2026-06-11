@@ -1,5 +1,5 @@
-import useSWR from "swr";
 import { useSession } from "next-auth/react";
+import useSWR from "swr";
 
 export interface Repo {
   id: number;

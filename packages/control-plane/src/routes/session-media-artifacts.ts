@@ -1,10 +1,11 @@
 import type { ScreenshotArtifactMetadata, VideoArtifactMetadata } from "@open-inspect/shared";
+
 import { createLogger } from "../logger";
 import { SessionInternalPaths } from "../session/contracts";
 import type { ObjectStorage } from "../storage/object-storage";
 import type { ArtifactResponse } from "../types";
-import { error } from "./shared";
 import type { SessionRouteContext } from "./session-route";
+import { error } from "./shared";
 
 const logger = createLogger("router:session-media");
 

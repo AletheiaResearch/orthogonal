@@ -1,8 +1,7 @@
 "use client";
 
+import { DEFAULT_MODEL, getDefaultReasoningEffort, type ModelCategory } from "@open-inspect/shared";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { mutate } from "swr";
-import useSWRMutation from "swr/mutation";
 import {
   Suspense,
   memo,
@@ -13,34 +12,24 @@ import {
   useCallback,
   useMemo,
 } from "react";
-import { useSessionSocket } from "@/hooks/use-session-socket";
-import { SafeMarkdown } from "@/components/safe-markdown";
-import { ToolCallGroup } from "@/components/tool-call-group";
-import { ScreenshotArtifactCard } from "@/components/screenshot-artifact-card";
+import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels";
+import { mutate } from "swr";
+import useSWRMutation from "swr/mutation";
+
+import { ActionBar } from "@/components/action-bar";
 import { MediaLightbox } from "@/components/media-lightbox";
-import { Button } from "@/components/ui/button";
-import { useSidebarContext } from "@/components/sidebar-layout";
+import { ReasoningEffortPills } from "@/components/reasoning-effort-pills";
+import { SafeMarkdown } from "@/components/safe-markdown";
+import { ScreenshotArtifactCard } from "@/components/screenshot-artifact-card";
 import {
   SessionRightSidebar,
   SessionRightSidebarContent,
 } from "@/components/session-right-sidebar";
-import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels";
+import { useSidebarContext } from "@/components/sidebar-layout";
 import { TerminalPanel } from "@/components/terminal-panel";
-import { ActionBar } from "@/components/action-bar";
-import { copyToClipboard, formatModelNameLower } from "@/lib/format";
-import { archiveSession } from "@/lib/archive-session";
-import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
-import {
-  isArchivedSessionListKey,
-  isUnarchivedSessionListKey,
-  removeSessionFromList,
-  type SessionListResponse,
-} from "@/lib/session-list";
-import { useMediaQuery } from "@/hooks/use-media-query";
-import { DEFAULT_MODEL, getDefaultReasoningEffort, type ModelCategory } from "@open-inspect/shared";
-import { useEnabledModels } from "@/hooks/use-enabled-models";
-import { ReasoningEffortPills } from "@/components/reasoning-effort-pills";
-import type { Artifact, SandboxEvent } from "@/types/session";
+import { ToolCallGroup } from "@/components/tool-call-group";
+import { Button } from "@/components/ui/button";
+import { Combobox, type ComboboxGroup } from "@/components/ui/combobox";
 import {
   SidebarIcon,
   ModelIcon,
@@ -50,7 +39,19 @@ import {
   CopyIcon,
   ErrorIcon,
 } from "@/components/ui/icons";
-import { Combobox, type ComboboxGroup } from "@/components/ui/combobox";
+import { useEnabledModels } from "@/hooks/use-enabled-models";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import { useSessionSocket } from "@/hooks/use-session-socket";
+import { archiveSession } from "@/lib/archive-session";
+import { copyToClipboard, formatModelNameLower } from "@/lib/format";
+import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
+import {
+  isArchivedSessionListKey,
+  isUnarchivedSessionListKey,
+  removeSessionFromList,
+  type SessionListResponse,
+} from "@/lib/session-list";
+import type { Artifact, SandboxEvent } from "@/types/session";
 
 type ToolCallEvent = Extract<SandboxEvent, { type: "tool_call" }>;
 // Event grouping types
@@ -717,10 +718,10 @@ function SessionContent({
   const showTimelineSkeleton = events.length === 0 && (connecting || replaying);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex h-full flex-col">
       {/* Header */}
-      <header className="border-b border-border-muted flex-shrink-0">
-        <div className="px-4 py-3 flex items-center justify-between">
+      <header className="flex-shrink-0 border-b border-border-muted">
+        <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             {!isOpen && (
               <Button
@@ -730,7 +731,7 @@ function SessionContent({
                 title={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
                 aria-label={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
               >
-                <SidebarIcon className="w-4 h-4" />
+                <SidebarIcon className="h-4 w-4" />
               </Button>
             )}
             <div>
@@ -750,11 +751,11 @@ function SessionContent({
                       setIsRenaming(false);
                     }
                   }}
-                  className="text-sm bg-transparent text-foreground outline-none focus:ring-inset focus:ring-ring font-medium max-w-40 truncate"
+                  className="max-w-40 truncate bg-transparent text-sm font-medium text-foreground outline-none focus:ring-inset focus:ring-ring"
                 />
               ) : (
                 <h1
-                  className="text-sm font-medium text-foreground max-w-40 truncate cursor-text"
+                  className="max-w-40 cursor-text truncate text-sm font-medium text-foreground"
                   onClick={handleStartRename}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
@@ -777,7 +778,7 @@ function SessionContent({
               ref={detailsButtonRef}
               type="button"
               onClick={toggleDetails}
-              className="lg:hidden px-3 py-1.5 text-sm text-muted-foreground border border-border-muted hover:text-foreground hover:bg-muted transition"
+              className="border border-border-muted px-3 py-1.5 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground lg:hidden"
               aria-label="Toggle session details"
               aria-controls="session-details-dialog"
               aria-expanded={isDetailsOpen}
@@ -807,11 +808,11 @@ function SessionContent({
 
       {/* Connection error banner */}
       {(authError || connectionError) && (
-        <div className="bg-destructive-muted border-b border-destructive-border px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center justify-between border-b border-destructive-border bg-destructive-muted px-4 py-3">
           <p className="text-sm text-destructive">{authError || connectionError}</p>
           <button
             onClick={reconnect}
-            className="px-3 py-1.5 text-sm font-medium text-destructive-foreground bg-destructive hover:bg-destructive/90 transition"
+            className="hover:bg-destructive/90 bg-destructive px-3 py-1.5 text-sm font-medium text-destructive-foreground transition"
           >
             Reconnect
           </button>
@@ -819,8 +820,8 @@ function SessionContent({
       )}
 
       {/* Main content */}
-      <main className="flex-1 flex overflow-hidden">
-        <div className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden">
           <PanelGroup orientation="vertical" id="session-terminal">
             {/* Chat / Event Timeline */}
             <Panel defaultSize={showTerminal ? "70%" : "100%"} minSize="30%">
@@ -829,11 +830,11 @@ function SessionContent({
                 onScroll={handleScroll}
                 className="h-full overflow-y-auto overflow-x-hidden p-4"
               >
-                <div className="max-w-3xl mx-auto space-y-2">
+                <div className="mx-auto max-w-3xl space-y-2">
                   {/* Scroll sentinel for loading older history */}
                   <div ref={topSentinelRef} className="h-1" />
                   {loadingHistory && (
-                    <div className="text-center text-muted-foreground text-sm py-2">Loading...</div>
+                    <div className="py-2 text-center text-sm text-muted-foreground">Loading...</div>
                   )}
                   {showTimelineSkeleton ? (
                     <TimelineSkeleton />
@@ -862,7 +863,7 @@ function SessionContent({
             {/* Terminal panel — only rendered when URL + token available and open */}
             {showTerminal && (
               <>
-                <PanelResizeHandle className="h-1.5 bg-border-muted hover:bg-accent transition-colors cursor-row-resize" />
+                <PanelResizeHandle className="h-1.5 cursor-row-resize bg-border-muted transition-colors hover:bg-accent" />
                 <Panel defaultSize="30%" minSize="15%" maxSize="70%">
                   <TerminalPanel url={ttydUrl!} token={ttydToken!} onClose={closeTerminal} />
                 </Panel>
@@ -901,14 +902,14 @@ function SessionContent({
               role="dialog"
               aria-modal="true"
               aria-label="Session details"
-              className="absolute inset-x-0 bottom-0 max-h-[85vh] bg-background border-t border-border-muted shadow-xl flex flex-col"
+              className="absolute inset-x-0 bottom-0 flex max-h-[85vh] flex-col border-t border-border-muted bg-background shadow-xl"
               style={{
                 transform: isDetailsOpen ? `translateY(${sheetDragY}px)` : "translateY(100%)",
                 transition: sheetDragY > 0 ? "none" : "transform 200ms ease-in-out",
               }}
             >
               <div
-                className="px-4 pt-3 pb-2 border-b border-border-muted"
+                className="border-b border-border-muted px-4 pb-2 pt-3"
                 onTouchStart={handleSheetTouchStart}
                 onTouchMove={handleSheetTouchMove}
                 onTouchEnd={handleSheetTouchEnd}
@@ -920,7 +921,7 @@ function SessionContent({
                   <button
                     type="button"
                     onClick={closeDetails}
-                    className="text-sm text-muted-foreground hover:text-foreground transition"
+                    className="text-sm text-muted-foreground transition hover:text-foreground"
                   >
                     Close
                   </button>
@@ -945,15 +946,15 @@ function SessionContent({
               role="dialog"
               aria-modal="true"
               aria-label="Session details"
-              className="absolute inset-y-0 right-0 w-80 max-w-[85vw] bg-background border-l border-border-muted shadow-xl flex flex-col transition-transform duration-200 ease-in-out"
+              className="absolute inset-y-0 right-0 flex w-80 max-w-[85vw] flex-col border-l border-border-muted bg-background shadow-xl transition-transform duration-200 ease-in-out"
               style={{ transform: isDetailsOpen ? "translateX(0)" : "translateX(100%)" }}
             >
-              <div className="px-4 py-3 border-b border-border-muted flex items-center justify-between">
+              <div className="flex items-center justify-between border-b border-border-muted px-4 py-3">
                 <h2 className="text-sm font-medium text-foreground">Session details</h2>
                 <button
                   type="button"
                   onClick={closeDetails}
-                  className="text-sm text-muted-foreground hover:text-foreground transition"
+                  className="text-sm text-muted-foreground transition hover:text-foreground"
                 >
                   Close
                 </button>
@@ -987,8 +988,8 @@ function SessionContent({
       />
 
       {/* Input */}
-      <footer className="border-t border-border-muted flex-shrink-0">
-        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto p-4 pb-6">
+      <footer className="flex-shrink-0 border-t border-border-muted">
+        <form onSubmit={handleSubmit} className="mx-auto max-w-4xl p-4 pb-6">
           {/* Action bar above input */}
           <div className="mb-3">
             <ActionBar
@@ -1010,7 +1011,7 @@ function SessionContent({
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
                 placeholder={isProcessing ? "Type your next message..." : "Ask or build anything"}
-                className="w-full resize-none bg-transparent px-4 pt-4 pb-12 focus:outline-none text-foreground placeholder:text-secondary-foreground"
+                className="w-full resize-none bg-transparent px-4 pb-12 pt-4 text-foreground placeholder:text-secondary-foreground focus:outline-none"
                 rows={3}
               />
               {/* Floating action buttons */}
@@ -1022,16 +1023,16 @@ function SessionContent({
                   <button
                     type="button"
                     onClick={stopExecution}
-                    className="p-2 text-destructive hover:bg-destructive-muted transition"
+                    className="p-2 text-destructive transition hover:bg-destructive-muted"
                     title="Stop"
                   >
-                    <StopIcon className="w-5 h-5" />
+                    <StopIcon className="h-5 w-5" />
                   </button>
                 )}
                 <button
                   type="submit"
                   disabled={!prompt.trim() || isProcessing}
-                  className="p-2 text-secondary-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition"
+                  className="p-2 text-secondary-foreground transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
                   title={
                     isProcessing && prompt.trim()
                       ? "Wait for execution to complete"
@@ -1043,15 +1044,15 @@ function SessionContent({
                       : `Send (${SHORTCUT_LABELS.SEND_PROMPT})`
                   }
                 >
-                  <SendIcon className="w-5 h-5" />
+                  <SendIcon className="h-5 w-5" />
                 </button>
               </div>
             </div>
 
             {/* Footer row with model selector, reasoning pills, and agent label */}
-            <div className="flex flex-col gap-2 px-4 py-2 border-t border-border-muted sm:flex-row sm:items-center sm:justify-between sm:gap-0">
+            <div className="flex flex-col gap-2 border-t border-border-muted px-4 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
               {/* Left side - Model selector + Reasoning pills */}
-              <div className="flex flex-wrap items-center gap-2 sm:gap-4 min-w-0">
+              <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-4">
                 <Combobox
                   value={selectedModel}
                   onChange={setSelectedModel}
@@ -1070,8 +1071,8 @@ function SessionContent({
                   disabled={isProcessing}
                   triggerClassName="flex max-w-full items-center gap-1 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition"
                 >
-                  <ModelIcon className="w-3.5 h-3.5" />
-                  <span className="truncate max-w-[9rem] sm:max-w-none">
+                  <ModelIcon className="h-3.5 w-3.5" />
+                  <span className="max-w-[9rem] truncate sm:max-w-none">
                     {formatModelNameLower(selectedModel)}
                   </span>
                 </Combobox>
@@ -1086,7 +1087,7 @@ function SessionContent({
               </div>
 
               {/* Right side - Agent label */}
-              <span className="hidden sm:inline text-sm text-muted-foreground">build agent</span>
+              <span className="hidden text-sm text-muted-foreground sm:inline">build agent</span>
             </div>
           </div>
         </form>
@@ -1099,7 +1100,7 @@ function ConnectionStatus({ connected, connecting }: { connected: boolean; conne
   if (connecting) {
     return (
       <span className="flex items-center gap-1 text-xs text-warning">
-        <span className="w-2 h-2 rounded-full bg-warning animate-pulse" />
+        <span className="h-2 w-2 animate-pulse rounded-full bg-warning" />
         Connecting...
       </span>
     );
@@ -1108,7 +1109,7 @@ function ConnectionStatus({ connected, connecting }: { connected: boolean; conne
   if (connected) {
     return (
       <span className="flex items-center gap-1 text-xs text-success">
-        <span className="w-2 h-2 rounded-full bg-success" />
+        <span className="h-2 w-2 rounded-full bg-success" />
         Connected
       </span>
     );
@@ -1116,7 +1117,7 @@ function ConnectionStatus({ connected, connecting }: { connected: boolean; conne
 
   return (
     <span className="flex items-center gap-1 text-xs text-destructive">
-      <span className="w-2 h-2 rounded-full bg-destructive" />
+      <span className="h-2 w-2 rounded-full bg-destructive" />
       Disconnected
     </span>
   );
@@ -1197,15 +1198,15 @@ function CombinedStatusDot({
 
   return (
     <span title={label} className="flex items-center">
-      <span className={`w-2.5 h-2.5 rounded-full ${color}${pulse ? " animate-pulse" : ""}`} />
+      <span className={`h-2.5 w-2.5 rounded-full ${color}${pulse ? " animate-pulse" : ""}`} />
     </span>
   );
 }
 
 function ThinkingIndicator() {
   return (
-    <div className="bg-card p-4 flex items-center gap-2">
-      <span className="inline-block w-2 h-2 bg-accent rounded-full animate-pulse" />
+    <div className="flex items-center gap-2 bg-card p-4">
+      <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-accent" />
       <span className="text-sm text-muted-foreground">Thinking...</span>
     </div>
   );
@@ -1213,19 +1214,19 @@ function ThinkingIndicator() {
 
 function TimelineSkeleton() {
   return (
-    <div className="space-y-3 py-2 animate-pulse">
-      <div className="bg-card p-4 space-y-2">
-        <div className="h-3 w-24 bg-muted rounded" />
-        <div className="h-3 w-full bg-muted rounded" />
-        <div className="h-3 w-5/6 bg-muted rounded" />
+    <div className="animate-pulse space-y-3 py-2">
+      <div className="space-y-2 bg-card p-4">
+        <div className="h-3 w-24 rounded bg-muted" />
+        <div className="h-3 w-full rounded bg-muted" />
+        <div className="h-3 w-5/6 rounded bg-muted" />
       </div>
-      <div className="bg-accent-muted p-4 ml-8 space-y-2">
-        <div className="h-3 w-20 bg-muted rounded" />
-        <div className="h-3 w-4/5 bg-muted rounded" />
+      <div className="ml-8 space-y-2 bg-accent-muted p-4">
+        <div className="h-3 w-20 rounded bg-muted" />
+        <div className="h-3 w-4/5 rounded bg-muted" />
       </div>
-      <div className="bg-card p-4 space-y-2">
-        <div className="h-3 w-32 bg-muted rounded" />
-        <div className="h-3 w-3/4 bg-muted rounded" />
+      <div className="space-y-2 bg-card p-4">
+        <div className="h-3 w-32 rounded bg-muted" />
+        <div className="h-3 w-3/4 rounded bg-muted" />
       </div>
     </div>
   );
@@ -1246,14 +1247,14 @@ function ParticipantsList({
       {uniqueParticipants.slice(0, 3).map((p) => (
         <div
           key={p.userId}
-          className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-xs font-medium text-foreground border-2 border-white"
+          className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-card text-xs font-medium text-foreground"
           title={p.name}
         >
           {p.name.charAt(0).toUpperCase()}
         </div>
       ))}
       {uniqueParticipants.length > 3 && (
-        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-foreground border-2 border-white">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-muted text-xs font-medium text-foreground">
           +{uniqueParticipants.length - 3}
         </div>
       )}
@@ -1313,11 +1314,11 @@ const EventItem = memo(function EventItem({
       const authorName = isCurrentUser ? "You" : event.author?.name || "Unknown User";
 
       return (
-        <div className="group bg-accent-muted p-4 ml-8">
-          <div className="flex items-center justify-between mb-2">
+        <div className="group ml-8 bg-accent-muted p-4">
+          <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
               {!isCurrentUser && event.author?.avatar && (
-                <img src={event.author.avatar} alt={authorName} className="w-5 h-5 rounded-full" />
+                <img src={event.author.avatar} alt={authorName} className="h-5 w-5 rounded-full" />
               )}
               <span className="text-xs text-accent">{authorName}</span>
             </div>
@@ -1325,14 +1326,14 @@ const EventItem = memo(function EventItem({
               <button
                 type="button"
                 onClick={() => handleCopyContent(messageContent)}
-                className="p-1 text-secondary-foreground hover:text-foreground hover:bg-muted/60 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto transition-colors"
+                className="hover:bg-muted/60 pointer-events-none p-1 text-secondary-foreground opacity-0 transition-colors hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100"
                 title={copied ? "Copied" : "Copy markdown"}
                 aria-label={copied ? "Copied" : "Copy markdown"}
               >
                 {copied ? (
-                  <CheckIcon className="w-3.5 h-3.5" />
+                  <CheckIcon className="h-3.5 w-3.5" />
                 ) : (
-                  <CopyIcon className="w-3.5 h-3.5" />
+                  <CopyIcon className="h-3.5 w-3.5" />
                 )}
               </button>
               <span className="text-xs text-secondary-foreground">{time}</span>
@@ -1349,20 +1350,20 @@ const EventItem = memo(function EventItem({
       const messageContent = event.content;
       return (
         <div className="group bg-card p-4">
-          <div className="flex items-center justify-between mb-2">
+          <div className="mb-2 flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Assistant</span>
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => handleCopyContent(messageContent)}
-                className="p-1 text-secondary-foreground hover:text-foreground hover:bg-muted opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto transition-colors"
+                className="pointer-events-none p-1 text-secondary-foreground opacity-0 transition-colors hover:bg-muted hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100"
                 title={copied ? "Copied" : "Copy markdown"}
                 aria-label={copied ? "Copied" : "Copy markdown"}
               >
                 {copied ? (
-                  <CheckIcon className="w-3.5 h-3.5" />
+                  <CheckIcon className="h-3.5 w-3.5" />
                 ) : (
-                  <CopyIcon className="w-3.5 h-3.5" />
+                  <CopyIcon className="h-3.5 w-3.5" />
                 )}
               </button>
               <span className="text-xs text-secondary-foreground">{time}</span>
@@ -1382,17 +1383,17 @@ const EventItem = memo(function EventItem({
       // Only show standalone results if they're errors
       if (!event.error) return null;
       return (
-        <div className="flex items-center gap-2 text-sm text-destructive py-1">
-          <ErrorIcon className="w-4 h-4" />
+        <div className="flex items-center gap-2 py-1 text-sm text-destructive">
+          <ErrorIcon className="h-4 w-4" />
           <span className="truncate">{event.error}</span>
-          <span className="text-xs text-secondary-foreground ml-auto">{time}</span>
+          <span className="ml-auto text-xs text-secondary-foreground">{time}</span>
         </div>
       );
 
     case "git_sync":
       return (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="w-2 h-2 rounded-full bg-accent" />
+          <span className="h-2 w-2 rounded-full bg-accent" />
           Git sync: {event.status}
           <span className="text-xs">{time}</span>
         </div>
@@ -1427,7 +1428,7 @@ const EventItem = memo(function EventItem({
     case "error":
       return (
         <div className="flex items-center gap-2 text-sm text-destructive">
-          <span className="w-2 h-2 rounded-full bg-destructive" />
+          <span className="h-2 w-2 rounded-full bg-destructive" />
           Error{event.error ? `: ${event.error}` : ""}
           <span className="text-xs text-secondary-foreground">{time}</span>
         </div>
@@ -1437,7 +1438,7 @@ const EventItem = memo(function EventItem({
       if (event.success === false) {
         return (
           <div className="flex items-center gap-2 text-sm text-destructive">
-            <span className="w-2 h-2 rounded-full bg-destructive" />
+            <span className="h-2 w-2 rounded-full bg-destructive" />
             Execution failed{event.error ? `: ${event.error}` : ""}
             <span className="text-xs text-secondary-foreground">{time}</span>
           </div>
@@ -1445,7 +1446,7 @@ const EventItem = memo(function EventItem({
       }
       return (
         <div className="flex items-center gap-2 text-sm text-success">
-          <span className="w-2 h-2 rounded-full bg-success" />
+          <span className="h-2 w-2 rounded-full bg-success" />
           Execution complete
           <span className="text-xs text-secondary-foreground">{time}</span>
         </div>

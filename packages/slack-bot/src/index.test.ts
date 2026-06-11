@@ -1,6 +1,7 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import type { Env } from "./types";
 import type * as SharedModule from "@open-inspect/shared";
+import { describe, expect, it, vi, beforeEach } from "vitest";
+
+import type { Env } from "./types";
 
 const { mockVerifySlackSignature, mockPublishView, mockOpenView, mockGetUserInfo } = vi.hoisted(
   () => ({
@@ -22,8 +23,8 @@ vi.mock("@open-inspect/shared", async () => {
   };
 });
 
-import app from "./index";
 import { clearLocalCache } from "./classifier/repos";
+import app from "./index";
 
 function createMockKV() {
   const store = new Map<string, string>();

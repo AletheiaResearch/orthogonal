@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
 import { SELF, env } from "cloudflare:test";
+import { describe, expect, it } from "vitest";
+
 import { generateInternalToken } from "../../src/auth/internal";
 import { initNamedSession, queryDO, seedMessage, seedSandboxAuthHash } from "./helpers";
 

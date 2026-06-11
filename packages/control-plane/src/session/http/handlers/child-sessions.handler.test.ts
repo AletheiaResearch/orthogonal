@@ -1,10 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createChildSessionsHandler } from "./child-sessions.handler";
-import {
-  FINAL_RESPONSE_EVENT_PAGE_LIMIT,
-  FINAL_RESPONSE_MAX_EVENTS,
-  collectFinalResponseEventRows,
-} from "./child-session-summary";
+
 import type {
   ArtifactRow,
   EventRow,
@@ -13,6 +8,12 @@ import type {
   SandboxRow,
   SessionRow,
 } from "../../types";
+import {
+  FINAL_RESPONSE_EVENT_PAGE_LIMIT,
+  FINAL_RESPONSE_MAX_EVENTS,
+  collectFinalResponseEventRows,
+} from "./child-session-summary";
+import { createChildSessionsHandler } from "./child-sessions.handler";
 
 function createSession(overrides: Partial<SessionRow> = {}): SessionRow {
   return {

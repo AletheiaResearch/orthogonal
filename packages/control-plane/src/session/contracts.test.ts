@@ -1,5 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
+
 import { SessionInternalPaths } from "./contracts";
 
 describe("session internal endpoint contracts", () => {
@@ -9,7 +11,7 @@ describe("session internal endpoint contracts", () => {
     const sessionRouteSources = readdirSync(routesDir)
       .filter((file) => file.startsWith("session-") && file.endsWith(".ts"))
       .filter((file) => !file.endsWith(".test.ts"))
-      .sort()
+      .toSorted()
       .map((file) => readFileSync(new URL(file, routesDir), "utf8"))
       .join("\n");
     const runtimeClientSource = readFileSync(

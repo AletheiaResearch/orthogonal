@@ -1,8 +1,5 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import useSWR, { mutate } from "swr";
-import { toast } from "sonner";
 import {
   DEFAULT_MENTIONS_POLICY,
   type EnrichedRepository,
@@ -11,18 +8,10 @@ import {
   type SlackMentionsPolicy,
   type SlackRepoSettings,
 } from "@open-inspect/shared";
-import { IntegrationSettingsSkeleton } from "./integration-settings-skeleton";
-import { Button } from "@/components/ui/button";
-import { APP_NAME } from "@/lib/site-config";
-import { RadioCard } from "@/components/ui/form-controls";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useEffect, useState, type ReactNode } from "react";
+import { toast } from "sonner";
+import useSWR, { mutate } from "swr";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +22,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { RadioCard } from "@/components/ui/form-controls";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { APP_NAME } from "@/lib/site-config";
+
+import { IntegrationSettingsSkeleton } from "./integration-settings-skeleton";
 
 const GLOBAL_SETTINGS_KEY = "/api/integration-settings/slack";
 const REPO_SETTINGS_KEY = "/api/integration-settings/slack/repos";
@@ -93,8 +95,8 @@ export function SlackIntegrationSettings() {
 
   return (
     <div>
-      <h3 className="text-lg font-semibold text-foreground mb-1">Slack</h3>
-      <p className="text-sm text-muted-foreground mb-6">
+      <h3 className="mb-1 text-lg font-semibold text-foreground">Slack</h3>
+      <p className="mb-6 text-sm text-muted-foreground">
         Let agents post Slack notifications when the user explicitly asks for them. Posts go through
         the control plane — the Slack token never enters the sandbox.
       </p>
@@ -198,11 +200,11 @@ function GlobalSettingsSection({ settings }: { settings: SlackGlobalConfig | nul
     >
       <label
         htmlFor="slack-master-switch"
-        className="flex items-center justify-between px-4 py-3 border border-border hover:bg-muted/50 transition cursor-pointer mb-4 rounded-sm"
+        className="hover:bg-muted/50 mb-4 flex cursor-pointer items-center justify-between rounded-sm border border-border px-4 py-3 transition"
       >
         <div>
           <span className="text-sm font-medium text-foreground">Enable agent notifications</span>
-          <span className="text-sm text-muted-foreground ml-2">
+          <span className="ml-2 text-sm text-muted-foreground">
             Master switch for the slack-notify tool. Off by default.
           </span>
         </div>
@@ -217,13 +219,13 @@ function GlobalSettingsSection({ settings }: { settings: SlackGlobalConfig | nul
       </label>
 
       <div className="mb-4">
-        <p className="text-sm font-medium text-foreground mb-2">Mentions policy</p>
-        <p className="text-xs text-muted-foreground mb-2">
+        <p className="mb-2 text-sm font-medium text-foreground">Mentions policy</p>
+        <p className="mb-2 text-xs text-muted-foreground">
           How direct user mentions (<code>{"<@U…>"}</code>) are handled in agent messages. Broadcast
           mentions (<code>@channel</code>, <code>@here</code>, <code>@subteam</code>) are always
           stripped regardless of this setting.
         </p>
-        <div className="grid sm:grid-cols-3 gap-2">
+        <div className="grid gap-2 sm:grid-cols-3">
           {MENTIONS_POLICY_OPTIONS.map((opt) => (
             <RadioCard
               key={opt.value}
@@ -311,13 +313,13 @@ function RepoOverridesSection({
   return (
     <div>
       {overrides.length > 0 ? (
-        <div className="space-y-2 mb-4">
+        <div className="mb-4 space-y-2">
           {overrides.map((entry) => (
             <RepoOverrideRow key={entry.repo} entry={entry} />
           ))}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground mb-4">
+        <p className="mb-4 text-sm text-muted-foreground">
           No repository overrides yet. Add one to override the master switch for a specific repo.
         </p>
       )}
@@ -407,9 +409,9 @@ function RepoOverrideRow({ entry }: { entry: RepoSettingsEntry }) {
   };
 
   return (
-    <div className="flex items-center justify-between gap-2 px-4 py-3 border border-border rounded-sm">
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-        <span className="text-sm font-medium text-foreground truncate">{entry.repo}</span>
+    <div className="flex items-center justify-between gap-2 rounded-sm border border-border px-4 py-3">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <span className="truncate text-sm font-medium text-foreground">{entry.repo}</span>
         <Select
           value={mode}
           onValueChange={(v: OverrideMode) => {
@@ -450,11 +452,11 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="border border-border-muted rounded-md p-5 mb-5">
-      <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-1">
+    <section className="mb-5 rounded-md border border-border-muted p-5">
+      <h4 className="mb-1 text-sm font-semibold uppercase tracking-wider text-foreground">
         {title}
       </h4>
-      <p className="text-sm text-muted-foreground mb-4">{description}</p>
+      <p className="mb-4 text-sm text-muted-foreground">{description}</p>
       {children}
     </section>
   );

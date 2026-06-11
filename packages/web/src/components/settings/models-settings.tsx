@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import useSWR, { mutate } from "swr";
-import { toast } from "sonner";
 import { MODEL_OPTIONS, DEFAULT_ENABLED_MODELS } from "@open-inspect/shared";
-import { MODEL_PREFERENCES_KEY } from "@/hooks/use-enabled-models";
+import { useState } from "react";
+import { toast } from "sonner";
+import useSWR, { mutate } from "swr";
+
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { MODEL_PREFERENCES_KEY } from "@/hooks/use-enabled-models";
 
 export function ModelsSettings() {
   const { data, isLoading: loading } = useSWR<{ enabledModels: string[] }>(MODEL_PREFERENCES_KEY);
@@ -79,7 +80,7 @@ export function ModelsSettings() {
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-muted-foreground">
-        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
         Loading model preferences...
       </div>
     );
@@ -87,8 +88,8 @@ export function ModelsSettings() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-foreground mb-1">Enabled Models</h2>
-      <p className="text-sm text-muted-foreground mb-6">
+      <h2 className="mb-1 text-xl font-semibold text-foreground">Enabled Models</h2>
+      <p className="mb-6 text-sm text-muted-foreground">
         Choose which models appear in the model selector across the web UI and Slack bot.
       </p>
 
@@ -98,8 +99,8 @@ export function ModelsSettings() {
 
           return (
             <div key={group.category}>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-foreground uppercase tracking-wider">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-medium uppercase tracking-wider text-foreground">
                   {group.category}
                 </h3>
                 <Button
@@ -107,7 +108,7 @@ export function ModelsSettings() {
                   variant="subtle"
                   size="xs"
                   onClick={() => toggleCategory(group, !allEnabled)}
-                  className="text-accent hover:text-accent/80"
+                  className="hover:text-accent/80 text-accent"
                 >
                   {allEnabled ? "Disable all" : "Enable all"}
                 </Button>
@@ -119,11 +120,11 @@ export function ModelsSettings() {
                     <label
                       key={model.id}
                       htmlFor={`model-toggle-${model.id}`}
-                      className="flex items-center justify-between px-4 py-3 border border-border hover:bg-muted/50 transition cursor-pointer"
+                      className="hover:bg-muted/50 flex cursor-pointer items-center justify-between border border-border px-4 py-3 transition"
                     >
                       <div>
                         <span className="text-sm font-medium text-foreground">{model.name}</span>
-                        <span className="text-sm text-muted-foreground ml-2">
+                        <span className="ml-2 text-sm text-muted-foreground">
                           {model.description}
                         </span>
                       </div>

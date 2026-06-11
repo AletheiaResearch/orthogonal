@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+
 import { verifyWebhookSignature } from "../src/verify";
 
 /** Generate a valid GitHub webhook signature for a given secret and body. */

@@ -3,8 +3,9 @@
 import { SessionProvider } from "next-auth/react";
 import { ThemeProvider } from "next-themes";
 import { SWRConfig } from "swr";
-import { Toaster } from "@/components/ui/sonner";
+
 import { SyntaxHighlightTheme } from "@/components/syntax-highlight-theme";
+import { Toaster } from "@/components/ui/sonner";
 
 async function swrFetcher<T>(url: string): Promise<T> {
   const res = await fetch(url);

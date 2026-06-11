@@ -5,18 +5,10 @@
  * automated code review and comment-triggered actions via the coding agent.
  */
 
-import { Hono } from "hono";
-import type {
-  Env,
-  PullRequestOpenedPayload,
-  ReviewRequestedPayload,
-  IssueCommentPayload,
-  ReviewCommentPayload,
-} from "./types";
-import type { Logger } from "./logger";
-import { createLogger, parseLogLevel } from "./logger";
-import { verifyWebhookSignature } from "./verify";
 import { normalizeGitHubEvent, buildInternalAuthHeaders } from "@open-inspect/shared";
+import { createKvCacheStore } from "@open-inspect/shared";
+import { Hono } from "hono";
+
 import {
   handlePullRequestOpened,
   handleReviewRequested,
@@ -24,7 +16,16 @@ import {
   handleReviewComment,
   type HandlerResult,
 } from "./handlers";
-import { createKvCacheStore } from "@open-inspect/shared";
+import type { Logger } from "./logger";
+import { createLogger, parseLogLevel } from "./logger";
+import type {
+  Env,
+  PullRequestOpenedPayload,
+  ReviewRequestedPayload,
+  IssueCommentPayload,
+  ReviewCommentPayload,
+} from "./types";
+import { verifyWebhookSignature } from "./verify";
 
 const app = new Hono<{ Bindings: Env }>();
 const DELIVERY_DEDUPE_TTL_MS = 7 * 24 * 60 * 60 * 1_000;

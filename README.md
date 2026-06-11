@@ -236,7 +236,7 @@ Repositories can define two optional startup scripts under `.openinspect/`:
 ```bash
 # .openinspect/setup.sh (provisioning)
 #!/bin/bash
-npm install
+corepack enable && pnpm install
 pip install -r requirements.txt
 ```
 

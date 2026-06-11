@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import type { AnalyticsDays } from "@open-inspect/shared";
+import { useMemo, useState } from "react";
+
 import { AnalyticsRepoBarChart } from "@/components/analytics/repo-bar-chart";
 import { AnalyticsSummaryCards } from "@/components/analytics/summary-cards";
 import { AnalyticsTimeseriesChart } from "@/components/analytics/timeseries-chart";
@@ -55,12 +56,12 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="relative h-full flex flex-col overflow-hidden">
+    <div className="relative flex h-full flex-col overflow-hidden">
       <div className="pointer-events-none absolute -right-20 top-8 h-56 w-56 rounded-full bg-accent-muted blur-3xl" />
       <div className="pointer-events-none absolute left-20 top-40 h-40 w-40 rounded-full bg-muted blur-3xl" />
 
       {!isOpen && (
-        <header className="border-b border-border-muted flex-shrink-0">
+        <header className="flex-shrink-0 border-b border-border-muted">
           <div className="px-4 py-3">
             <Button
               variant="ghost"
@@ -69,7 +70,7 @@ export default function AnalyticsPage() {
               title={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
               aria-label={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
             >
-              <SidebarIcon className="w-4 h-4" />
+              <SidebarIcon className="h-4 w-4" />
             </Button>
           </div>
         </header>

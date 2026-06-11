@@ -1,18 +1,20 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { createContext, useCallback, useContext, useState } from "react";
 import useSWR from "swr";
-import { SessionSidebar } from "./session-sidebar";
-import { GlobalCommandMenu } from "./global-command-menu";
-import { useSidebar } from "@/hooks/use-sidebar";
-import { useIsMobile } from "@/hooks/use-media-query";
-import { useGlobalShortcuts } from "@/hooks/use-global-shortcuts";
-import { SIDEBAR_SESSIONS_KEY, type SessionListResponse } from "@/lib/session-list";
+
 import { Button } from "@/components/ui/button";
 import { GitHubIcon } from "@/components/ui/icons";
+import { useGlobalShortcuts } from "@/hooks/use-global-shortcuts";
+import { useIsMobile } from "@/hooks/use-media-query";
+import { useSidebar } from "@/hooks/use-sidebar";
+import { SIDEBAR_SESSIONS_KEY, type SessionListResponse } from "@/lib/session-list";
 import { APP_NAME } from "@/lib/site-config";
+
+import { GlobalCommandMenu } from "./global-command-menu";
+import { SessionSidebar } from "./session-sidebar";
 
 interface SidebarContextValue {
   isOpen: boolean;
@@ -80,8 +82,8 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
   // Show loading state
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-6 w-6 border-2 border-current border-t-transparent text-foreground" />
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-current border-t-transparent text-foreground" />
       </div>
     );
   }
@@ -89,13 +91,13 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
   // Show sign-in page if not authenticated
   if (!session) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-8">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-8">
         <h1 className="text-4xl font-bold text-foreground">{APP_NAME}</h1>
-        <p className="text-muted-foreground max-w-md text-center">
+        <p className="max-w-md text-center text-muted-foreground">
           Background coding agent for your team. Ship faster with AI-powered code changes.
         </p>
         <Button onClick={() => signIn("github")} className="gap-2 px-6 py-3">
-          <GitHubIcon className="w-5 h-5" />
+          <GitHubIcon className="h-5 w-5" />
           Sign in with GitHub
         </Button>
       </div>
@@ -109,7 +111,7 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
         {isMobile && (
           <div
             className={`fixed inset-0 z-30 bg-overlay transition-opacity duration-200 ${
-              sidebar.isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+              sidebar.isOpen ? "opacity-100" : "pointer-events-none opacity-0"
             }`}
             role="presentation"
             aria-hidden="true"

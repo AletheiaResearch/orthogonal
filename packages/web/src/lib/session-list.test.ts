@@ -1,4 +1,6 @@
+import type { Session } from "@open-inspect/shared";
 import { describe, expect, it } from "vitest";
+
 import {
   applyTitleUpdate,
   buildSessionsPageKey,
@@ -8,7 +10,6 @@ import {
   isUnarchivedSessionListKey,
   type SessionListResponse,
 } from "./session-list";
-import type { Session } from "@open-inspect/shared";
 
 function session(id: string, overrides: Partial<Session> = {}): Session {
   return {

@@ -1,16 +1,17 @@
 "use client";
 
-import { useState, use } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useSidebarContext } from "@/components/sidebar-layout";
-import { useAutomation } from "@/hooks/use-automations";
+import { useRouter } from "next/navigation";
+import { useState, use } from "react";
+
 import {
   AutomationForm,
   type AutomationFormValues,
 } from "@/components/automations/automation-form";
+import { useSidebarContext } from "@/components/sidebar-layout";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { SidebarIcon, BackIcon } from "@/components/ui/icons";
+import { useAutomation } from "@/hooks/use-automations";
 import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
 
 export default function EditAutomationPage({ params }: { params: Promise<{ id: string }> }) {
@@ -47,15 +48,15 @@ export default function EditAutomationPage({ params }: { params: Promise<{ id: s
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-6 w-6 border-2 border-current border-t-transparent text-muted-foreground" />
+      <div className="flex h-full items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-current border-t-transparent text-muted-foreground" />
       </div>
     );
   }
 
   if (!automation) {
     return (
-      <div className="h-full flex flex-col items-center justify-center gap-4">
+      <div className="flex h-full flex-col items-center justify-center gap-4">
         <p className="text-muted-foreground">Automation not found.</p>
         <Link href="/automations">
           <button className="text-sm text-accent hover:underline">Back to Automations</button>
@@ -65,32 +66,32 @@ export default function EditAutomationPage({ params }: { params: Promise<{ id: s
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex h-full flex-col">
       {!isOpen && (
-        <header className="border-b border-border-muted flex-shrink-0">
-          <div className="px-4 py-3 flex items-center gap-2">
+        <header className="flex-shrink-0 border-b border-border-muted">
+          <div className="flex items-center gap-2 px-4 py-3">
             <button
               onClick={toggle}
-              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition"
+              className="p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
               title={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
               aria-label={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
             >
-              <SidebarIcon className="w-4 h-4" />
+              <SidebarIcon className="h-4 w-4" />
             </button>
             <Link
               href={`/automations/${id}`}
-              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition"
+              className="p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
               aria-label="Back to automation"
             >
-              <BackIcon className="w-4 h-4" />
+              <BackIcon className="h-4 w-4" />
             </Link>
           </div>
         </header>
       )}
 
       <div className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-2xl mx-auto">
-          <h1 className="text-3xl font-semibold text-foreground mb-6">Edit Automation</h1>
+        <div className="mx-auto max-w-2xl">
+          <h1 className="mb-6 text-3xl font-semibold text-foreground">Edit Automation</h1>
 
           {error && (
             <ErrorBanner className="mb-4" role="alert">

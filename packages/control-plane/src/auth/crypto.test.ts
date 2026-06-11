@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
 import { timingSafeEqual } from "@open-inspect/shared";
+import { describe, it, expect } from "vitest";
+
 import {
   encryptToken,
   encryptTokenPair,

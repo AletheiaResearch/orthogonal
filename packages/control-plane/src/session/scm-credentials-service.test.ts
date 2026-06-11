@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+
 import type { Logger } from "../logger";
 import type { SourceControlProvider } from "../source-control";
 import { SourceControlProviderError } from "../source-control/errors";

@@ -5,13 +5,14 @@ import {
   getValidModelOrDefault,
   isValidReasoningEffort,
 } from "@open-inspect/shared";
-import type { Env, UserPreferences } from "./types";
+
 import {
   getValidatedBranch,
   isValidBranchName,
   normalizeBranchPreference,
 } from "./branch-preferences";
 import { createLogger } from "./logger";
+import type { Env, UserPreferences } from "./types";
 
 const log = createLogger("user-preferences");
 

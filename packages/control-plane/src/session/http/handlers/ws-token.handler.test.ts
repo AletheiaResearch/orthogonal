@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+
 import type { Logger } from "../../../logger";
 import type { ParticipantRow } from "../../types";
 import { createWsTokenHandler } from "./ws-token.handler";

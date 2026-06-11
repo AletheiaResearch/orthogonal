@@ -3,6 +3,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { VercelSandboxApiError, VercelSandboxClient } from "./client";
 
 function jsonResponse(body: unknown, status = 200): Response {

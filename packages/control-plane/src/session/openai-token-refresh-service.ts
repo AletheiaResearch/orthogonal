@@ -5,8 +5,8 @@ import {
 } from "../auth/openai";
 import { GlobalSecretsStore } from "../db/global-secrets";
 import { RepoSecretsStore } from "../db/repo-secrets";
-import type { Env } from "../types";
 import type { Logger } from "../logger";
+import type { Env } from "../types";
 import type { SessionRow } from "./types";
 
 const OPENAI_TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;

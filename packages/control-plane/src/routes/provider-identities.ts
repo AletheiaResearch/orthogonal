@@ -1,4 +1,5 @@
 import { isCanonicalUserId } from "@open-inspect/shared";
+
 import { UserStore, type ProviderIdentity } from "../db/user-store";
 import type { Env } from "../types";
 import {

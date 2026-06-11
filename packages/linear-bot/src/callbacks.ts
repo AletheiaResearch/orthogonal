@@ -3,19 +3,20 @@
  * Uses richer response extraction and formats as Linear AgentActivities.
  */
 
+import { resolveAppName, timingSafeEqual } from "@open-inspect/shared";
 import { Hono } from "hono";
+
+import { extractAgentResponse, formatAgentResponse } from "./completion/extractor";
+import { createLogger } from "./logger";
+import { makePlan } from "./plan";
 import type { Env, CompletionCallback, ToolCallCallback } from "./types";
+import { computeHmacHex } from "./utils/crypto";
 import {
   getLinearClient,
   emitAgentActivity,
   postIssueComment,
   updateAgentSession,
 } from "./utils/linear-client";
-import { extractAgentResponse, formatAgentResponse } from "./completion/extractor";
-import { resolveAppName, timingSafeEqual } from "@open-inspect/shared";
-import { computeHmacHex } from "./utils/crypto";
-import { makePlan } from "./plan";
-import { createLogger } from "./logger";
 
 const log = createLogger("callback");
 
