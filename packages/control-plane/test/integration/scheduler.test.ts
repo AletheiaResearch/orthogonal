@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:test";
+import { describe, it, expect, beforeEach } from "vitest";
+
 import {
   AutomationStore,
   type AutomationRow,

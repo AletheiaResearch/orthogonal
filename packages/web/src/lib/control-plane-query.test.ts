@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { buildControlPlanePath, SESSION_CONTROL_PLANE_QUERY_PARAMS } from "./control-plane-query";
 
 describe("buildControlPlanePath", () => {

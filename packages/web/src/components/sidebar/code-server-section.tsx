@@ -1,10 +1,12 @@
 "use client";
 
+import type { SandboxStatus } from "@open-inspect/shared";
 import { useState } from "react";
+
+import { TerminalIcon, KeyIcon, CheckIcon } from "@/components/ui/icons";
 import { copyToClipboard } from "@/lib/format";
 import { getSafeExternalUrl } from "@/lib/urls";
-import { TerminalIcon, KeyIcon, CheckIcon } from "@/components/ui/icons";
-import type { SandboxStatus } from "@open-inspect/shared";
+
 import { ACTIVE_SANDBOX_STATUSES } from "./sandbox-statuses";
 
 interface CodeServerSectionProps {
@@ -39,32 +41,32 @@ export function CodeServerSection({ url, password, sandboxStatus }: CodeServerSe
   return (
     <div className="flex items-center gap-2 text-sm">
       <TerminalIcon
-        className={`w-4 h-4 shrink-0 ${isActive && safeUrl ? "text-muted-foreground" : "text-muted-foreground/50"}`}
+        className={`h-4 w-4 shrink-0 ${isActive && safeUrl ? "text-muted-foreground" : "text-muted-foreground/50"}`}
       />
       {isActive && safeUrl ? (
         <a
           href={safeUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-accent hover:underline truncate"
+          className="truncate text-accent hover:underline"
         >
           Open Editor
         </a>
       ) : (
-        <span className="text-muted-foreground truncate">
+        <span className="truncate text-muted-foreground">
           {isStarting ? "Editor starting\u2026" : "Editor unavailable"}
         </span>
       )}
       {isActive && password && (
         <button
           onClick={handleCopyPassword}
-          className="p-1 hover:bg-muted transition-colors shrink-0"
+          className="shrink-0 p-1 transition-colors hover:bg-muted"
           title={copiedPassword ? "Copied!" : "Copy password"}
         >
           {copiedPassword ? (
-            <CheckIcon className="w-3.5 h-3.5 text-success" />
+            <CheckIcon className="h-3.5 w-3.5 text-success" />
           ) : (
-            <KeyIcon className="w-3.5 h-3.5 text-secondary-foreground" />
+            <KeyIcon className="h-3.5 w-3.5 text-secondary-foreground" />
           )}
         </button>
       )}

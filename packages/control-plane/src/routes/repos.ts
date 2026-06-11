@@ -2,16 +2,17 @@
  * Repository listing and metadata routes and handlers.
  */
 
-import { RepoMetadataStore } from "../db/repo-metadata";
-import type { Env } from "../types";
 import { createKvCacheStore } from "@open-inspect/shared";
 import type {
   EnrichedRepository,
   InstallationRepository,
   RepoMetadata,
 } from "@open-inspect/shared";
-import { SourceControlProviderError } from "../source-control";
+
+import { RepoMetadataStore } from "../db/repo-metadata";
 import { createLogger } from "../logger";
+import { SourceControlProviderError } from "../source-control";
+import type { Env } from "../types";
 import {
   type Route,
   type RequestContext,

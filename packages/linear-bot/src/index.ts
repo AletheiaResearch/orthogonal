@@ -5,17 +5,10 @@
  * Routes-only entry point — orchestration lives in webhook-handler.ts.
  */
 
-import { Hono } from "hono";
-import type { Env, UserPreferences, AgentSessionWebhook } from "./types";
-import {
-  buildOAuthAuthorizeUrl,
-  exchangeCodeForToken,
-  verifyLinearWebhook,
-} from "./utils/linear-client";
-import { callbacksRouter } from "./callbacks";
-import { createLogger } from "./logger";
 import { resolveAppName, verifyInternalToken } from "@open-inspect/shared";
-import { handleAgentSessionEvent, escapeHtml } from "./webhook-handler";
+import { Hono } from "hono";
+
+import { callbacksRouter } from "./callbacks";
 import {
   getTeamRepoMapping,
   getProjectRepoMapping,
@@ -23,6 +16,14 @@ import {
   getUserPreferences,
   isDuplicateEvent,
 } from "./kv-store";
+import { createLogger } from "./logger";
+import type { Env, UserPreferences, AgentSessionWebhook } from "./types";
+import {
+  buildOAuthAuthorizeUrl,
+  exchangeCodeForToken,
+  verifyLinearWebhook,
+} from "./utils/linear-client";
+import { handleAgentSessionEvent, escapeHtml } from "./webhook-handler";
 
 // Re-export pure functions for existing test imports
 export {

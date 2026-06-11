@@ -2,8 +2,9 @@
  * Build Slack Block Kit messages for completion notifications.
  */
 
-import type { AgentResponse, SlackCallbackContext } from "../types";
 import type { ManualPullRequestArtifactMetadata } from "@open-inspect/shared";
+
+import type { AgentResponse, SlackCallbackContext } from "../types";
 
 /**
  * Slack Block Kit block type (subset).

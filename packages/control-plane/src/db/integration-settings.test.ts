@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+
 import {
   IntegrationSettingsStore,
   IntegrationSettingsValidationError,
@@ -334,7 +335,7 @@ describe("IntegrationSettingsStore", () => {
 
       const list = await store.listRepoSettings("github");
       expect(list).toHaveLength(2);
-      const repos = list.map((r) => r.repo).sort();
+      const repos = list.map((r) => r.repo).toSorted();
       expect(repos).toEqual(["acme/gadgets", "acme/widgets"]);
     });
 

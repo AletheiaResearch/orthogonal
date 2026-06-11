@@ -5,18 +5,9 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import {
-  SandboxLifecycleManager,
-  DEFAULT_LIFECYCLE_CONFIG,
-  type SandboxStorage,
-  type SandboxBroadcaster,
-  type WebSocketManager,
-  type AlarmScheduler,
-  type IdGenerator,
-  type SandboxLifecycleConfig,
-  type RepoImageLookup,
-  type SlackAgentNotifyLookup,
-} from "./manager";
+
+import type { SandboxRow, SessionRow } from "../../session/types";
+import type { SandboxStatus } from "../../types";
 import {
   SandboxProviderError,
   type SandboxProvider,
@@ -31,8 +22,18 @@ import {
   type StopConfig,
   type StopResult,
 } from "../provider";
-import type { SandboxRow, SessionRow } from "../../session/types";
-import type { SandboxStatus } from "../../types";
+import {
+  SandboxLifecycleManager,
+  DEFAULT_LIFECYCLE_CONFIG,
+  type SandboxStorage,
+  type SandboxBroadcaster,
+  type WebSocketManager,
+  type AlarmScheduler,
+  type IdGenerator,
+  type SandboxLifecycleConfig,
+  type RepoImageLookup,
+  type SlackAgentNotifyLookup,
+} from "./manager";
 
 // ==================== Mock Factories ====================
 

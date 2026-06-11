@@ -7,9 +7,7 @@
     "build": "esbuild src/index.ts --bundle --format=esm --outfile=dist/index.js --platform=browser --target=es2022 --external:cloudflare:* --external:node:*",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@cloudflare/workers-types": "catalog:",
@@ -17,9 +15,10 @@
     "hono": "catalog:"
   },
   "devDependencies": {
+    "@orthogonal/tooling-configs": "workspace:*",
+    "@vitest/coverage-v8": "catalog:",
     "esbuild": "catalog:",
     "typescript": "catalog:",
-    "@vitest/coverage-v8": "catalog:",
     "vitest": "catalog:"
   }
 }

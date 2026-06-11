@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+
 import { generateInternalToken } from "./auth/internal";
 import { handleRequest } from "./router";
 

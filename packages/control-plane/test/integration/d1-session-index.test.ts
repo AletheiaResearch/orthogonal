@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from "vitest";
 import { env } from "cloudflare:test";
+import { describe, it, expect, beforeEach } from "vitest";
+
 import { SessionIndexStore } from "../../src/db/session-index";
 import { cleanD1Tables } from "./cleanup";
 

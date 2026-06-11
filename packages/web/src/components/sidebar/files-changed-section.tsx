@@ -22,10 +22,10 @@ export function FilesChangedSection({ files }: FilesChangedSectionProps) {
             className="flex items-center justify-between gap-2 text-sm"
             title={full}
           >
-            <span className="text-foreground truncate flex-1">{display}</span>
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <span className="text-success font-mono text-xs">{additions}</span>
-              <span className="text-destructive font-mono text-xs">{deletions}</span>
+            <span className="flex-1 truncate text-foreground">{display}</span>
+            <div className="flex flex-shrink-0 items-center gap-1.5">
+              <span className="font-mono text-xs text-success">{additions}</span>
+              <span className="font-mono text-xs text-destructive">{deletions}</span>
             </div>
           </div>
         );

@@ -3,9 +3,9 @@
  * Same pattern as slack-bot: local cache + KV cache + fallback.
  */
 
+import { createLogger } from "../logger";
 import type { Env, RepoConfig, ControlPlaneRepo, ControlPlaneReposResponse } from "../types";
 import { buildInternalAuthHeaders } from "../utils/internal";
-import { createLogger } from "../logger";
 
 const log = createLogger("repos");
 

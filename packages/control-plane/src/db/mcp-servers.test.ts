@@ -6,6 +6,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
+
 import { McpServerStore, McpServerValidationError } from "./mcp-servers";
 
 // ─── Fake D1 helpers ────────────────────────────────────────────────────────

@@ -7,9 +7,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+
+import type { Env } from "../types";
 import { automationRoutes } from "./automations";
 import type { RequestContext } from "./shared";
-import type { Env } from "../types";
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
 

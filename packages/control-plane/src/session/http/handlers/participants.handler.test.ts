@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+
 import type { ParticipantRow } from "../../types";
 import { createParticipantsHandler } from "./participants.handler";
 

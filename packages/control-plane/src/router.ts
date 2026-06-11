@@ -2,30 +2,29 @@
  * API router for Open-Inspect Control Plane.
  */
 
-import type { Env } from "./types";
 import { verifyInternalToken } from "./auth/internal";
+import { createRequestMetrics, instrumentD1 } from "./db/instrumented-d1";
+import { createLogger } from "./logger";
+import { analyticsRoutes } from "./routes/analytics";
+import { automationRoutes } from "./routes/automations";
+import { integrationSettingsRoutes } from "./routes/integration-settings";
+import { mcpServerRoutes } from "./routes/mcp-servers";
+import { modelPreferencesRoutes } from "./routes/model-preferences";
+import { providerIdentityRoutes } from "./routes/provider-identities";
+import { repoImageRoutes } from "./routes/repo-images";
+import { reposRoutes } from "./routes/repos";
+import { secretsRoutes } from "./routes/secrets";
+import { sessionRoutes } from "./routes/sessions";
+import { type Route, type RequestContext, parsePattern, json, error } from "./routes/shared";
+import { handleSlackNotify } from "./routes/slack-notify";
+import { SessionInternalPaths } from "./session/contracts";
+import { createSessionRuntimeClient } from "./session/runtime-client";
 import {
   resolveScmProviderFromEnv,
   SourceControlProviderError,
   type SourceControlProviderName,
 } from "./source-control";
-import { SessionInternalPaths } from "./session/contracts";
-import { createSessionRuntimeClient } from "./session/runtime-client";
-
-import { createRequestMetrics, instrumentD1 } from "./db/instrumented-d1";
-import { createLogger } from "./logger";
-import { type Route, type RequestContext, parsePattern, json, error } from "./routes/shared";
-import { integrationSettingsRoutes } from "./routes/integration-settings";
-import { modelPreferencesRoutes } from "./routes/model-preferences";
-import { reposRoutes } from "./routes/repos";
-import { repoImageRoutes } from "./routes/repo-images";
-import { secretsRoutes } from "./routes/secrets";
-import { automationRoutes } from "./routes/automations";
-import { mcpServerRoutes } from "./routes/mcp-servers";
-import { analyticsRoutes } from "./routes/analytics";
-import { providerIdentityRoutes } from "./routes/provider-identities";
-import { sessionRoutes } from "./routes/sessions";
-import { handleSlackNotify } from "./routes/slack-notify";
+import type { Env } from "./types";
 import { webhookRoutes } from "./webhooks";
 
 const logger = createLogger("router");

@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import type { EnrichedRepository } from "@open-inspect/shared";
 import { getServerSession } from "next-auth";
+import { NextResponse } from "next/server";
+
 import { authOptions } from "@/lib/auth";
 import { controlPlaneFetch } from "@/lib/control-plane";
-import type { EnrichedRepository } from "@open-inspect/shared";
 
 interface ControlPlaneReposResponse {
   repos: EnrichedRepository[];

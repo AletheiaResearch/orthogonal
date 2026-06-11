@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+
 import { parseAllowlist, parseBooleanEnv, checkAccessAllowed } from "./access-control";
 
 describe("parseAllowlist", () => {

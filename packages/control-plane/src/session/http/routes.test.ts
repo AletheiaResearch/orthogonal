@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { SessionInternalPaths } from "../contracts";
 import { createSessionInternalRoutes, type SessionInternalRouteHandler } from "./routes";
 

@@ -1,7 +1,8 @@
+import { webcrypto } from "node:crypto";
+import path from "path";
+
 import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-pool-workers";
 import { defineConfig } from "vitest/config";
-import path from "path";
-import { webcrypto } from "node:crypto";
 
 const migrationsPath = path.resolve(__dirname, "../../terraform/d1/migrations");
 

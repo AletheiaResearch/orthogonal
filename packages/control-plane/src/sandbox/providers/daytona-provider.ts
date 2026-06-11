@@ -6,11 +6,11 @@
  */
 
 import { computeHmacHex, MAX_TUNNEL_PORTS, type SandboxSettings } from "@open-inspect/shared";
+
 import { createLogger } from "../../logger";
 import type { SourceControlProviderName } from "../../source-control";
 import type { DaytonaRestClient, DaytonaCreateSandboxParams } from "../daytona-rest-client";
 import { DaytonaApiError, DaytonaNotFoundError } from "../daytona-rest-client";
-import { buildSessionConfig } from "../sandbox-env";
 import {
   SandboxProviderError,
   type CreateSandboxConfig,
@@ -22,6 +22,7 @@ import {
   type StopConfig,
   type StopResult,
 } from "../provider";
+import { buildSessionConfig } from "../sandbox-env";
 
 const log = createLogger("daytona-provider");
 
@@ -193,7 +194,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
 
   private async buildEnvVars(config: CreateSandboxConfig): Promise<Record<string, string>> {
     // Start with user env vars (repo secrets), then overlay system vars
-    const envVars: Record<string, string> = { ...(config.userEnvVars ?? {}) };
+    const envVars: Record<string, string> = { ...config.userEnvVars };
 
     const sessionConfig = buildSessionConfig(config);
 

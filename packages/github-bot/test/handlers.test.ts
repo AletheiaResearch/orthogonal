@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+
+import type { Logger } from "../src/logger";
 import type {
   Env,
   PullRequestOpenedPayload,
@@ -6,7 +8,6 @@ import type {
   IssueCommentPayload,
   ReviewCommentPayload,
 } from "../src/types";
-import type { Logger } from "../src/logger";
 import type { ResolvedGitHubConfig } from "../src/utils/integration-config";
 
 vi.mock("../src/github-auth", () => ({
@@ -44,13 +45,13 @@ const defaultConfig: ResolvedGitHubConfig = {
   commentActionInstructions: null,
 };
 
+import { generateInstallationToken, postReaction, checkSenderPermission } from "../src/github-auth";
 import {
   handlePullRequestOpened,
   handleReviewRequested,
   handleIssueComment,
   handleReviewComment,
 } from "../src/handlers";
-import { generateInstallationToken, postReaction, checkSenderPermission } from "../src/github-auth";
 import { getGitHubConfig } from "../src/utils/integration-config";
 
 function createMockLogger(): Logger {

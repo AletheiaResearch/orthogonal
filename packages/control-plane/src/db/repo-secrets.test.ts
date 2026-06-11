@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
+
+import { generateEncryptionKey } from "../auth/crypto";
 import { RepoSecretsStore } from "./repo-secrets";
 import { SecretsValidationError } from "./secrets-validation";
-import { generateEncryptionKey } from "../auth/crypto";
 
 type RepoSecretRow = {
   repo_id: number;
@@ -45,7 +46,7 @@ class FakeD1Database {
       const repoId = args[0] as number;
       return Array.from(this.rows.values())
         .filter((row) => row.repo_id === repoId)
-        .sort((a, b) => a.key.localeCompare(b.key))
+        .toSorted((a, b) => a.key.localeCompare(b.key))
         .map((row) => ({
           key: row.key,
           created_at: row.created_at,

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useCallback } from "react";
 import Link from "next/link";
-import useSWR, { mutate } from "swr";
+import { useState, useCallback } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import useSWR, { mutate } from "swr";
+
 import { buildSessionHref, type SessionItem } from "@/components/session-sidebar";
+import { Button } from "@/components/ui/button";
 import {
   isUnarchivedSessionListKey,
   removeSessionFromList,
@@ -83,12 +84,12 @@ export function DataControlsSettings() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-foreground mb-1">Data Controls</h2>
-      <p className="text-sm text-muted-foreground mb-6">Manage your archived chats and data.</p>
+      <h2 className="mb-1 text-xl font-semibold text-foreground">Data Controls</h2>
+      <p className="mb-6 text-sm text-muted-foreground">Manage your archived chats and data.</p>
 
       <div>
-        <h3 className="text-base font-medium text-foreground mb-1">Archived chats</h3>
-        <p className="text-sm text-muted-foreground mb-4">
+        <h3 className="mb-1 text-base font-medium text-foreground">Archived chats</h3>
+        <p className="mb-4 text-sm text-muted-foreground">
           {loading
             ? "Loading..."
             : sessionCount === 0
@@ -98,14 +99,14 @@ export function DataControlsSettings() {
 
         {loading ? (
           <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-6 w-6 border-2 border-current border-t-transparent text-muted-foreground" />
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-current border-t-transparent text-muted-foreground" />
           </div>
         ) : sessions.length === 0 ? (
           <div className="py-8 text-center text-sm text-muted-foreground">
             No archived sessions. Sessions you archive will appear here.
           </div>
         ) : (
-          <div className="border border-border rounded-md divide-y divide-border-muted">
+          <div className="divide-y divide-border-muted rounded-md border border-border">
             {sessions.map((session) => (
               <ArchivedSessionRow
                 key={session.id}
@@ -144,10 +145,10 @@ function ArchivedSessionRow({
   const timestamp = session.updatedAt || session.createdAt;
   const relativeTime = formatRelativeTime(timestamp);
   return (
-    <div className="group flex items-center justify-between px-4 py-3 hover:bg-muted transition">
-      <Link href={buildSessionHref(session)} className="flex-1 min-w-0 mr-3">
+    <div className="group flex items-center justify-between px-4 py-3 transition hover:bg-muted">
+      <Link href={buildSessionHref(session)} className="mr-3 min-w-0 flex-1">
         <div className="truncate text-sm font-medium text-foreground">{displayTitle}</div>
-        <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
+        <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <span>{relativeTime}</span>
           <span>&middot;</span>
           <span className="truncate">{repoInfo}</span>

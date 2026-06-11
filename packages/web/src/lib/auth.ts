@@ -1,6 +1,7 @@
 import type { NextAuthOptions, Profile } from "next-auth";
 import GitHubProvider from "next-auth/providers/github";
 import type { GithubEmail, GithubProfile } from "next-auth/providers/github";
+
 import { checkAccessAllowed, parseAllowlist, parseBooleanEnv } from "./access-control";
 
 export async function getVerifiedPrimaryGitHubEmail(

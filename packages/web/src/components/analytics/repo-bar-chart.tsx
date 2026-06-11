@@ -1,6 +1,7 @@
+import type { AnalyticsBreakdownResponse } from "@open-inspect/shared";
 import type { TooltipContentProps } from "recharts";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { AnalyticsBreakdownResponse } from "@open-inspect/shared";
+
 import { formatAnalyticsCount } from "@/lib/analytics";
 import { formatSessionCost } from "@/lib/session-cost";
 
@@ -54,7 +55,7 @@ function RepoChartTooltip({ active, payload }: TooltipContentProps) {
 export function AnalyticsRepoBarChart({ entries, loading }: RepoBarChartProps) {
   if (loading && !entries) {
     return (
-      <div className="rounded-md border border-border-muted bg-card p-5 animate-pulse">
+      <div className="animate-pulse rounded-md border border-border-muted bg-card p-5">
         <div className="h-4 w-44 rounded bg-muted" />
         <div className="mt-2 h-4 w-64 rounded bg-muted" />
         <div className="mt-6 h-[320px] rounded bg-muted" />

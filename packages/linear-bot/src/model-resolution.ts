@@ -2,12 +2,13 @@
  * Pure functions for resolving models and repos from configuration + labels.
  */
 
-import type { TeamRepoMapping, StaticRepoConfig } from "./types";
 import {
   getDefaultReasoningEffort,
   getValidModelOrDefault,
   isValidReasoningEffort,
 } from "@open-inspect/shared";
+
+import type { TeamRepoMapping, StaticRepoConfig } from "./types";
 
 /**
  * Resolve repo from static team mapping (legacy/override).

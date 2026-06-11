@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { createSourceControlProvider } from "./index";
+
+import { SourceControlProviderError } from "../errors";
 import { GitHubSourceControlProvider } from "./github-provider";
 import { GitLabSourceControlProvider } from "./gitlab-provider";
-import { SourceControlProviderError } from "../errors";
+import { createSourceControlProvider } from "./index";
 
 describe("createSourceControlProvider", () => {
   it("creates github provider", () => {

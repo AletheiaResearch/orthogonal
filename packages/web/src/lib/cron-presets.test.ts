@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { detectPreset, buildCron } from "./cron-presets";
 
 describe("detectPreset", () => {

@@ -1,15 +1,16 @@
 // @vitest-environment jsdom
 /// <reference types="@testing-library/jest-dom" />
 
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import * as matchers from "@testing-library/jest-dom/matchers";
 import type {
   EnrichedRepository,
   GitHubBotSettings,
   GitHubGlobalConfig,
 } from "@open-inspect/shared";
+import * as matchers from "@testing-library/jest-dom/matchers";
+import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { GitHubIntegrationSettings } from "./github-integration-settings";
 
 expect.extend(matchers);

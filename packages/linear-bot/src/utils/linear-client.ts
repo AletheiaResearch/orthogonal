@@ -2,10 +2,11 @@
  * Linear API client utilities — OAuth + raw GraphQL.
  */
 
-import type { Env, OAuthTokenResponse, StoredTokenData, LinearIssueDetails } from "../types";
 import { timingSafeEqual } from "@open-inspect/shared";
-import { computeHmacHex } from "./crypto";
+
 import { createLogger } from "../logger";
+import type { Env, OAuthTokenResponse, StoredTokenData, LinearIssueDetails } from "../types";
+import { computeHmacHex } from "./crypto";
 
 const log = createLogger("linear-client");
 

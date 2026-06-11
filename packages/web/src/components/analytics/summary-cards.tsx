@@ -1,6 +1,7 @@
 import type { AnalyticsDays, AnalyticsSummaryResponse } from "@open-inspect/shared";
-import { formatSessionCost } from "@/lib/session-cost";
+
 import { formatAnalyticsCount } from "@/lib/analytics";
+import { formatSessionCost } from "@/lib/session-cost";
 
 interface SummaryCardsProps {
   days: AnalyticsDays;
@@ -26,7 +27,7 @@ export function AnalyticsSummaryCards({ days, summary, loading }: SummaryCardsPr
         {Array.from({ length: 5 }).map((_, index) => (
           <div
             key={index}
-            className="rounded-md border border-border-muted bg-card p-4 animate-pulse"
+            className="animate-pulse rounded-md border border-border-muted bg-card p-4"
           >
             <div className="h-3 w-24 rounded bg-muted" />
             <div className="mt-4 h-7 w-20 rounded bg-muted" />

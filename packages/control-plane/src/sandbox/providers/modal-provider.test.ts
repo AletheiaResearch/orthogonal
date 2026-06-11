@@ -5,8 +5,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { ModalSandboxProvider } from "./modal-provider";
-import { SandboxProviderError } from "../provider";
+
 import { ModalApiError } from "../client";
 import type {
   ModalClient,
@@ -17,6 +16,8 @@ import type {
   SnapshotSandboxRequest,
   SnapshotSandboxResponse,
 } from "../client";
+import { SandboxProviderError } from "../provider";
+import { ModalSandboxProvider } from "./modal-provider";
 
 // ==================== Mock Factories ====================
 

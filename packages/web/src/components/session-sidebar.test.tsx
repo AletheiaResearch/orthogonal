@@ -1,16 +1,18 @@
 // @vitest-environment jsdom
 /// <reference types="@testing-library/jest-dom" />
 
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import * as matchers from "@testing-library/jest-dom/matchers";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { SWRConfig } from "swr";
-import { MOBILE_LONG_PRESS_MS, SessionSidebar } from "./session-sidebar";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
 import {
   buildSessionsPageKey,
   CURRENT_USER_CREATED_BY,
   SIDEBAR_SESSIONS_KEY,
 } from "@/lib/session-list";
+
+import { MOBILE_LONG_PRESS_MS, SessionSidebar } from "./session-sidebar";
 
 expect.extend(matchers);
 

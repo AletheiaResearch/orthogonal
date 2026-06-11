@@ -1,9 +1,10 @@
-import type { Env } from "../types";
-import type { RequestContext } from "../routes/shared";
 import type { SpawnSource, SandboxSettings } from "@open-inspect/shared";
+
 import { SessionIndexStore } from "../db/session-index";
-import { buildSessionInternalUrl, SessionInternalPaths } from "./contracts";
 import { createLogger } from "../logger";
+import type { RequestContext } from "../routes/shared";
+import type { Env } from "../types";
+import { buildSessionInternalUrl, SessionInternalPaths } from "./contracts";
 
 const logger = createLogger("session-init");
 

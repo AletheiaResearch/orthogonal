@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { OpenAITokenRefreshError } from "../auth/openai";
 import type { Logger } from "../logger";
 import type { Env } from "../types";
-import type { SessionRow } from "./types";
 import { OpenAITokenRefreshService } from "./openai-token-refresh-service";
-import { OpenAITokenRefreshError } from "../auth/openai";
+import type { SessionRow } from "./types";
 
 const mockState = vi.hoisted(() => ({
   repoSecrets: new Map<number, Record<string, string>>(),

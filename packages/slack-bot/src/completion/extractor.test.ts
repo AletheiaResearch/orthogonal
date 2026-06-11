@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { extractAgentResponse } from "./extractor";
+
 import type { Env } from "../types";
+import { extractAgentResponse } from "./extractor";
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {

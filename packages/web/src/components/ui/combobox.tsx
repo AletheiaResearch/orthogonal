@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useId, type ReactNode } from "react";
+
 import { CheckIcon } from "@/components/ui/icons";
 
 export interface ComboboxOption<T = string> {
@@ -264,18 +265,17 @@ export function Combobox<T = string>({
 
       {open && (
         <div
-          className={`absolute ${directionClasses} left-0 ${dropdownWidth} bg-background shadow-lg border border-border z-50`}
+          className={`absolute ${directionClasses} left-0 ${dropdownWidth} z-50 border border-border bg-background shadow-lg`}
         >
           {searchable && (
-            <div className="p-2 border-b border-border-muted">
+            <div className="border-b border-border-muted p-2">
               <input
                 ref={searchInputRef}
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="w-full px-2 py-1.5 text-sm bg-input border border-border focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent placeholder:text-secondary-foreground text-foreground"
-                role="combobox"
+                className="w-full border border-border bg-input px-2 py-1.5 text-sm text-foreground placeholder:text-secondary-foreground focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ring"
                 aria-expanded={open}
                 aria-controls={listboxId}
                 aria-activedescendant={activeOptionId}
@@ -304,8 +304,8 @@ export function Combobox<T = string>({
                 return (
                   <div key={group.category} role="group" aria-label={group.category}>
                     <div
-                      className={`px-3 py-1.5 text-xs font-medium text-secondary-foreground uppercase tracking-wider ${
-                        groupIdx > 0 ? "border-t border-border-muted mt-1" : ""
+                      className={`px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-secondary-foreground ${
+                        groupIdx > 0 ? "mt-1 border-t border-border-muted" : ""
                       }`}
                     >
                       {group.category}
@@ -343,7 +343,7 @@ export function Combobox<T = string>({
               ))
             )}
             {hiddenCount > 0 && (
-              <div className="px-3 py-2 text-xs text-muted-foreground border-t border-border-muted mt-1">
+              <div className="mt-1 border-t border-border-muted px-3 py-2 text-xs text-muted-foreground">
                 Type to search {hiddenCount} more...
               </div>
             )}
@@ -380,19 +380,19 @@ function OptionButton<T>({
       onClick={onSelect}
       onMouseEnter={onMouseEnter}
       data-option-index={dataIndex}
-      className={`w-full flex items-center justify-between px-3 py-2 text-sm transition ${
+      className={`flex w-full items-center justify-between px-3 py-2 text-sm transition ${
         isActive ? "bg-muted" : ""
       } ${isSelected ? "text-foreground" : "text-muted-foreground"}`}
     >
-      <div className="flex flex-col items-start text-left min-w-0">
-        <span className="font-medium truncate max-w-full">{option.label}</span>
+      <div className="flex min-w-0 flex-col items-start text-left">
+        <span className="max-w-full truncate font-medium">{option.label}</span>
         {option.description && (
-          <span className="text-xs text-secondary-foreground truncate max-w-full">
+          <span className="max-w-full truncate text-xs text-secondary-foreground">
             {option.description}
           </span>
         )}
       </div>
-      {isSelected && <CheckIcon className="w-4 h-4 text-accent flex-shrink-0" />}
+      {isSelected && <CheckIcon className="h-4 w-4 flex-shrink-0 text-accent" />}
     </button>
   );
 }

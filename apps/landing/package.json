@@ -6,8 +6,6 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix",
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
@@ -23,12 +21,11 @@
     "tw-animate-css": "catalog:"
   },
   "devDependencies": {
+    "@orthogonal/tooling-configs": "workspace:*",
     "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "eslint": "catalog:",
-    "eslint-config-next": "catalog:",
     "tailwindcss": "catalog:tailwind4",
     "typescript": "catalog:"
   }

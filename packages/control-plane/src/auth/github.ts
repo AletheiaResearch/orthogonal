@@ -3,8 +3,9 @@
  */
 
 import { DEFAULT_APP_NAME } from "@open-inspect/shared";
-import { decryptToken, encryptToken } from "./crypto";
+
 import type { GitHubUser, GitHubTokenResponse } from "../types";
+import { decryptToken, encryptToken } from "./crypto";
 
 /**
  * GitHub OAuth configuration.

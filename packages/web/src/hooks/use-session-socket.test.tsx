@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 /// <reference types="@testing-library/jest-dom" />
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ServerMessage, SessionArtifact, SessionState } from "@open-inspect/shared";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type * as SwrModule from "swr";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { isUnarchivedSessionListKey } from "@/lib/session-list";
+
 import { useSessionSocket } from "./use-session-socket";
 
 const { mutateMock } = vi.hoisted(() => ({

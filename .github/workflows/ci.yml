@@ -30,11 +30,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run ESLint
-        run: pnpm run lint
+      - name: Build shared (for type-aware lint)
+        run: pnpm --filter @open-inspect/shared build
 
-      - name: Check Prettier formatting
-        run: pnpm run format:check
+      - name: Format check
+        run: pnpm fmt:check
+
+      - name: Lint
+        run: pnpm lint
 
   typecheck-typescript:
     name: TypeCheck (TypeScript)

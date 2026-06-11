@@ -3,10 +3,10 @@
  */
 
 import { computeHmacHex, MAX_TUNNEL_PORTS, type SandboxSettings } from "@open-inspect/shared";
+
 import { createLogger } from "../../../logger";
 import type { CorrelationContext } from "../../../logger";
 import type { SourceControlProviderName } from "../../../source-control";
-import { buildSessionConfig } from "../../sandbox-env";
 import {
   DEFAULT_SANDBOX_TIMEOUT_SECONDS,
   SandboxProviderError,
@@ -21,6 +21,8 @@ import {
   type StopConfig,
   type StopResult,
 } from "../../provider";
+import { buildSessionConfig } from "../../sandbox-env";
+import { DEFAULT_VERCEL_RUNTIME, VERCEL_PYTHON_BIN } from "./bootstrap";
 import type {
   VercelCommandResult,
   VercelCreateSandboxResponse,
@@ -29,7 +31,6 @@ import type {
   VercelVcpus,
 } from "./client";
 import { VercelSandboxApiError } from "./client";
-import { DEFAULT_VERCEL_RUNTIME, VERCEL_PYTHON_BIN } from "./bootstrap";
 
 const log = createLogger("vercel-provider");
 
@@ -320,7 +321,7 @@ export class VercelSandboxProvider implements SandboxProvider {
       repoImageSha?: string;
     }
   ): Promise<Record<string, string>> {
-    const envVars: Record<string, string> = { ...(config.userEnvVars ?? {}) };
+    const envVars: Record<string, string> = { ...config.userEnvVars };
     const sessionConfig = buildSessionConfig(config);
 
     Object.assign(envVars, {
@@ -369,7 +370,7 @@ export class VercelSandboxProvider implements SandboxProvider {
   private async buildBuildEnvVars(
     config: TriggerVercelRepoImageBuildConfig
   ): Promise<Record<string, string>> {
-    const envVars: Record<string, string> = { ...(config.userEnvVars ?? {}) };
+    const envVars: Record<string, string> = { ...config.userEnvVars };
     for (const key of RESERVED_REPO_IMAGE_CALLBACK_ENV_KEYS) {
       delete envVars[key];
     }
@@ -467,7 +468,7 @@ export class VercelSandboxProvider implements SandboxProvider {
   ): Promise<void> {
     const content =
       Object.entries(tunnelUrls)
-        .sort(([a], [b]) => Number(a) - Number(b))
+        .toSorted(([a], [b]) => Number(a) - Number(b))
         .map(([port, url]) => `TUNNEL_${port}=${url}`)
         .join("\n") + "\n";
 

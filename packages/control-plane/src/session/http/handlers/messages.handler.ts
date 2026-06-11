@@ -1,6 +1,6 @@
 import type { Logger } from "../../../logger";
-import type { EnqueuePromptRequest, MessageService } from "../../services/message.service";
 import { parseEventListCursor } from "../../event-cursor";
+import type { EnqueuePromptRequest, MessageService } from "../../services/message.service";
 
 /**
  * Valid event types for filtering.

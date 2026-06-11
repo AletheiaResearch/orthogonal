@@ -2,6 +2,7 @@
 
 import { useTheme } from "next-themes";
 import { useEffect } from "react";
+
 import {
   useSyntaxHighlightPreferences,
   HLJS_THEME_REGISTRY,

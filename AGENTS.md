@@ -56,8 +56,9 @@ pnpm run build                                   # all packages
 pnpm --filter @open-inspect/shared build         # shared only (build first!)
 
 # Lint & format
-pnpm run lint:fix                                # ESLint + Prettier fix
-pnpm run format                                  # Prettier only
+pnpm run lint:fix                                # oxlint --fix
+pnpm run fmt                                     # oxfmt
+pnpm run fmt:check                               # oxfmt --check
 pnpm run typecheck                               # tsc across all TS packages
 
 # Tests — TypeScript (Vitest)

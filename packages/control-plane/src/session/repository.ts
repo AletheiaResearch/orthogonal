@@ -6,14 +6,6 @@
  */
 
 import type {
-  SessionRow,
-  ParticipantRow,
-  MessageRow,
-  EventRow,
-  ArtifactRow,
-  SandboxRow,
-} from "./types";
-import type {
   SessionStatus,
   SandboxStatus,
   GitSyncStatus,
@@ -29,6 +21,14 @@ import {
   type EventListCursor,
   type EventTimelineCursor,
 } from "./event-cursor";
+import type {
+  SessionRow,
+  ParticipantRow,
+  MessageRow,
+  EventRow,
+  ArtifactRow,
+  SandboxRow,
+} from "./types";
 
 type TokenEvent = Extract<SandboxEvent, { type: "token" }>;
 type ExecutionCompleteEvent = Extract<SandboxEvent, { type: "execution_complete" }>;
@@ -795,7 +795,7 @@ export class SessionRepository {
     const page = this.queryEventPage(options);
     return {
       ...page,
-      events: [...page.events].reverse(),
+      events: [...page.events].toReversed(),
     };
   }
 

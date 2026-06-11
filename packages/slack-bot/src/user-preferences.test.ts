@@ -1,5 +1,6 @@
 import { getDefaultReasoningEffort } from "@open-inspect/shared";
 import { describe, expect, it, vi } from "vitest";
+
 import type { Env } from "./types";
 import { getUserPreferences, updateUserPreferences } from "./user-preferences";
 

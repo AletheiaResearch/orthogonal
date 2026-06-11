@@ -1,4 +1,5 @@
 import { isCanonicalUserId } from "@open-inspect/shared";
+
 import { controlPlaneFetch } from "@/lib/control-plane";
 
 export type CurrentUserIdentityInput = {

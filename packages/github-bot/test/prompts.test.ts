@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+
 import { buildCodeReviewPrompt, buildCommentActionPrompt } from "../src/prompts";
 
 describe("buildCodeReviewPrompt", () => {

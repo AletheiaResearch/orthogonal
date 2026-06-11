@@ -15,16 +15,14 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix"
-  },
-  "devDependencies": {
-    "typescript": "catalog:",
-    "vitest": "catalog:"
+    "test": "vitest run"
   },
   "dependencies": {
     "@octokit/webhooks-types": "catalog:",
     "cron-parser": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

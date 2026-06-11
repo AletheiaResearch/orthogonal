@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import type { SentryAutomationEvent, WebhookAutomationEvent } from "@open-inspect/shared";
 import { env } from "cloudflare:test";
+import { describe, it, expect, beforeEach } from "vitest";
+
 import {
   AutomationStore,
   type AutomationRow,
   type AutomationRunRow,
 } from "../../src/db/automation-store";
-import type { SentryAutomationEvent, WebhookAutomationEvent } from "@open-inspect/shared";
 import { cleanD1Tables } from "./cleanup";
 
 function getSchedulerStub() {

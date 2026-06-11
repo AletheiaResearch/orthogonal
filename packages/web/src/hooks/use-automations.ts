@@ -1,10 +1,10 @@
-import useSWR from "swr";
-import { useSession } from "next-auth/react";
 import type {
   Automation,
   ListAutomationsResponse,
   ListAutomationRunsResponse,
 } from "@open-inspect/shared";
+import { useSession } from "next-auth/react";
+import useSWR from "swr";
 
 export function useAutomations() {
   const { data: session } = useSession();

@@ -1,12 +1,13 @@
 import type { CallbackContext } from "@open-inspect/shared";
+
 import { SessionIndexStore } from "../db/session-index";
 import { UserStore } from "../db/user-store";
 import { createLogger } from "../logger";
 import { SessionInternalPaths } from "../session/contracts";
 import { parseAuthorId, resolveGitHubEnrichment, type GitHubEnrichment } from "../session/identity";
 import type { Env } from "../types";
-import { error, parsePattern, type Route } from "./shared";
 import { sessionRoute, type SessionRouteContext } from "./session-route";
+import { error, parsePattern, type Route } from "./shared";
 
 const logger = createLogger("router:session-prompt");
 

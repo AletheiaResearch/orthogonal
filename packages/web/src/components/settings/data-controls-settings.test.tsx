@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
 /// <reference types="@testing-library/jest-dom" />
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import * as matchers from "@testing-library/jest-dom/matchers";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import * as matchers from "@testing-library/jest-dom/matchers";
 import useSWR, { SWRConfig, mutate as globalMutate } from "swr";
-import { DataControlsSettings } from "./data-controls-settings";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { SIDEBAR_SESSIONS_KEY } from "@/lib/session-list";
+
+import { DataControlsSettings } from "./data-controls-settings";
 
 expect.extend(matchers);
 

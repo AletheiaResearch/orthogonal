@@ -16,11 +16,13 @@ import {
   type UpdateAutomationRequest,
   type AutomationTriggerType,
 } from "@open-inspect/shared";
-import { AutomationStore, toAutomation, toAutomationRun } from "../db/automation-store";
-import { UserStore } from "../db/user-store";
+
 import { generateId } from "../auth/crypto";
 import { generateWebhookApiKey, hashApiKey, encryptSentrySecret } from "../auth/webhook-key";
+import { AutomationStore, toAutomation, toAutomationRun } from "../db/automation-store";
+import { UserStore } from "../db/user-store";
 import { createLogger } from "../logger";
+import type { Env } from "../types";
 import {
   type Route,
   type RequestContext,
@@ -30,7 +32,6 @@ import {
   parseJsonBody,
   resolveRepoOrError,
 } from "./shared";
-import type { Env } from "../types";
 
 const logger = createLogger("router:automations");
 

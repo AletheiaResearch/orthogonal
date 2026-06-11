@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { Env } from "../src/types";
+
 import type { Logger } from "../src/logger";
+import type { Env } from "../src/types";
 
 vi.mock("../src/utils/internal", () => ({
   generateInternalToken: vi.fn().mockResolvedValue("test-internal-token"),

@@ -1,18 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSidebarContext } from "@/components/sidebar-layout";
+import { useState } from "react";
+
 import {
   AutomationForm,
   type AutomationFormValues,
 } from "@/components/automations/automation-form";
 import { WebhookConfig } from "@/components/automations/webhook-config";
+import { useSidebarContext } from "@/components/sidebar-layout";
 import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { SidebarIcon, BackIcon } from "@/components/ui/icons";
 import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
-import Link from "next/link";
 
 export default function NewAutomationPage() {
   const { isOpen, toggle } = useSidebarContext();
@@ -65,28 +66,28 @@ export default function NewAutomationPage() {
   // After webhook creation, show the API key with a continue button
   if (webhookResult) {
     return (
-      <div className="h-full flex flex-col">
+      <div className="flex h-full flex-col">
         {!isOpen && (
-          <header className="border-b border-border-muted flex-shrink-0">
-            <div className="px-4 py-3 flex items-center gap-2">
+          <header className="flex-shrink-0 border-b border-border-muted">
+            <div className="flex items-center gap-2 px-4 py-3">
               <button
                 onClick={toggle}
-                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition"
+                className="p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
                 title={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
                 aria-label={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
               >
-                <SidebarIcon className="w-4 h-4" />
+                <SidebarIcon className="h-4 w-4" />
               </button>
             </div>
           </header>
         )}
 
         <div className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-2xl mx-auto">
-            <h1 className="text-3xl font-semibold text-foreground mb-2">Automation Created</h1>
+          <div className="mx-auto max-w-2xl">
+            <h1 className="mb-2 text-3xl font-semibold text-foreground">Automation Created</h1>
             {webhookResult.sentryWebhookUrl ? (
               <>
-                <p className="text-sm text-muted-foreground mb-6">
+                <p className="mb-6 text-sm text-muted-foreground">
                   Configure the webhook URL below in your Sentry Custom Integration settings.
                 </p>
                 <WebhookConfig
@@ -97,7 +98,7 @@ export default function NewAutomationPage() {
               </>
             ) : (
               <>
-                <p className="text-sm text-muted-foreground mb-6">
+                <p className="mb-6 text-sm text-muted-foreground">
                   Save the webhook URL and API key below. The API key will not be shown again.
                 </p>
                 <WebhookConfig
@@ -120,32 +121,32 @@ export default function NewAutomationPage() {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex h-full flex-col">
       {!isOpen && (
-        <header className="border-b border-border-muted flex-shrink-0">
-          <div className="px-4 py-3 flex items-center gap-2">
+        <header className="flex-shrink-0 border-b border-border-muted">
+          <div className="flex items-center gap-2 px-4 py-3">
             <button
               onClick={toggle}
-              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition"
+              className="p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
               title={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
               aria-label={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
             >
-              <SidebarIcon className="w-4 h-4" />
+              <SidebarIcon className="h-4 w-4" />
             </button>
             <Link
               href="/automations"
-              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition"
+              className="p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
               aria-label="Back to automations"
             >
-              <BackIcon className="w-4 h-4" />
+              <BackIcon className="h-4 w-4" />
             </Link>
           </div>
         </header>
       )}
 
       <div className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-2xl mx-auto">
-          <h1 className="text-3xl font-semibold text-foreground mb-6">Create Automation</h1>
+        <div className="mx-auto max-w-2xl">
+          <h1 className="mb-6 text-3xl font-semibold text-foreground">Create Automation</h1>
 
           {error && (
             <ErrorBanner className="mb-4" role="alert">

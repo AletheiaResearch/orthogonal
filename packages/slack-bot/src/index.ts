@@ -5,15 +5,6 @@
  * a natural language interface to the coding agent.
  */
 
-import { Hono } from "hono";
-import type {
-  Env,
-  RepoConfig,
-  CallbackContext,
-  ThreadSession,
-  SlackInteractionPayload,
-} from "./types";
-import { stripMentions, isDmDispatchable } from "./dm-utils";
 import {
   verifySlackSignature,
   postMessage,
@@ -24,15 +15,25 @@ import {
   getUserInfo,
 } from "@open-inspect/shared";
 import { resolveUserNames } from "@open-inspect/shared";
-import { createClassifier } from "./classifier";
-import { getAvailableRepos } from "./classifier/repos";
-import { callbacksRouter } from "./callbacks";
 import { buildInternalAuthHeaders } from "@open-inspect/shared";
-import { createLogger } from "./logger";
 import { createKvCacheStore } from "@open-inspect/shared";
-import { getUserRepoBranchPreference } from "./branch-preferences";
+import { Hono } from "hono";
+
 import { setAssistantThreadStatusBestEffort } from "./activity-status";
 import { handleAppHomeInteractionRoute, publishAppHome } from "./app-home";
+import { getUserRepoBranchPreference } from "./branch-preferences";
+import { callbacksRouter } from "./callbacks";
+import { createClassifier } from "./classifier";
+import { getAvailableRepos } from "./classifier/repos";
+import { stripMentions, isDmDispatchable } from "./dm-utils";
+import { createLogger } from "./logger";
+import type {
+  Env,
+  RepoConfig,
+  CallbackContext,
+  ThreadSession,
+  SlackInteractionPayload,
+} from "./types";
 import { getResolvedUserPreferences } from "./user-preferences";
 
 const log = createLogger("handler");

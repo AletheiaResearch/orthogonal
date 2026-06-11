@@ -1,6 +1,6 @@
+import type { Logger } from "../logger";
 import type { SourceControlProvider } from "../source-control";
 import { SourceControlProviderError } from "../source-control/errors";
-import type { Logger } from "../logger";
 
 export type ScmCredentialsResult =
   | {

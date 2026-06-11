@@ -1,6 +1,6 @@
+import { MODEL_OPTIONS, DEFAULT_ENABLED_MODELS, type ModelCategory } from "@open-inspect/shared";
 import { useMemo } from "react";
 import useSWR from "swr";
-import { MODEL_OPTIONS, DEFAULT_ENABLED_MODELS, type ModelCategory } from "@open-inspect/shared";
 
 export const MODEL_PREFERENCES_KEY = "/api/model-preferences";
 

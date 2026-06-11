@@ -6,6 +6,7 @@
  */
 
 import { timingSafeEqual } from "@open-inspect/shared";
+
 import { encryptToken, decryptToken } from "./crypto";
 
 export function generateWebhookApiKey(): string {

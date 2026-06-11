@@ -1,14 +1,15 @@
-import type { Logger } from "../../../logger";
-import type { ParticipantRow, SandboxRow, SessionRow } from "../../types";
 import type { SandboxSettings } from "@open-inspect/shared";
+
+import type { Logger } from "../../../logger";
 import type { SandboxStatus, SessionStatus, SpawnSource } from "../../../types";
-import type { SessionRepository } from "../../repository";
 import { getValidModelOrDefault, isValidModel } from "../../../utils/models";
+import type { SessionRepository } from "../../repository";
 import {
   normalizeSessionTitle,
   type SessionTitleUpdateOptions,
   type SessionTitleUpdateResult,
 } from "../../title";
+import type { ParticipantRow, SandboxRow, SessionRow } from "../../types";
 
 const TERMINAL_STATUSES = new Set<SessionStatus>(["completed", "archived", "cancelled", "failed"]);
 

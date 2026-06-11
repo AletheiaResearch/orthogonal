@@ -1,9 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-import { mutate } from "swr";
-import { isUnarchivedSessionListKey } from "@/lib/session-list";
-import type { Artifact, SandboxEvent } from "@/types/session";
 import type {
   ParticipantPresence,
   SandboxEvent as SharedSandboxEvent,
@@ -13,6 +9,11 @@ import type {
   SessionState as SharedSessionState,
   VideoArtifactMetadata,
 } from "@open-inspect/shared";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { mutate } from "swr";
+
+import { isUnarchivedSessionListKey } from "@/lib/session-list";
+import type { Artifact, SandboxEvent } from "@/types/session";
 
 // WebSocket URL (should come from env in production)
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8787";

@@ -46,7 +46,7 @@ interface TriggerTypeSelectorProps {
 
 export function TriggerTypeSelector({ value, onChange, disabled }: TriggerTypeSelectorProps) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
       {TRIGGER_OPTIONS.map((option) => {
         const isSelected = value === option.type;
         const isDisabled = disabled || option.comingSoon;
@@ -57,18 +57,18 @@ export function TriggerTypeSelector({ value, onChange, disabled }: TriggerTypeSe
             type="button"
             onClick={() => !isDisabled && onChange(option.type)}
             disabled={isDisabled}
-            className={`relative rounded-md border p-3 text-left transition text-sm ${
+            className={`relative rounded-md border p-3 text-left text-sm transition ${
               isSelected
-                ? "border-accent bg-accent/5 ring-1 ring-accent"
+                ? "bg-accent/5 border-accent ring-1 ring-accent"
                 : isDisabled
-                  ? "border-border-muted bg-background/50 opacity-60 cursor-not-allowed"
-                  : "border-border hover:border-foreground/20 cursor-pointer"
+                  ? "bg-background/50 cursor-not-allowed border-border-muted opacity-60"
+                  : "hover:border-foreground/20 cursor-pointer border-border"
             }`}
           >
             <div className="font-medium text-foreground">{option.label}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">{option.description}</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">{option.description}</div>
             {option.comingSoon && (
-              <span className="absolute top-1.5 right-1.5 text-xs font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+              <span className="absolute right-1.5 top-1.5 rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
                 Soon
               </span>
             )}

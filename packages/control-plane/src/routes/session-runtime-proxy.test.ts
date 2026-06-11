@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
+
 import { SessionInternalPaths } from "../session/contracts";
-import type { RequestContext } from "./shared";
-import { sessionRuntimeProxyRoutes } from "./session-runtime-proxy";
 import type { Env } from "../types";
+import { sessionRuntimeProxyRoutes } from "./session-runtime-proxy";
+import type { RequestContext } from "./shared";
 
 function createCtx(): RequestContext {
   return {

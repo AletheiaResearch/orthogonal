@@ -2,9 +2,8 @@
  * Shared route primitives used by all route modules.
  */
 
-import type { CorrelationContext } from "../logger";
 import type { RequestMetrics } from "../db/instrumented-d1";
-import type { Env } from "../types";
+import type { CorrelationContext } from "../logger";
 import type { Logger } from "../logger";
 import {
   createSourceControlProviderFromEnv,
@@ -12,6 +11,7 @@ import {
   type SourceControlProvider,
   type RepositoryAccessResult,
 } from "../source-control";
+import type { Env } from "../types";
 
 /**
  * Request context with correlation IDs and per-request metrics.

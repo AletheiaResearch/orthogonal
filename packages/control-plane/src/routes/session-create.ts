@@ -1,15 +1,16 @@
 import { getValidModelOrDefault, isValidReasoningEffort } from "@open-inspect/shared";
+
 import { encryptTokenPair, generateId } from "../auth/crypto";
 import { DEFAULT_TOKEN_LIFETIME_MS, UserScmTokenStore } from "../db/user-scm-tokens";
 import { UserStore } from "../db/user-store";
 import { createLogger } from "../logger";
 import { parseCreateSessionInput } from "../session/create-session-input";
-import { initializeSession, type SessionInitInput } from "../session/initialize";
 import {
   deriveParticipantUserId,
   resolveGitHubEnrichment,
   resolveProviderIdentity,
 } from "../session/identity";
+import { initializeSession, type SessionInitInput } from "../session/initialize";
 import {
   resolveCodeServerEnabled,
   resolveSandboxSettings,

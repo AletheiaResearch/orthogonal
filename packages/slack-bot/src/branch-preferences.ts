@@ -1,6 +1,7 @@
-import type { Env, SlackInteractionPayload } from "./types";
-import { createLogger } from "./logger";
 import { createKvCacheStore } from "@open-inspect/shared";
+
+import { createLogger } from "./logger";
+import type { Env, SlackInteractionPayload } from "./types";
 
 const log = createLogger("branch-preferences");
 

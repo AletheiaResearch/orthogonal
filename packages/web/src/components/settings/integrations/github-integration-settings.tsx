@@ -1,8 +1,5 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import useSWR, { mutate } from "swr";
-import { toast } from "sonner";
 import {
   MODEL_REASONING_CONFIG,
   isValidReasoningEffort,
@@ -11,23 +8,10 @@ import {
   type GitHubGlobalConfig,
   type ValidModel,
 } from "@open-inspect/shared";
-import { useEnabledModels } from "@/hooks/use-enabled-models";
-import { IntegrationSettingsSkeleton } from "./integration-settings-skeleton";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { RadioCard } from "@/components/ui/form-controls";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useEffect, useState, type ReactNode } from "react";
+import { toast } from "sonner";
+import useSWR, { mutate } from "swr";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +22,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioCard } from "@/components/ui/form-controls";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { useEnabledModels } from "@/hooks/use-enabled-models";
+
+import { IntegrationSettingsSkeleton } from "./integration-settings-skeleton";
 
 const GLOBAL_SETTINGS_KEY = "/api/integration-settings/github";
 const REPO_SETTINGS_KEY = "/api/integration-settings/github/repos";
@@ -78,8 +80,8 @@ export function GitHubIntegrationSettings() {
 
   return (
     <div>
-      <h3 className="text-lg font-semibold text-foreground mb-1">GitHub Bot</h3>
-      <p className="text-sm text-muted-foreground mb-6">
+      <h3 className="mb-1 text-lg font-semibold text-foreground">GitHub Bot</h3>
+      <p className="mb-6 text-sm text-muted-foreground">
         Configure automated PR reviews and comment-triggered actions.
       </p>
 
@@ -92,7 +94,7 @@ export function GitHubIntegrationSettings() {
             Repository access is available. You can limit the bot to selected repositories below.
           </p>
         ) : (
-          <p className="text-sm text-warning bg-warning-muted border border-warning/20 px-4 py-3 rounded-sm">
+          <p className="border-warning/20 rounded-sm border bg-warning-muted px-4 py-3 text-sm text-warning">
             GitHub App is not configured or has no accessible repositories. Repository filtering is
             currently unavailable.
           </p>
@@ -266,11 +268,11 @@ function GlobalSettingsSection({
 
       <label
         htmlFor="auto-review-toggle"
-        className="flex items-center justify-between px-4 py-3 border border-border hover:bg-muted/50 transition cursor-pointer mb-4 rounded-sm"
+        className="hover:bg-muted/50 mb-4 flex cursor-pointer items-center justify-between rounded-sm border border-border px-4 py-3 transition"
       >
         <div>
           <span className="text-sm font-medium text-foreground">Auto-review new PRs</span>
-          <span className="text-sm text-muted-foreground ml-2">
+          <span className="ml-2 text-sm text-muted-foreground">
             Automatically review non-draft PRs when opened
           </span>
         </div>
@@ -286,8 +288,8 @@ function GlobalSettingsSection({
       </label>
 
       <div className="mb-4">
-        <p className="text-sm font-medium text-foreground mb-2">Repository Scope</p>
-        <div className="grid sm:grid-cols-2 gap-2 mb-3">
+        <p className="mb-2 text-sm font-medium text-foreground">Repository Scope</p>
+        <div className="mb-3 grid gap-2 sm:grid-cols-2">
           <RadioCard
             name="repo-scope"
             checked={repoScopeMode === "all"}
@@ -315,11 +317,11 @@ function GlobalSettingsSection({
         {repoScopeMode === "selected" && (
           <>
             {availableRepos.length === 0 ? (
-              <p className="text-sm text-muted-foreground px-4 py-3 border border-border rounded-sm">
+              <p className="rounded-sm border border-border px-4 py-3 text-sm text-muted-foreground">
                 Repository filtering is unavailable because no repositories are accessible.
               </p>
             ) : (
-              <div className="border border-border max-h-56 overflow-y-auto rounded-sm">
+              <div className="max-h-56 overflow-y-auto rounded-sm border border-border">
                 {availableRepos.map((repo) => {
                   const fullName = repo.fullName.toLowerCase();
                   const isChecked = enabledRepos.includes(fullName);
@@ -327,7 +329,7 @@ function GlobalSettingsSection({
                   return (
                     <label
                       key={repo.fullName}
-                      className="flex items-center gap-2 px-4 py-2 hover:bg-muted/50 transition cursor-pointer text-sm"
+                      className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm transition"
                     >
                       <Checkbox
                         checked={isChecked}
@@ -341,7 +343,7 @@ function GlobalSettingsSection({
             )}
 
             {enabledRepos.length === 0 && availableRepos.length > 0 && (
-              <p className="text-xs text-warning mt-1">
+              <p className="mt-1 text-xs text-warning">
                 No repositories selected. The bot will not respond to webhooks.
               </p>
             )}
@@ -350,8 +352,8 @@ function GlobalSettingsSection({
       </div>
 
       <div className="mb-4">
-        <p className="text-sm font-medium text-foreground mb-2">Allowed Trigger Users</p>
-        <div className="grid sm:grid-cols-2 gap-2 mb-3">
+        <p className="mb-2 text-sm font-medium text-foreground">Allowed Trigger Users</p>
+        <div className="mb-3 grid gap-2 sm:grid-cols-2">
           <RadioCard
             name="trigger-users"
             checked={triggerUserMode === "write_access"}
@@ -378,7 +380,7 @@ function GlobalSettingsSection({
 
         {triggerUserMode === "specific" && (
           <>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="mb-2 flex items-center gap-2">
               <Input
                 value={newUsername}
                 onChange={(e) => setNewUsername(e.target.value)}
@@ -389,7 +391,7 @@ function GlobalSettingsSection({
                   }
                 }}
                 placeholder="GitHub username"
-                className="flex-1 h-8"
+                className="h-8 flex-1"
               />
               <Button size="sm" onClick={addUsername} disabled={!newUsername.trim()}>
                 Add
@@ -397,11 +399,11 @@ function GlobalSettingsSection({
             </div>
 
             {allowedTriggerUsers.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-2">
+              <div className="mb-2 flex flex-wrap gap-1.5">
                 {allowedTriggerUsers.map((user) => (
                   <span
                     key={user}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 text-sm bg-muted text-foreground rounded-sm border border-border"
+                    className="inline-flex items-center gap-1 rounded-sm border border-border bg-muted px-2 py-0.5 text-sm text-foreground"
                   >
                     {user}
                     <button
@@ -411,7 +413,7 @@ function GlobalSettingsSection({
                         setDirty(true);
                         setError("");
                       }}
-                      className="text-muted-foreground hover:text-foreground ml-0.5"
+                      className="ml-0.5 text-muted-foreground hover:text-foreground"
                       aria-label={`Remove ${user}`}
                     >
                       &times;
@@ -422,7 +424,7 @@ function GlobalSettingsSection({
             )}
 
             {allowedTriggerUsers.length === 0 && (
-              <p className="text-xs text-warning mt-1">
+              <p className="mt-1 text-xs text-warning">
                 No users configured. The bot will not respond to any manual triggers (such as
                 @mentions or review requests).
               </p>
@@ -432,10 +434,10 @@ function GlobalSettingsSection({
       </div>
 
       <div className="mb-4">
-        <label className="block text-sm font-medium text-foreground mb-1">
+        <label className="mb-1 block text-sm font-medium text-foreground">
           Code Review Instructions
         </label>
-        <p className="text-xs text-muted-foreground mb-2">
+        <p className="mb-2 text-xs text-muted-foreground">
           Custom instructions appended to code review prompts. Use this to focus reviews on specific
           areas or coding standards.
         </p>
@@ -453,10 +455,10 @@ function GlobalSettingsSection({
       </div>
 
       <div className="mb-4">
-        <label className="block text-sm font-medium text-foreground mb-1">
+        <label className="mb-1 block text-sm font-medium text-foreground">
           Comment Action Instructions
         </label>
-        <p className="text-xs text-muted-foreground mb-2">
+        <p className="mb-2 text-xs text-muted-foreground">
           Custom instructions appended to comment action prompts (@mention responses). Use this to
           guide how the bot responds to comments.
         </p>
@@ -549,7 +551,7 @@ function RepoOverridesSection({
   return (
     <div>
       {overrides.length > 0 ? (
-        <div className="space-y-2 mb-4">
+        <div className="mb-4 space-y-2">
           {overrides.map((entry) => (
             <RepoOverrideRow
               key={entry.repo}
@@ -560,7 +562,7 @@ function RepoOverridesSection({
           ))}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground mb-4">
+        <p className="mb-4 text-sm text-muted-foreground">
           No repository overrides yet. Add one to customize model behavior per repo.
         </p>
       )}
@@ -709,14 +711,14 @@ function RepoOverrideRow({
   };
 
   return (
-    <div className="px-4 py-3 border border-border rounded-sm space-y-2">
+    <div className="space-y-2 rounded-sm border border-border px-4 py-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium text-foreground min-w-[180px] truncate">
+        <span className="min-w-[180px] truncate text-sm font-medium text-foreground">
           {entry.repo}
         </span>
 
         <Select value={model} onValueChange={handleModelChange}>
-          <SelectTrigger density="compact" className="flex-1 min-w-[180px]">
+          <SelectTrigger density="compact" className="min-w-[180px] flex-1">
             <SelectValue placeholder="Default model" />
           </SelectTrigger>
           <SelectContent>
@@ -764,8 +766,8 @@ function RepoOverrideRow({
       </div>
 
       <div>
-        <p className="text-xs font-medium text-muted-foreground mb-1">Auto-review new PRs</p>
-        <div className="flex items-center gap-2 mb-1">
+        <p className="mb-1 text-xs font-medium text-muted-foreground">Auto-review new PRs</p>
+        <div className="mb-1 flex items-center gap-2">
           <Select value={autoReviewMode} onValueChange={handleAutoReviewModeChange}>
             <SelectTrigger density="compact" className="w-48">
               <SelectValue />
@@ -791,8 +793,8 @@ function RepoOverrideRow({
       </div>
 
       <div>
-        <p className="text-xs font-medium text-muted-foreground mb-1">Allowed Trigger Users</p>
-        <div className="flex items-center gap-2 mb-1">
+        <p className="mb-1 text-xs font-medium text-muted-foreground">Allowed Trigger Users</p>
+        <div className="mb-1 flex items-center gap-2">
           <Select
             value={triggerUserMode}
             onValueChange={(v: "global" | "override") => {
@@ -812,7 +814,7 @@ function RepoOverrideRow({
 
         {triggerUserMode === "override" && (
           <>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="mb-1 flex items-center gap-2">
               <Input
                 value={newUsername}
                 onChange={(e) => setNewUsername(e.target.value)}
@@ -823,7 +825,7 @@ function RepoOverrideRow({
                   }
                 }}
                 placeholder="GitHub username"
-                className="flex-1 h-auto px-2 py-1 text-xs"
+                className="h-auto flex-1 px-2 py-1 text-xs"
               />
               <Button size="sm" onClick={addRepoUsername} disabled={!newUsername.trim()}>
                 Add
@@ -835,7 +837,7 @@ function RepoOverrideRow({
                 {allowedTriggerUsers.map((user) => (
                   <span
                     key={user}
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs bg-muted text-foreground rounded-sm border border-border"
+                    className="inline-flex items-center gap-1 rounded-sm border border-border bg-muted px-1.5 py-0.5 text-xs text-foreground"
                   >
                     {user}
                     <button
@@ -844,7 +846,7 @@ function RepoOverrideRow({
                         setAllowedTriggerUsers((prev) => prev.filter((u) => u !== user));
                         setDirty(true);
                       }}
-                      className="text-muted-foreground hover:text-foreground ml-0.5"
+                      className="ml-0.5 text-muted-foreground hover:text-foreground"
                       aria-label={`Remove ${user}`}
                     >
                       &times;
@@ -864,8 +866,8 @@ function RepoOverrideRow({
       </div>
 
       <div>
-        <p className="text-xs font-medium text-muted-foreground mb-1">Code Review Instructions</p>
-        <div className="flex items-center gap-2 mb-1">
+        <p className="mb-1 text-xs font-medium text-muted-foreground">Code Review Instructions</p>
+        <div className="mb-1 flex items-center gap-2">
           <Select
             value={codeReviewMode}
             onValueChange={(v: "global" | "override") => {
@@ -891,16 +893,16 @@ function RepoOverrideRow({
             }}
             rows={2}
             placeholder="Custom review instructions for this repo..."
-            className="px-2 py-1 text-xs resize-y"
+            className="resize-y px-2 py-1 text-xs"
           />
         )}
       </div>
 
       <div>
-        <p className="text-xs font-medium text-muted-foreground mb-1">
+        <p className="mb-1 text-xs font-medium text-muted-foreground">
           Comment Action Instructions
         </p>
-        <div className="flex items-center gap-2 mb-1">
+        <div className="mb-1 flex items-center gap-2">
           <Select
             value={commentActionMode}
             onValueChange={(v: "global" | "override") => {
@@ -926,7 +928,7 @@ function RepoOverrideRow({
             }}
             rows={2}
             placeholder="Custom comment action instructions for this repo..."
-            className="px-2 py-1 text-xs resize-y"
+            className="resize-y px-2 py-1 text-xs"
           />
         )}
       </div>
@@ -944,11 +946,11 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="border border-border-muted rounded-md p-5 mb-5">
-      <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-1">
+    <section className="mb-5 rounded-md border border-border-muted p-5">
+      <h4 className="mb-1 text-sm font-semibold uppercase tracking-wider text-foreground">
         {title}
       </h4>
-      <p className="text-sm text-muted-foreground mb-4">{description}</p>
+      <p className="mb-4 text-sm text-muted-foreground">{description}</p>
       {children}
     </section>
   );

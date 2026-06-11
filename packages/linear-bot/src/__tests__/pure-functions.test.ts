@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
+
+import { isValidPayload, verifyCallbackSignature } from "../callbacks";
+import { buildOAuthSuccessHtml } from "../index";
 import {
   extractModelFromLabels,
   resolveSessionModelSettings,
   resolveStaticRepo,
 } from "../model-resolution";
-import { isValidPayload, verifyCallbackSignature } from "../callbacks";
-import { buildOAuthSuccessHtml } from "../index";
 import type { CompletionCallback } from "../types";
 
 describe("buildOAuthSuccessHtml", () => {

@@ -8,6 +8,7 @@
  */
 
 import { computeHmacHex } from "@open-inspect/shared";
+
 import type { Logger } from "../logger";
 import type { SessionRow } from "./types";
 

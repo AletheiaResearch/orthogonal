@@ -3,12 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@11.5.2",
   "scripts": {
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
     "test": "pnpm -r run test",
     "test:coverage": "pnpm -r run test:coverage",
     "test:integration": "pnpm -r run test:integration",
@@ -17,31 +16,23 @@
     "prepare": "node -e \"if (process.env.CI) process.exit(0)\" && husky"
   },
   "devDependencies": {
-    "@eslint/js": "catalog:",
+    "@orthogonal/tooling-configs": "workspace:*",
     "@types/node": "catalog:",
-    "eslint": "catalog:",
-    "eslint-config-prettier": "catalog:",
-    "eslint-plugin-react": "catalog:",
-    "eslint-plugin-react-hooks": "catalog:",
-    "globals": "catalog:",
     "husky": "catalog:",
     "lint-staged": "catalog:",
-    "prettier": "catalog:",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "oxlint-tsgolint": "catalog:",
     "typescript": "catalog:",
-    "typescript-eslint": "catalog:",
     "wrangler": "catalog:"
-  },
-  "engines": {
-    "node": ">=20.0.0",
-    "pnpm": ">=11.3.0"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
-      "eslint --fix",
-      "prettier --write"
+      "oxlint --fix",
+      "oxfmt"
     ],
     "*.{js,jsx,json,md,yaml,yml,css}": [
-      "prettier --write"
+      "oxfmt"
     ],
     "packages/modal-infra/**/*.py": [
       "ruff check --fix",
@@ -51,5 +42,10 @@
       "ruff check --fix",
       "ruff format"
     ]
-  }
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=11.3.0"
+  },
+  "packageManager": "pnpm@11.5.2"
 }

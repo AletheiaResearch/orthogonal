@@ -1,7 +1,7 @@
 "use client";
 
-import type { Artifact } from "@/types/session";
 import { ScreenshotArtifactCard } from "@/components/screenshot-artifact-card";
+import type { Artifact } from "@/types/session";
 
 interface MediaSectionProps {
   sessionId: string;

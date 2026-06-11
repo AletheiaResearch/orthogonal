@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { UserScmTokenStore } from "./user-scm-tokens";
+
 import { generateEncryptionKey } from "../auth/crypto";
+import { UserScmTokenStore } from "./user-scm-tokens";
 
 type ScmTokenRow = {
   provider_user_id: string;

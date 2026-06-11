@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { RepoImageStore } from "./repo-images";
 
 type RepoImageRow = {
@@ -159,7 +160,7 @@ class FakeD1Database {
           results.push({ ...row });
         }
       }
-      return results.sort((a, b) => b.created_at - a.created_at).slice(0, 10);
+      return results.toSorted((a, b) => b.created_at - a.created_at).slice(0, 10);
     }
 
     if (QUERY_PATTERNS.SELECT_ALL_STATUS.test(normalized)) {
@@ -167,7 +168,7 @@ class FakeD1Database {
       for (const row of this.rows.values()) {
         results.push({ ...row });
       }
-      return results.sort((a, b) => b.created_at - a.created_at).slice(0, 100);
+      return results.toSorted((a, b) => b.created_at - a.created_at).slice(0, 100);
     }
 
     throw new Error(`Unexpected all() query: ${normalized}`);

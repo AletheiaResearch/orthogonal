@@ -1,6 +1,7 @@
-import type { Env } from "../types";
-import type { Logger } from "../logger";
 import { buildInternalAuthHeaders } from "@open-inspect/shared";
+
+import type { Logger } from "../logger";
+import type { Env } from "../types";
 
 export interface ResolvedGitHubConfig {
   model: string;

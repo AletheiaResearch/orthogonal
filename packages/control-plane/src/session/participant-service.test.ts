@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+
+import type { UserScmTokenStore, ScmTokenRecord, CasResult } from "../db/user-scm-tokens";
 import type { Logger } from "../logger";
-import type { ParticipantRow } from "./types";
 import {
   ParticipantService,
   getAvatarUrl,
@@ -8,7 +9,7 @@ import {
   type ParticipantServiceDeps,
   type ParticipantServiceEnv,
 } from "./participant-service";
-import type { UserScmTokenStore, ScmTokenRecord, CasResult } from "../db/user-scm-tokens";
+import type { ParticipantRow } from "./types";
 
 // ---- Module-level mocks for centralized refresh tests ----
 
@@ -24,8 +25,8 @@ vi.mock("../auth/github", () => ({
   refreshAccessToken: vi.fn(),
 }));
 
-import { refreshAccessToken } from "../auth/github";
 import { decryptToken } from "../auth/crypto";
+import { refreshAccessToken } from "../auth/github";
 
 // ---- Mock factories ----
 

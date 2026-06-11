@@ -1,7 +1,8 @@
 import type { McpServerConfig } from "@open-inspect/shared";
+
 import { McpServerStore, McpServerValidationError } from "../db/mcp-servers";
-import type { Env } from "../types";
 import { createLogger } from "../logger";
+import type { Env } from "../types";
 import { type Route, type RequestContext, parsePattern, json, error } from "./shared";
 
 const logger = createLogger("router:mcp-servers");

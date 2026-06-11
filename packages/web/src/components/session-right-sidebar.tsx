@@ -1,6 +1,14 @@
 "use client";
 
+import type { ParticipantPresence, SessionState } from "@open-inspect/shared";
 import { useMemo } from "react";
+
+import { TerminalIcon, LinkIcon } from "@/components/ui/icons";
+import { extractChangedFiles } from "@/lib/files";
+import { extractLatestTasks } from "@/lib/tasks";
+import { buildAuthenticatedUrl } from "@/lib/urls";
+import type { Artifact, SandboxEvent } from "@/types/session";
+
 import {
   CollapsibleSection,
   ParticipantsSection,
@@ -12,12 +20,6 @@ import {
   TunnelUrlsSection,
 } from "./sidebar";
 import { ChildSessionsSection } from "./sidebar/child-sessions-section";
-import { TerminalIcon, LinkIcon } from "@/components/ui/icons";
-import { buildAuthenticatedUrl } from "@/lib/urls";
-import { extractLatestTasks } from "@/lib/tasks";
-import { extractChangedFiles } from "@/lib/files";
-import type { Artifact, SandboxEvent } from "@/types/session";
-import type { ParticipantPresence, SessionState } from "@open-inspect/shared";
 
 interface SessionRightSidebarProps {
   sessionId: string;
@@ -58,9 +60,9 @@ export function SessionRightSidebarContent({
     return (
       <div className="p-4">
         <div className="animate-pulse space-y-4">
-          <div className="h-4 bg-muted w-3/4 rounded" />
-          <div className="h-4 bg-muted w-1/2 rounded" />
-          <div className="h-4 bg-muted w-2/3 rounded" />
+          <div className="h-4 w-3/4 rounded bg-muted" />
+          <div className="h-4 w-1/2 rounded bg-muted" />
+          <div className="h-4 w-2/3 rounded bg-muted" />
         </div>
       </div>
     );
@@ -69,12 +71,12 @@ export function SessionRightSidebarContent({
   return (
     <>
       {/* Participants */}
-      <div className="px-4 py-4 border-b border-border-muted">
+      <div className="border-b border-border-muted px-4 py-4">
         <ParticipantsSection participants={participants} />
       </div>
 
       {/* Metadata */}
-      <div className="px-4 py-4 border-b border-border-muted">
+      <div className="border-b border-border-muted px-4 py-4">
         <MetadataSection
           createdAt={sessionState.createdAt}
           model={sessionState.model}
@@ -91,7 +93,7 @@ export function SessionRightSidebarContent({
 
       {/* Code Server */}
       {sessionState.codeServerUrl && (
-        <div className="px-4 py-4 border-b border-border-muted">
+        <div className="border-b border-border-muted px-4 py-4">
           <CodeServerSection
             url={sessionState.codeServerUrl}
             password={sessionState.codeServerPassword ?? null}
@@ -102,7 +104,7 @@ export function SessionRightSidebarContent({
 
       {/* Terminal */}
       {sessionState.ttydUrl && terminalUrl && (
-        <div className="px-4 py-4 border-b border-border-muted">
+        <div className="border-b border-border-muted px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <TerminalIcon className="h-4 w-4" />
@@ -113,7 +115,7 @@ export function SessionRightSidebarContent({
                 href={terminalUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-1 text-muted-foreground hover:text-foreground transition"
+                className="p-1 text-muted-foreground transition hover:text-foreground"
                 title="Open in new tab"
               >
                 <LinkIcon className="h-3.5 w-3.5" />
@@ -130,7 +132,7 @@ export function SessionRightSidebarContent({
 
       {/* Tunnel URLs */}
       {sessionState.tunnelUrls && Object.keys(sessionState.tunnelUrls).length > 0 && (
-        <div className="px-4 py-4 border-b border-border-muted">
+        <div className="border-b border-border-muted px-4 py-4">
           <TunnelUrlsSection
             urls={sessionState.tunnelUrls}
             sandboxStatus={sessionState.sandboxStatus}
@@ -189,7 +191,7 @@ export function SessionRightSidebar({
   onOpenMedia,
 }: SessionRightSidebarProps) {
   return (
-    <aside className="w-80 border-l border-border-muted overflow-y-auto hidden lg:block">
+    <aside className="hidden w-80 overflow-y-auto border-l border-border-muted lg:block">
       <SessionRightSidebarContent
         sessionId={sessionId}
         sessionState={sessionState}

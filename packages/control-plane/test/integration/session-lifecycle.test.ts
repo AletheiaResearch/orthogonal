@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
 import { runInDurableObject } from "cloudflare:test";
+import { describe, it, expect } from "vitest";
+
 import type { SessionDO } from "../../src/session/durable-object";
 import { initSession, seedSandboxAuthHash } from "./helpers";
 

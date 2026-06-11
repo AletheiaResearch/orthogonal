@@ -1,4 +1,8 @@
 import { buildInternalAuthHeaders, resolveAppName } from "@open-inspect/shared";
+
+import { generateInstallationToken, postReaction, checkSenderPermission } from "./github-auth";
+import type { Logger } from "./logger";
+import { buildCodeReviewPrompt, buildCommentActionPrompt } from "./prompts";
 import type {
   Env,
   PullRequestOpenedPayload,
@@ -6,9 +10,6 @@ import type {
   IssueCommentPayload,
   ReviewCommentPayload,
 } from "./types";
-import type { Logger } from "./logger";
-import { generateInstallationToken, postReaction, checkSenderPermission } from "./github-auth";
-import { buildCodeReviewPrompt, buildCommentActionPrompt } from "./prompts";
 import { getGitHubConfig, type ResolvedGitHubConfig } from "./utils/integration-config";
 
 export type HandlerResult =

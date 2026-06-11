@@ -1,9 +1,5 @@
 "use client";
 
-import type { SandboxEvent } from "@/types/session";
-import { formatSessionEventTime } from "@/lib/time";
-import { formatToolCall } from "@/lib/tool-formatters";
-import { SlackNotifyEvent } from "./slack-notify-event";
 import {
   ChevronRightIcon,
   FileIcon,
@@ -15,6 +11,11 @@ import {
   BoxIcon,
   GlobeIcon,
 } from "@/components/ui/icons";
+import { formatSessionEventTime } from "@/lib/time";
+import { formatToolCall } from "@/lib/tool-formatters";
+import type { SandboxEvent } from "@/types/session";
+
+import { SlackNotifyEvent } from "./slack-notify-event";
 
 interface ToolCallItemProps {
   event: Extract<SandboxEvent, { type: "tool_call" }>;
@@ -78,10 +79,10 @@ export function ToolCallItem({ event, isExpanded, onToggle, showTime = true }: T
     <div className="py-0.5">
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-1.5 text-sm text-left text-muted-foreground hover:text-foreground transition-colors"
+        className="flex w-full items-center gap-1.5 text-left text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ChevronRightIcon
-          className={`w-3.5 h-3.5 text-secondary-foreground transition-transform duration-200 ${
+          className={`h-3.5 w-3.5 text-secondary-foreground transition-transform duration-200 ${
             isExpanded ? "rotate-90" : ""
           }`}
         />
@@ -90,32 +91,32 @@ export function ToolCallItem({ event, isExpanded, onToggle, showTime = true }: T
           {formatted.toolName} {formatted.summary}
         </span>
         {showTime && (
-          <span className="text-xs text-secondary-foreground flex-shrink-0 ml-auto">{time}</span>
+          <span className="ml-auto flex-shrink-0 text-xs text-secondary-foreground">{time}</span>
         )}
       </button>
 
       {isExpanded && (
-        <div className="mt-2 ml-5 p-3 bg-card border border-border-muted text-xs overflow-hidden">
+        <div className="ml-5 mt-2 overflow-hidden border border-border-muted bg-card p-3 text-xs">
           {hasNonPatchArgs && (
             <div className="mb-2">
-              <div className="text-muted-foreground mb-1 font-medium">Arguments:</div>
-              <pre className="overflow-x-auto text-foreground whitespace-pre-wrap">
+              <div className="mb-1 font-medium text-muted-foreground">Arguments:</div>
+              <pre className="overflow-x-auto whitespace-pre-wrap text-foreground">
                 {JSON.stringify(nonPatchArgs, null, 2)}
               </pre>
             </div>
           )}
           {patchText && (
             <div className="mb-2">
-              <div className="text-muted-foreground mb-1 font-medium">Patch:</div>
-              <pre className="overflow-x-auto max-h-64 text-foreground whitespace-pre-wrap">
+              <div className="mb-1 font-medium text-muted-foreground">Patch:</div>
+              <pre className="max-h-64 overflow-x-auto whitespace-pre-wrap text-foreground">
                 {patchText}
               </pre>
             </div>
           )}
           {output && (
             <div>
-              <div className="text-muted-foreground mb-1 font-medium">Output:</div>
-              <pre className="overflow-x-auto max-h-48 text-foreground whitespace-pre-wrap">
+              <div className="mb-1 font-medium text-muted-foreground">Output:</div>
+              <pre className="max-h-48 overflow-x-auto whitespace-pre-wrap text-foreground">
                 {output}
               </pre>
             </div>

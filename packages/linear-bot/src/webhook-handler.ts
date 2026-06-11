@@ -3,6 +3,22 @@
  * Extracted from index.ts for modularity.
  */
 
+import { classifyRepo } from "./classifier";
+import { getAvailableRepos } from "./classifier/repos";
+import {
+  getTeamRepoMapping,
+  getProjectRepoMapping,
+  getUserPreferences,
+  lookupIssueSession,
+  storeIssueSession,
+} from "./kv-store";
+import { createLogger } from "./logger";
+import {
+  resolveStaticRepo,
+  extractModelFromLabels,
+  resolveSessionModelSettings,
+} from "./model-resolution";
+import { makePlan } from "./plan";
 import type {
   Env,
   CallbackContext,
@@ -10,6 +26,8 @@ import type {
   AgentSessionWebhook,
   AgentSessionWebhookIssue,
 } from "./types";
+import { getLinearConfig } from "./utils/integration-config";
+import { buildInternalAuthHeaders } from "./utils/internal";
 import {
   getLinearClient,
   emitAgentActivity,
@@ -18,24 +36,6 @@ import {
   updateAgentSession,
   getRepoSuggestions,
 } from "./utils/linear-client";
-import { buildInternalAuthHeaders } from "./utils/internal";
-import { classifyRepo } from "./classifier";
-import { getAvailableRepos } from "./classifier/repos";
-import { getLinearConfig } from "./utils/integration-config";
-import { createLogger } from "./logger";
-import { makePlan } from "./plan";
-import {
-  resolveStaticRepo,
-  extractModelFromLabels,
-  resolveSessionModelSettings,
-} from "./model-resolution";
-import {
-  getTeamRepoMapping,
-  getProjectRepoMapping,
-  getUserPreferences,
-  lookupIssueSession,
-  storeIssueSession,
-} from "./kv-store";
 
 const log = createLogger("handler");
 

@@ -1,13 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { formatModelName, truncateBranch, copyToClipboard } from "@/lib/format";
-import { formatSessionCost } from "@/lib/session-cost";
-import { formatRelativeTime } from "@/lib/time";
-import { getSafeExternalUrl } from "@/lib/urls";
-import { getScmBranchUrl, getScmRepoUrl } from "@/lib/scm";
-import type { Artifact } from "@/types/session";
+import { useState } from "react";
+
+import { Badge, prBadgeVariant } from "@/components/ui/badge";
 import {
   ClockIcon,
   SparkleIcon,
@@ -18,7 +14,12 @@ import {
   CheckIcon,
   LinkIcon,
 } from "@/components/ui/icons";
-import { Badge, prBadgeVariant } from "@/components/ui/badge";
+import { formatModelName, truncateBranch, copyToClipboard } from "@/lib/format";
+import { getScmBranchUrl, getScmRepoUrl } from "@/lib/scm";
+import { formatSessionCost } from "@/lib/session-cost";
+import { formatRelativeTime } from "@/lib/time";
+import { getSafeExternalUrl } from "@/lib/urls";
+import type { Artifact } from "@/types/session";
 
 interface MetadataSectionProps {
   createdAt: number;
@@ -73,14 +74,14 @@ export function MetadataSection({
     <div className="space-y-3">
       {/* Timestamp */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <ClockIcon className="w-4 h-4" />
+        <ClockIcon className="h-4 w-4" />
         <span>{formatRelativeTime(createdAt)}</span>
       </div>
 
       {/* Parent session */}
       {parentSessionId && (
         <div className="flex items-center gap-2 text-sm">
-          <LinkIcon className="w-4 h-4 text-muted-foreground" />
+          <LinkIcon className="h-4 w-4 text-muted-foreground" />
           <Link href={`/session/${parentSessionId}`} className="text-accent hover:underline">
             Parent session
           </Link>
@@ -90,7 +91,7 @@ export function MetadataSection({
       {/* Model */}
       {model && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <SparkleIcon className="w-4 h-4" />
+          <SparkleIcon className="h-4 w-4" />
           <span>
             {formatModelName(model)}
             {reasoningEffort && <span> · {reasoningEffort}</span>}
@@ -107,7 +108,7 @@ export function MetadataSection({
       {/* PR Badge */}
       {(prNumber || prUrl) && (
         <div className="flex items-center gap-2 text-sm">
-          <RepoIcon className="w-4 h-4 text-muted-foreground" />
+          <RepoIcon className="h-4 w-4 text-muted-foreground" />
           {prUrl ? (
             <a
               href={prUrl}
@@ -131,19 +132,19 @@ export function MetadataSection({
       {/* Base Branch */}
       {baseBranch && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <BranchIcon className="w-4 h-4" />
+          <BranchIcon className="h-4 w-4" />
           {repoOwner && repoName ? (
             <a
               href={getScmBranchUrl(repoOwner, repoName, baseBranch)}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-accent truncate max-w-[180px] hover:underline"
+              className="max-w-[180px] truncate text-accent hover:underline"
               title={baseBranch}
             >
               {truncateBranch(baseBranch)}
             </a>
           ) : (
-            <span className="truncate max-w-[180px]" title={baseBranch}>
+            <span className="max-w-[180px] truncate" title={baseBranch}>
               {truncateBranch(baseBranch)}
             </span>
           )}
@@ -153,31 +154,31 @@ export function MetadataSection({
       {/* Working Branch */}
       {branchName && (
         <div className="flex items-center gap-2 text-sm">
-          <GitPrIcon className="w-4 h-4 text-muted-foreground" />
+          <GitPrIcon className="h-4 w-4 text-muted-foreground" />
           {branchUrl ? (
             <a
               href={branchUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-accent truncate max-w-[180px] hover:underline"
+              className="max-w-[180px] truncate text-accent hover:underline"
               title={branchName}
             >
               {truncateBranch(branchName)}
             </a>
           ) : (
-            <span className="text-foreground truncate max-w-[180px]" title={branchName}>
+            <span className="max-w-[180px] truncate text-foreground" title={branchName}>
               {truncateBranch(branchName)}
             </span>
           )}
           <button
             onClick={handleCopyBranch}
-            className="p-1 hover:bg-muted transition-colors"
+            className="p-1 transition-colors hover:bg-muted"
             title={copied ? "Copied!" : "Copy branch name"}
           >
             {copied ? (
-              <CheckIcon className="w-3.5 h-3.5 text-success" />
+              <CheckIcon className="h-3.5 w-3.5 text-success" />
             ) : (
-              <CopyIcon className="w-3.5 h-3.5 text-secondary-foreground" />
+              <CopyIcon className="h-3.5 w-3.5 text-secondary-foreground" />
             )}
           </button>
         </div>
@@ -186,7 +187,7 @@ export function MetadataSection({
       {/* Repository tag */}
       {repoOwner && repoName && (
         <div className="flex items-center gap-2 text-sm">
-          <RepoIcon className="w-4 h-4 text-muted-foreground" />
+          <RepoIcon className="h-4 w-4 text-muted-foreground" />
           <a
             href={getScmRepoUrl(repoOwner, repoName)}
             target="_blank"

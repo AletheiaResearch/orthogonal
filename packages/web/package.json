@@ -8,8 +8,6 @@
     "build:cloudflare": "npx opennextjs-cloudflare build",
     "deploy:cloudflare": "npx opennextjs-cloudflare deploy",
     "start": "next start",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -55,6 +53,7 @@
   },
   "devDependencies": {
     "@opennextjs/cloudflare": "catalog:",
+    "@orthogonal/tooling-configs": "workspace:*",
     "@testing-library/jest-dom": "catalog:",
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "catalog:",

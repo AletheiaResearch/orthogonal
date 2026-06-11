@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+
 import { matchGlob } from "./glob";
 
 describe("matchGlob", () => {

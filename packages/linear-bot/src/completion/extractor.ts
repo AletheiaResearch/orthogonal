@@ -6,10 +6,11 @@
  * The Linear-specific `formatAgentResponse` remains here.
  */
 
-import type { Env } from "../types";
 import type { AgentResponse } from "@open-inspect/shared";
 import { extractAgentResponse as sharedExtract } from "@open-inspect/shared";
+
 import { createLogger } from "../logger";
+import type { Env } from "../types";
 
 const log = createLogger("extractor");
 

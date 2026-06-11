@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
+
+import { generateEncryptionKey } from "../auth/crypto";
 import { GlobalSecretsStore } from "./global-secrets";
 import { SecretsValidationError } from "./secrets-validation";
-import { generateEncryptionKey } from "../auth/crypto";
 
 type GlobalSecretRow = {
   key: string;
@@ -34,7 +35,7 @@ class FakeD1Database {
 
     if (QUERY_PATTERNS.SELECT_KEYS_WITH_METADATA.test(normalized)) {
       return Array.from(this.rows.values())
-        .sort((a, b) => a.key.localeCompare(b.key))
+        .toSorted((a, b) => a.key.localeCompare(b.key))
         .map((row) => ({
           key: row.key,
           created_at: row.created_at,

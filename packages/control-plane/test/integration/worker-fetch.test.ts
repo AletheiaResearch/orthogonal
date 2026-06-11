@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
 import { SELF, env } from "cloudflare:test";
+import { describe, it, expect } from "vitest";
+
 import { generateInternalToken } from "../../src/auth/internal";
 
 async function authHeaders(): Promise<Record<string, string>> {

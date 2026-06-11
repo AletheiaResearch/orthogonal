@@ -1,27 +1,22 @@
 "use client";
 
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { mutate } from "swr";
-import { useState, useEffect, useRef, useCallback } from "react";
-import Link from "next/link";
-import { useSidebarContext } from "@/components/sidebar-layout";
-import { Button } from "@/components/ui/button";
-import { ErrorBanner } from "@/components/ui/error-banner";
-import { formatModelNameLower } from "@/lib/format";
-import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
-import { isUnarchivedSessionListKey } from "@/lib/session-list";
-import { APP_NAME } from "@/lib/site-config";
 import {
   DEFAULT_MODEL,
   getDefaultReasoningEffort,
   isValidReasoningEffort,
   type ModelCategory,
 } from "@open-inspect/shared";
-import { useEnabledModels } from "@/hooks/use-enabled-models";
-import { useRepos, type Repo } from "@/hooks/use-repos";
-import { useBranches } from "@/hooks/use-branches";
+import { useSession } from "next-auth/react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { mutate } from "swr";
+
 import { ReasoningEffortPills } from "@/components/reasoning-effort-pills";
+import { useSidebarContext } from "@/components/sidebar-layout";
+import { Button } from "@/components/ui/button";
+import { Combobox, type ComboboxGroup } from "@/components/ui/combobox";
+import { ErrorBanner } from "@/components/ui/error-banner";
 import {
   SidebarIcon,
   RepoIcon,
@@ -30,7 +25,13 @@ import {
   ChevronDownIcon,
   SendIcon,
 } from "@/components/ui/icons";
-import { Combobox, type ComboboxGroup } from "@/components/ui/combobox";
+import { useBranches } from "@/hooks/use-branches";
+import { useEnabledModels } from "@/hooks/use-enabled-models";
+import { useRepos, type Repo } from "@/hooks/use-repos";
+import { formatModelNameLower } from "@/lib/format";
+import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
+import { isUnarchivedSessionListKey } from "@/lib/session-list";
+import { APP_NAME } from "@/lib/site-config";
 
 const LAST_SELECTED_REPO_STORAGE_KEY = "open-inspect-last-selected-repo";
 const LAST_SELECTED_MODEL_STORAGE_KEY = "open-inspect-last-selected-model";
@@ -352,10 +353,10 @@ function HomeContent({
   const displayRepoName = selectedRepoObj ? selectedRepoObj.name : "Select repo";
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex h-full flex-col">
       {/* Header with toggle when sidebar is closed */}
       {!isOpen && (
-        <header className="border-b border-border-muted flex-shrink-0">
+        <header className="flex-shrink-0 border-b border-border-muted">
           <div className="px-4 py-3">
             <Button
               variant="ghost"
@@ -364,17 +365,17 @@ function HomeContent({
               title={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
               aria-label={`Open sidebar (${SHORTCUT_LABELS.TOGGLE_SIDEBAR})`}
             >
-              <SidebarIcon className="w-4 h-4" />
+              <SidebarIcon className="h-4 w-4" />
             </Button>
           </div>
         </header>
       )}
 
-      <div className="flex-1 flex flex-col items-center justify-center p-8">
+      <div className="flex flex-1 flex-col items-center justify-center p-8">
         <div className="w-full max-w-2xl">
           {/* Welcome text */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-semibold text-foreground mb-2">Welcome to {APP_NAME}</h1>
+          <div className="mb-8 text-center">
+            <h1 className="mb-2 text-3xl font-semibold text-foreground">Welcome to {APP_NAME}</h1>
             {isAuthenticated ? (
               <p className="text-muted-foreground">
                 Ask a question or describe what you want to build
@@ -399,7 +400,7 @@ function HomeContent({
                     onKeyDown={handleKeyDown}
                     placeholder="What do you want to build?"
                     disabled={creating}
-                    className="w-full resize-none bg-transparent px-4 pt-4 pb-12 focus:outline-none text-foreground placeholder:text-secondary-foreground disabled:opacity-50"
+                    className="w-full resize-none bg-transparent px-4 pb-12 pt-4 text-foreground placeholder:text-secondary-foreground focus:outline-none disabled:opacity-50"
                     rows={3}
                   />
                   {/* Submit button */}
@@ -410,23 +411,23 @@ function HomeContent({
                     <button
                       type="submit"
                       disabled={!prompt.trim() || creating || !selectedRepo}
-                      className="p-2 text-secondary-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition"
+                      className="p-2 text-secondary-foreground transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
                       title={`Send (${SHORTCUT_LABELS.SEND_PROMPT})`}
                       aria-label={`Send (${SHORTCUT_LABELS.SEND_PROMPT})`}
                     >
                       {creating ? (
-                        <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
                       ) : (
-                        <SendIcon className="w-5 h-5" />
+                        <SendIcon className="h-5 w-5" />
                       )}
                     </button>
                   </div>
                 </div>
 
                 {/* Footer row with repo and model selectors */}
-                <div className="flex flex-col gap-2 px-4 py-2 border-t border-border-muted sm:flex-row sm:items-center sm:justify-between sm:gap-0">
+                <div className="flex flex-col gap-2 border-t border-border-muted px-4 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
                   {/* Left side - Repo selector + Model selector */}
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-4 min-w-0">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-4">
                     {/* Repo selector */}
                     <Combobox
                       value={selectedRepo}
@@ -448,11 +449,11 @@ function HomeContent({
                       disabled={creating || loadingRepos}
                       triggerClassName="flex max-w-full items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition"
                     >
-                      <RepoIcon className="w-4 h-4" />
-                      <span className="truncate max-w-[12rem] sm:max-w-none">
+                      <RepoIcon className="h-4 w-4" />
+                      <span className="max-w-[12rem] truncate sm:max-w-none">
                         {loadingRepos ? "Loading..." : displayRepoName}
                       </span>
-                      <ChevronDownIcon className="w-3 h-3" />
+                      <ChevronDownIcon className="h-3 w-3" />
                     </Combobox>
 
                     {/* Branch selector */}
@@ -471,11 +472,11 @@ function HomeContent({
                       disabled={creating || !selectedRepo || loadingBranches}
                       triggerClassName="flex max-w-full items-center gap-1 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition"
                     >
-                      <BranchIcon className="w-3.5 h-3.5" />
-                      <span className="truncate max-w-[9rem] sm:max-w-none">
+                      <BranchIcon className="h-3.5 w-3.5" />
+                      <span className="max-w-[9rem] truncate sm:max-w-none">
                         {loadingBranches ? "Loading..." : selectedBranch || "branch"}
                       </span>
-                      <ChevronDownIcon className="w-3 h-3" />
+                      <ChevronDownIcon className="h-3 w-3" />
                     </Combobox>
 
                     {/* Model selector */}
@@ -497,8 +498,8 @@ function HomeContent({
                       disabled={creating}
                       triggerClassName="flex max-w-full items-center gap-1 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition"
                     >
-                      <ModelIcon className="w-3.5 h-3.5" />
-                      <span className="truncate max-w-[9rem] sm:max-w-none">
+                      <ModelIcon className="h-3.5 w-3.5" />
+                      <span className="max-w-[9rem] truncate sm:max-w-none">
                         {formatModelNameLower(selectedModel)}
                       </span>
                     </Combobox>
@@ -513,7 +514,7 @@ function HomeContent({
                   </div>
 
                   {/* Right side - Agent label */}
-                  <span className="hidden sm:inline text-sm text-muted-foreground">
+                  <span className="hidden text-sm text-muted-foreground sm:inline">
                     build agent
                   </span>
                 </div>
@@ -523,7 +524,7 @@ function HomeContent({
                 <div className="mt-3 text-center">
                   <Link
                     href="/settings"
-                    className="text-xs text-muted-foreground hover:text-foreground transition"
+                    className="text-xs text-muted-foreground transition hover:text-foreground"
                   >
                     Manage secrets and settings
                   </Link>
@@ -531,7 +532,7 @@ function HomeContent({
               )}
 
               {repos.length === 0 && !loadingRepos && (
-                <p className="mt-3 text-sm text-muted-foreground text-center">
+                <p className="mt-3 text-center text-sm text-muted-foreground">
                   No repositories found. Make sure you have granted access to your repositories.
                 </p>
               )}

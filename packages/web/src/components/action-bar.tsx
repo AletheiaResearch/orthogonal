@@ -2,8 +2,15 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+
 import { ArchiveSessionDialog } from "@/components/archive-session-dialog";
-import type { Artifact } from "@/types/session";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   GlobeIcon,
   GitPrIcon,
@@ -12,14 +19,8 @@ import {
   LinkIcon,
   GitHubIcon,
 } from "@/components/ui/icons";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { getSafeExternalUrl } from "@/lib/urls";
+import type { Artifact } from "@/types/session";
 
 interface ActionBarProps {
   sessionId: string;
@@ -86,7 +87,7 @@ export function ActionBar({
         {previewUrl && (
           <Button variant="outline" size="sm" className="gap-1.5" asChild>
             <a href={previewUrl} target="_blank" rel="noopener noreferrer">
-              <GlobeIcon className="w-4 h-4" />
+              <GlobeIcon className="h-4 w-4" />
               <span>View preview</span>
               {previewArtifact?.metadata?.previewStatus === "outdated" && (
                 <span className="text-xs text-warning">(outdated)</span>
@@ -99,7 +100,7 @@ export function ActionBar({
         {prUrl && (
           <Button variant="outline" size="sm" className="gap-1.5" asChild>
             <a href={prUrl} target="_blank" rel="noopener noreferrer">
-              <GitPrIcon className="w-4 h-4" />
+              <GitPrIcon className="h-4 w-4" />
               <span>View PR</span>
             </a>
           </Button>
@@ -113,7 +114,7 @@ export function ActionBar({
           disabled={isArchiving}
           className="gap-1.5"
         >
-          <ArchiveIcon className="w-4 h-4" />
+          <ArchiveIcon className="h-4 w-4" />
           <span>{isArchived ? "Unarchive" : "Archive"}</span>
         </Button>
 
@@ -127,18 +128,18 @@ export function ActionBar({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="!px-2">
-              <MoreIcon className="w-4 h-4" />
+              <MoreIcon className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" side="top">
             <DropdownMenuItem onClick={handleCopyLink}>
-              <LinkIcon className="w-4 h-4" />
+              <LinkIcon className="h-4 w-4" />
               Copy link
             </DropdownMenuItem>
             {prUrl && (
               <DropdownMenuItem asChild>
                 <a href={prUrl} target="_blank" rel="noopener noreferrer">
-                  <GitHubIcon className="w-4 h-4" />
+                  <GitHubIcon className="h-4 w-4" />
                   View in GitHub
                 </a>
               </DropdownMenuItem>

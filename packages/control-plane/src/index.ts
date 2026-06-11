@@ -4,8 +4,8 @@
  * Cloudflare Workers entry point with Durable Objects for session management.
  */
 
-import { handleRequest } from "./router";
 import { createLogger } from "./logger";
+import { handleRequest } from "./router";
 import type { Env } from "./types";
 
 const logger = createLogger("worker");

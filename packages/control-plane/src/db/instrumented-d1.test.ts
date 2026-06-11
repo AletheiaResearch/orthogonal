@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+
 import { createRequestMetrics, instrumentD1 } from "./instrumented-d1";
 import type { RequestMetrics } from "./instrumented-d1";
 

@@ -6,6 +6,16 @@
  */
 
 import type { InstallationRepository } from "@open-inspect/shared";
+
+import {
+  getCachedInstallationToken,
+  getCachedInstallationTokenWithExpiry,
+  getInstallationRepository,
+  listInstallationRepositories,
+  listRepositoryBranches,
+  fetchWithTimeout,
+} from "../../auth/github-app";
+import { SourceControlProviderError } from "../errors";
 import type {
   SourceControlProvider,
   SourceControlAuthContext,
@@ -20,17 +30,8 @@ import type {
   GitPushAuthContext,
   CredentialHelperAuth,
 } from "../types";
-import { SourceControlProviderError } from "../errors";
-import {
-  getCachedInstallationToken,
-  getCachedInstallationTokenWithExpiry,
-  getInstallationRepository,
-  listInstallationRepositories,
-  listRepositoryBranches,
-  fetchWithTimeout,
-} from "../../auth/github-app";
-import type { GitHubProviderConfig } from "./types";
 import { USER_AGENT, GITHUB_API_BASE } from "./constants";
+import type { GitHubProviderConfig } from "./types";
 
 /** Extract HTTP status from upstream errors (GitHubHttpError has a .status property). */
 function extractHttpStatus(error: unknown): number | undefined {

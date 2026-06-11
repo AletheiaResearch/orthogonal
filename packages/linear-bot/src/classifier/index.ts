@@ -3,10 +3,11 @@
  * Uses raw Anthropic API (no SDK) to classify which repo an issue belongs to.
  */
 
-import type { Env, RepoConfig, ClassificationResult } from "../types";
 import type { ConfidenceLevel } from "@open-inspect/shared";
-import { getAvailableRepos, buildRepoDescriptions } from "./repos";
+
 import { createLogger } from "../logger";
+import type { Env, RepoConfig, ClassificationResult } from "../types";
+import { getAvailableRepos, buildRepoDescriptions } from "./repos";
 
 const log = createLogger("classifier");
 

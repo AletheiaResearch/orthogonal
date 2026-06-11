@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import { VercelSandboxProvider, type VercelProviderConfig } from "./provider";
+
 import type { CreateSandboxConfig, RestoreConfig } from "../../provider";
 import type {
   VercelCreateSandboxRequest,
@@ -13,6 +13,7 @@ import type {
   VercelSnapshotMetadata,
   VercelSnapshotResponse,
 } from "./client";
+import { VercelSandboxProvider, type VercelProviderConfig } from "./provider";
 
 function createSessionResponse(
   sessionId = "vercel-session-1",

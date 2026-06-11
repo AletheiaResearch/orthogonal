@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { Env } from "../types";
 import { providerIdentityRoutes } from "./provider-identities";
 import type { RequestContext } from "./shared";
-import type { Env } from "../types";
 
 const mockUserStore = {
   resolveOrCreateUser: vi.fn(),

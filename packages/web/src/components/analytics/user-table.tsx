@@ -1,4 +1,5 @@
 import type { AnalyticsBreakdownEntry, AnalyticsBreakdownResponse } from "@open-inspect/shared";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronDownIcon, ChevronUpIcon } from "@/components/ui/icons";
@@ -10,9 +11,9 @@ import {
   type AnalyticsSortDirection,
   type AnalyticsUserSortKey,
 } from "@/lib/analytics";
-import { cn } from "@/lib/utils";
 import { formatSessionCost } from "@/lib/session-cost";
 import { formatRelativeTime } from "@/lib/time";
+import { cn } from "@/lib/utils";
 
 interface UserTableProps {
   entries?: AnalyticsBreakdownResponse["entries"];
@@ -130,7 +131,7 @@ export function AnalyticsUserTable({
 
   if (loading && !entries) {
     return (
-      <div className="rounded-md border border-border-muted bg-card p-5 animate-pulse">
+      <div className="animate-pulse rounded-md border border-border-muted bg-card p-5">
         <div className="h-4 w-36 rounded bg-muted" />
         <div className="mt-2 h-4 w-64 rounded bg-muted" />
         <div className="mt-6 h-56 rounded bg-muted" />
@@ -246,7 +247,7 @@ export function AnalyticsUserTable({
             {entries.map((entry) => (
               <tr
                 key={entry.key}
-                className="border-b border-border-muted last:border-b-0 hover:bg-muted/50"
+                className="hover:bg-muted/50 border-b border-border-muted last:border-b-0"
               >
                 <td className="px-5 py-4">
                   <UserCell entry={entry} />

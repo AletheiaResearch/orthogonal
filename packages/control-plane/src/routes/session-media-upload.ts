@@ -1,4 +1,5 @@
 import type { ScreenshotArtifactMetadata, VideoArtifactMetadata } from "@open-inspect/shared";
+
 import { generateId } from "../auth/crypto";
 import {
   buildMediaObjectKey,
@@ -18,8 +19,8 @@ import {
 import { createMediaObjectStorage, type ObjectStorage } from "../storage/object-storage";
 import type { Env } from "../types";
 import { listSessionArtifactsFromRuntime, persistMediaArtifact } from "./session-media-artifacts";
-import { error, json, parsePattern, type Route } from "./shared";
 import { sessionRoute, type SessionRouteContext } from "./session-route";
+import { error, json, parsePattern, type Route } from "./shared";
 
 function getRequiredFormString(value: MultipartFieldValue | null, name: string): string | Response {
   if (typeof value !== "string" || value.trim().length === 0) {

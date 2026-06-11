@@ -1,4 +1,5 @@
 import { getDefaultReasoningEffort, getReasoningConfig } from "@open-inspect/shared";
+
 import { CLEAR_REPO_BRANCH_ACTION_ID, REPO_BRANCH_SELECTOR_ACTION_ID } from "../branch-preferences";
 import type { RepoConfig } from "../types";
 import {

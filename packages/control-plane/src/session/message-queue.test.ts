@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { SessionMessageQueue } from "./message-queue";
+
 import type { ClientInfo, Env, ServerMessage } from "../types";
+import { SessionMessageQueue } from "./message-queue";
 import type { MessageRow, ParticipantRow, SessionRow } from "./types";
 
 function createParticipant(overrides: Partial<ParticipantRow> = {}): ParticipantRow {

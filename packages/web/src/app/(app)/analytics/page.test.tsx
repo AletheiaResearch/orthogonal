@@ -1,15 +1,16 @@
 // @vitest-environment jsdom
 /// <reference types="@testing-library/jest-dom" />
 
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import * as matchers from "@testing-library/jest-dom/matchers";
 import type {
   AnalyticsBreakdownResponse,
   AnalyticsSummaryResponse,
   AnalyticsTimeseriesResponse,
 } from "@open-inspect/shared";
+import * as matchers from "@testing-library/jest-dom/matchers";
+import { cleanup, render, screen, within, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
 import AnalyticsPage from "./page";
 
 expect.extend(matchers);

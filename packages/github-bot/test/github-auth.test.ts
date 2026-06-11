@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
 import { generateAppJwt, postReaction, checkSenderPermission } from "../src/github-auth";
 
 /** Generate a PKCS#8 PEM RSA key pair for testing. */

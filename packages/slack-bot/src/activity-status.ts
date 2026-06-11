@@ -1,4 +1,5 @@
 import type { SlackEnvelope } from "@open-inspect/shared";
+
 import { createLogger } from "./logger";
 import type { Env } from "./types";
 

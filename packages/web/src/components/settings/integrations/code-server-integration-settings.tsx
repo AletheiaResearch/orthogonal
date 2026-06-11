@@ -1,23 +1,14 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import useSWR, { mutate } from "swr";
-import { toast } from "sonner";
 import {
   type EnrichedRepository,
   type CodeServerSettings,
   type CodeServerGlobalConfig,
 } from "@open-inspect/shared";
-import { IntegrationSettingsSkeleton } from "./integration-settings-skeleton";
-import { Button } from "@/components/ui/button";
-import { RadioCard } from "@/components/ui/form-controls";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useEffect, useState, type ReactNode } from "react";
+import { toast } from "sonner";
+import useSWR, { mutate } from "swr";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +19,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { RadioCard } from "@/components/ui/form-controls";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+import { IntegrationSettingsSkeleton } from "./integration-settings-skeleton";
 
 const GLOBAL_SETTINGS_KEY = "/api/integration-settings/code-server";
 const REPO_SETTINGS_KEY = "/api/integration-settings/code-server/repos";
@@ -66,8 +68,8 @@ export function CodeServerIntegrationSettings() {
 
   return (
     <div>
-      <h3 className="text-lg font-semibold text-foreground mb-1">Code Server</h3>
-      <p className="text-sm text-muted-foreground mb-6">
+      <h3 className="mb-1 text-lg font-semibold text-foreground">Code Server</h3>
+      <p className="mb-6 text-sm text-muted-foreground">
         Attach a browser-based VS Code editor to sandbox sessions. When enabled, each new session
         gets a code-server instance accessible via a tunnel URL.
       </p>
@@ -183,10 +185,10 @@ function GlobalSettingsSection({
       description="Enable code-server globally or for specific repositories."
     >
       <div className="mb-4">
-        <label className="flex items-center justify-between px-3 py-2 border border-border rounded-sm cursor-pointer hover:bg-muted/50 transition text-sm">
+        <label className="hover:bg-muted/50 flex cursor-pointer items-center justify-between rounded-sm border border-border px-3 py-2 text-sm transition">
           <div>
             <span className="font-medium text-foreground">Enable code-server</span>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               Attach a VS Code editor to new sandbox sessions
             </p>
           </div>
@@ -203,8 +205,8 @@ function GlobalSettingsSection({
       </div>
 
       <div className="mb-4">
-        <p className="text-sm font-medium text-foreground mb-2">Repository Scope</p>
-        <div className="grid sm:grid-cols-2 gap-2 mb-3">
+        <p className="mb-2 text-sm font-medium text-foreground">Repository Scope</p>
+        <div className="mb-3 grid gap-2 sm:grid-cols-2">
           <RadioCard
             name="cs-repo-scope"
             checked={repoScopeMode === "all"}
@@ -230,11 +232,11 @@ function GlobalSettingsSection({
         {repoScopeMode === "selected" && (
           <>
             {availableRepos.length === 0 ? (
-              <p className="text-sm text-muted-foreground px-4 py-3 border border-border rounded-sm">
+              <p className="rounded-sm border border-border px-4 py-3 text-sm text-muted-foreground">
                 Repository filtering is unavailable because no repositories are accessible.
               </p>
             ) : (
-              <div className="border border-border max-h-56 overflow-y-auto rounded-sm">
+              <div className="max-h-56 overflow-y-auto rounded-sm border border-border">
                 {availableRepos.map((repo) => {
                   const fullName = repo.fullName.toLowerCase();
                   const isChecked = enabledRepos.includes(fullName);
@@ -242,7 +244,7 @@ function GlobalSettingsSection({
                   return (
                     <label
                       key={repo.fullName}
-                      className="flex items-center gap-2 px-4 py-2 hover:bg-muted/50 transition cursor-pointer text-sm"
+                      className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 px-4 py-2 text-sm transition"
                     >
                       <input
                         type="checkbox"
@@ -258,7 +260,7 @@ function GlobalSettingsSection({
             )}
 
             {enabledRepos.length === 0 && availableRepos.length > 0 && (
-              <p className="text-xs text-warning mt-1">
+              <p className="mt-1 text-xs text-warning">
                 No repositories selected. Code-server will not be enabled for any sessions.
               </p>
             )}
@@ -338,13 +340,13 @@ function RepoOverridesSection({
   return (
     <div>
       {overrides.length > 0 ? (
-        <div className="space-y-2 mb-4">
+        <div className="mb-4 space-y-2">
           {overrides.map((entry) => (
             <RepoOverrideRow key={entry.repo} entry={entry} />
           ))}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground mb-4">
+        <p className="mb-4 text-sm text-muted-foreground">
           No repository overrides yet. Add one to enable or disable code-server per repo.
         </p>
       )}
@@ -424,10 +426,10 @@ function RepoOverrideRow({ entry }: { entry: RepoSettingsEntry }) {
   };
 
   return (
-    <div className="flex items-center justify-between gap-2 px-4 py-3 border border-border rounded-sm">
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-        <span className="text-sm font-medium text-foreground truncate">{entry.repo}</span>
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
+    <div className="flex items-center justify-between gap-2 rounded-sm border border-border px-4 py-3">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <span className="truncate text-sm font-medium text-foreground">{entry.repo}</span>
+        <label className="flex cursor-pointer items-center gap-2 text-sm">
           <input
             type="checkbox"
             checked={enabled}
@@ -463,11 +465,11 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="border border-border-muted rounded-md p-5 mb-5">
-      <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-1">
+    <section className="mb-5 rounded-md border border-border-muted p-5">
+      <h4 className="mb-1 text-sm font-semibold uppercase tracking-wider text-foreground">
         {title}
       </h4>
-      <p className="text-sm text-muted-foreground mb-4">{description}</p>
+      <p className="mb-4 text-sm text-muted-foreground">{description}</p>
       {children}
     </section>
   );

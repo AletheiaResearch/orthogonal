@@ -1,3 +1,4 @@
+import type { AnalyticsTimeseriesResponse } from "@open-inspect/shared";
 import { useId } from "react";
 import {
   Area,
@@ -8,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { AnalyticsTimeseriesResponse } from "@open-inspect/shared";
+
 import { Badge } from "@/components/ui/badge";
 import {
   buildTimeseriesChartData,
@@ -39,7 +40,7 @@ export function AnalyticsTimeseriesChart({ series, loading }: TimeseriesChartPro
 
   if (loading && !series) {
     return (
-      <div className="rounded-md border border-border-muted bg-card p-5 animate-pulse">
+      <div className="animate-pulse rounded-md border border-border-muted bg-card p-5">
         <div className="h-4 w-40 rounded bg-muted" />
         <div className="mt-2 h-4 w-72 rounded bg-muted" />
         <div className="mt-6 h-[320px] rounded bg-muted" />

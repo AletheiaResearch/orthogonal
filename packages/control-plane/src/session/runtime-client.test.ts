@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { SessionInternalPaths } from "./contracts";
-import { createSessionRuntimeClient } from "./runtime-client";
+
 import type { CorrelationContext } from "../logger";
 import type { Env } from "../types";
+import { SessionInternalPaths } from "./contracts";
+import { createSessionRuntimeClient } from "./runtime-client";
 
 function createCtx(): CorrelationContext {
   return {

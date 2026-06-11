@@ -7,6 +7,7 @@
 
 import { generateInternalToken, type SandboxSettings } from "@open-inspect/shared";
 import type { McpServerConfig } from "@open-inspect/shared";
+
 import { createLogger } from "../logger";
 import type { CorrelationContext } from "../logger";
 import { buildSessionConfig } from "./sandbox-env";

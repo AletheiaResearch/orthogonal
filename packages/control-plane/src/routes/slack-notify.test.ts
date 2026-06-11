@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionStatus } from "@open-inspect/shared";
-import { handleSlackNotify } from "./slack-notify";
-import type { RequestContext } from "./shared";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import type { Env } from "../types";
+import type { RequestContext } from "./shared";
+import { handleSlackNotify } from "./slack-notify";
 
 const sessionStoreMock = {
   get: vi.fn(),

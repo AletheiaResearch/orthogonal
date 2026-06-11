@@ -8,9 +8,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@cloudflare/workers-types": "catalog:",
@@ -18,9 +16,10 @@
     "hono": "catalog:"
   },
   "devDependencies": {
+    "@orthogonal/tooling-configs": "workspace:*",
+    "@vitest/coverage-v8": "catalog:",
     "esbuild": "catalog:",
     "typescript": "catalog:",
-    "@vitest/coverage-v8": "catalog:",
     "vitest": "catalog:",
     "wrangler": "catalog:"
   }

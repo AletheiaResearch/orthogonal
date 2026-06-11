@@ -1,5 +1,5 @@
-import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
+import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -11,8 +11,8 @@ const badgeVariants = cva("inline-flex items-center rounded-sm px-1.5 py-0.5 tex
       "pr-closed": "bg-destructive-muted text-destructive",
       "pr-draft": "bg-muted text-muted-foreground",
       "pr-open": "bg-accent-muted text-accent",
-      info: "bg-info-muted text-info border border-info/20",
-      kbd: "font-mono text-muted-foreground border border-border bg-input rounded",
+      info: "border-info/20 border bg-info-muted text-info",
+      kbd: "rounded border border-border bg-input font-mono text-muted-foreground",
     },
   },
   defaultVariants: {

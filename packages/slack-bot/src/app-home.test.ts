@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { buildAppHomeIntroText, buildAppHomeView } from "./app-home";
 import type { RepoConfig } from "./types";
 

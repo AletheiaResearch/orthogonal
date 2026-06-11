@@ -1,10 +1,11 @@
+import * as matchers from "@testing-library/jest-dom/matchers";
+import { render, screen, cleanup, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 // @vitest-environment jsdom
 /// <reference types="@testing-library/jest-dom" />
 import { useState } from "react";
 import { describe, it, expect, vi, beforeAll, afterEach } from "vitest";
-import { render, screen, cleanup, act } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import * as matchers from "@testing-library/jest-dom/matchers";
+
 import { Combobox, type ComboboxOption, type ComboboxGroup } from "./combobox";
 
 expect.extend(matchers);

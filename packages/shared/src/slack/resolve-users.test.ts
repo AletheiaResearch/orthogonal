@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import type * as ClientModule from "./client";
 
 const { mockGetUserInfo } = vi.hoisted(() => ({

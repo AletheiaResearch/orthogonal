@@ -1,4 +1,5 @@
 import { describe, it } from "vitest";
+
 import { buildMockEvent, assertConditionMatch } from "../testing";
 
 describe("sentry conditions", () => {

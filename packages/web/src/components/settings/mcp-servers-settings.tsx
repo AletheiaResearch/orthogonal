@@ -1,23 +1,9 @@
 "use client";
 
+import type { McpServerConfig, McpServerMetadata } from "@open-inspect/shared";
 import { useState, useCallback, type ClipboardEvent } from "react";
 import { toast } from "sonner";
-import type { McpServerConfig, McpServerMetadata } from "@open-inspect/shared";
-import {
-  useMcpServers,
-  createMcpServer,
-  updateMcpServer,
-  deleteMcpServer,
-} from "@/hooks/use-mcp-servers";
-import { useRepos } from "@/hooks/use-repos";
-import { parseMaybeEnvContent } from "@/lib/env-paste";
-import { PlusIcon, TerminalIcon, GlobeIcon, ChevronRightIcon } from "@/components/ui/icons";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { RadioCard } from "@/components/ui/form-controls";
-import { Checkbox } from "@/components/ui/checkbox";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +14,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioCard } from "@/components/ui/form-controls";
+import { PlusIcon, TerminalIcon, GlobeIcon, ChevronRightIcon } from "@/components/ui/icons";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  useMcpServers,
+  createMcpServer,
+  updateMcpServer,
+  deleteMcpServer,
+} from "@/hooks/use-mcp-servers";
+import { useRepos } from "@/hooks/use-repos";
+import { parseMaybeEnvContent } from "@/lib/env-paste";
 
 type ScopeMode = "global" | "selected";
 
@@ -191,16 +192,16 @@ function EnvRowsEditor({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
+      <div className="mb-1 flex items-center justify-between">
         <Label>
-          {label} <span className="text-muted-foreground font-normal">(optional)</span>
+          {label} <span className="font-normal text-muted-foreground">(optional)</span>
         </Label>
         <Button type="button" variant="subtle" size="xs" onClick={addRow}>
           + Add
         </Button>
       </div>
       {hasExistingCredentials && form.envRows.every((r) => !r.value.trim()) && (
-        <p className="text-xs text-muted-foreground mb-1">
+        <p className="mb-1 text-xs text-muted-foreground">
           Credentials are configured. Enter new values to replace them, or leave empty to keep
           existing.
         </p>
@@ -213,7 +214,7 @@ function EnvRowsEditor({
               onChange={(e) => updateRow(row.id, "key", e.target.value)}
               onPaste={handlePaste}
               placeholder={keyPlaceholder}
-              className="flex-1 min-w-[140px] font-mono text-xs h-8"
+              className="h-8 min-w-[140px] flex-1 font-mono text-xs"
             />
             <Input
               type="password"
@@ -221,16 +222,16 @@ function EnvRowsEditor({
               onChange={(e) => updateRow(row.id, "value", e.target.value)}
               onPaste={handlePaste}
               placeholder={valuePlaceholder}
-              className="flex-1 min-w-[180px] font-mono text-xs h-8"
+              className="h-8 min-w-[180px] flex-1 font-mono text-xs"
             />
             <button
               type="button"
               onClick={() => removeRow(row.id)}
-              className="px-1.5 text-muted-foreground hover:text-destructive transition"
+              className="px-1.5 text-muted-foreground transition hover:text-destructive"
               aria-label="Remove"
             >
               <svg
-                className="w-3.5 h-3.5"
+                className="h-3.5 w-3.5"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -242,7 +243,7 @@ function EnvRowsEditor({
           </div>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground mt-1">
+      <p className="mt-1 text-xs text-muted-foreground">
         Paste a <code className="text-xs">.env</code> block into any field to import multiple
         entries.
       </p>
@@ -283,24 +284,24 @@ function McpServerForm({
         <div className="flex gap-2">
           <button
             onClick={() => setForm({ ...form, type: "local" })}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-sm border transition ${
+            className={`flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-sm transition ${
               form.type === "local"
-                ? "border-foreground/30 text-foreground bg-muted"
+                ? "border-foreground/30 bg-muted text-foreground"
                 : "border-border text-muted-foreground hover:text-foreground"
             }`}
           >
-            <TerminalIcon className="w-3.5 h-3.5" />
+            <TerminalIcon className="h-3.5 w-3.5" />
             Local
           </button>
           <button
             onClick={() => setForm({ ...form, type: "remote" })}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-sm border transition ${
+            className={`flex items-center gap-1.5 rounded-sm border px-3 py-1.5 text-sm transition ${
               form.type === "remote"
-                ? "border-foreground/30 text-foreground bg-muted"
+                ? "border-foreground/30 bg-muted text-foreground"
                 : "border-border text-muted-foreground hover:text-foreground"
             }`}
           >
-            <GlobeIcon className="w-3.5 h-3.5" />
+            <GlobeIcon className="h-3.5 w-3.5" />
             Remote
           </button>
         </div>
@@ -324,7 +325,7 @@ function McpServerForm({
             onChange={(e) => setForm({ ...form, command: e.target.value })}
             placeholder="npx -y @playwright/mcp"
           />
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="mt-1 text-xs text-muted-foreground">
             Space-separated command and arguments. Use quotes for arguments with spaces.
           </p>
         </div>
@@ -338,7 +339,7 @@ function McpServerForm({
 
       <div>
         <Label className="mb-1.5">Availability</Label>
-        <div className="space-y-2 mb-2">
+        <div className="mb-2 space-y-2">
           <RadioCard
             name={`scope-mode-${radioPrefix}`}
             checked={form.scopeMode === "global"}
@@ -358,20 +359,20 @@ function McpServerForm({
         {form.scopeMode === "selected" && (
           <>
             {loadingRepos ? (
-              <p className="text-sm text-muted-foreground px-3 py-2">Loading repositories...</p>
+              <p className="px-3 py-2 text-sm text-muted-foreground">Loading repositories...</p>
             ) : repos.length === 0 ? (
-              <p className="text-sm text-muted-foreground px-3 py-2 border border-border rounded-sm">
+              <p className="rounded-sm border border-border px-3 py-2 text-sm text-muted-foreground">
                 No repositories available. Connect a GitHub integration first.
               </p>
             ) : (
-              <div className="border border-border max-h-40 overflow-y-auto rounded-sm">
+              <div className="max-h-40 overflow-y-auto rounded-sm border border-border">
                 {repos.map((repo) => {
                   const fullName = repo.fullName.toLowerCase();
                   const isChecked = form.repoScopes.includes(fullName);
                   return (
                     <label
                       key={repo.fullName}
-                      className="flex items-center gap-2 px-3 py-2 hover:bg-muted/50 transition cursor-pointer text-sm"
+                      className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 px-3 py-2 text-sm transition"
                     >
                       <Checkbox
                         checked={isChecked}
@@ -392,7 +393,7 @@ function McpServerForm({
               </div>
             )}
             {form.repoScopes.length === 0 && repos.length > 0 && (
-              <p className="text-xs text-warning mt-1">
+              <p className="mt-1 text-xs text-warning">
                 Select a repository or switch to &quot;All repositories&quot;.
               </p>
             )}
@@ -402,7 +403,7 @@ function McpServerForm({
 
       <label
         htmlFor={`mcp-enabled-${radioPrefix}`}
-        className="flex items-center justify-between cursor-pointer"
+        className="flex cursor-pointer items-center justify-between"
       >
         <span className="text-sm text-foreground">Enabled</span>
         <Switch
@@ -534,27 +535,27 @@ export function McpServersSettings() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
+      <div className="mb-1 flex items-center justify-between">
         <h2 className="text-xl font-semibold text-foreground">MCP Servers</h2>
         <Button onClick={startNew} variant="outline" size="sm">
           <span className="inline-flex items-center gap-1">
-            <PlusIcon className="w-3.5 h-3.5" />
+            <PlusIcon className="h-3.5 w-3.5" />
             Add Server
           </span>
         </Button>
       </div>
-      <p className="text-sm text-muted-foreground mb-6">
+      <p className="mb-6 text-sm text-muted-foreground">
         Configure Model Context Protocol servers that are available to agent sessions.
       </p>
 
       {/* New server form */}
       {editing === "new" && (
-        <div className="border border-border rounded-md p-4 mb-6 space-y-4">
-          <div className="flex items-center justify-between mb-1">
+        <div className="mb-6 space-y-4 rounded-md border border-border p-4">
+          <div className="mb-1 flex items-center justify-between">
             <h3 className="text-sm font-medium text-foreground">New MCP Server</h3>
             <Button variant="ghost" size="icon" onClick={cancel} aria-label="Close">
               <svg
-                className="w-4 h-4"
+                className="h-4 w-4"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -586,7 +587,7 @@ export function McpServersSettings() {
       {loading ? (
         <div className="text-sm text-muted-foreground">Loading...</div>
       ) : servers.length === 0 && editing !== "new" ? (
-        <div className="text-sm text-muted-foreground py-8 text-center">
+        <div className="py-8 text-center text-sm text-muted-foreground">
           No MCP servers configured. Add one to extend agent capabilities.
         </div>
       ) : (
@@ -596,7 +597,7 @@ export function McpServersSettings() {
             return (
               <div
                 key={server.id}
-                className={`border rounded-md transition ${
+                className={`rounded-md border transition ${
                   server.enabled
                     ? "border-border bg-card"
                     : "border-border/50 bg-card/50 opacity-60"
@@ -606,24 +607,24 @@ export function McpServersSettings() {
                 <div className="flex items-center justify-between px-4 py-3">
                   <button
                     type="button"
-                    className="flex items-center gap-3 min-w-0 cursor-pointer text-left"
+                    className="flex min-w-0 cursor-pointer items-center gap-3 text-left"
                     onClick={() => startEdit(server)}
                   >
                     <ChevronRightIcon
-                      className={`w-3 h-3 text-muted-foreground flex-shrink-0 transition-transform ${
+                      className={`h-3 w-3 flex-shrink-0 text-muted-foreground transition-transform ${
                         isExpanded ? "rotate-90" : ""
                       }`}
                     />
                     {server.type === "remote" ? (
-                      <GlobeIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <GlobeIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                     ) : (
-                      <TerminalIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <TerminalIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                     )}
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-foreground truncate">
+                      <div className="truncate text-sm font-medium text-foreground">
                         {server.name}
                       </div>
-                      <div className="text-xs text-muted-foreground truncate">
+                      <div className="truncate text-xs text-muted-foreground">
                         {server.type === "remote" ? server.url : server.command?.join(" ")}
                         {server.repoScopes?.length ? (
                           <span className="ml-2 text-accent">
@@ -633,13 +634,13 @@ export function McpServersSettings() {
                               : `${server.repoScopes.length} repos`}
                           </span>
                         ) : (
-                          <span className="ml-2 text-muted-foreground/60">• global</span>
+                          <span className="text-muted-foreground/60 ml-2">• global</span>
                         )}
                       </div>
                     </div>
                   </button>
 
-                  <div className="flex items-center gap-1 flex-shrink-0">
+                  <div className="flex flex-shrink-0 items-center gap-1">
                     <Switch
                       checked={server.enabled}
                       onCheckedChange={() => handleToggle(server)}
@@ -647,7 +648,7 @@ export function McpServersSettings() {
                     />
                     <button
                       onClick={() => setDeleteTarget(server.id)}
-                      className="px-2 py-1 text-xs text-destructive hover:text-destructive/80 transition"
+                      className="hover:text-destructive/80 px-2 py-1 text-xs text-destructive transition"
                     >
                       Delete
                     </button>
@@ -656,7 +657,7 @@ export function McpServersSettings() {
 
                 {/* Expanded edit form */}
                 {isExpanded && editing === server.id && (
-                  <div className="px-4 pb-4 pt-3 border-t border-border-muted space-y-4">
+                  <div className="space-y-4 border-t border-border-muted px-4 pb-4 pt-3">
                     <McpServerForm
                       form={form}
                       setForm={setForm}
@@ -692,7 +693,7 @@ export function McpServersSettings() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteTarget && handleDelete(deleteTarget)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="hover:bg-destructive/90 bg-destructive text-destructive-foreground"
             >
               Delete
             </AlertDialogAction>

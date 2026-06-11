@@ -1,11 +1,12 @@
-import { useSession } from "next-auth/react";
-import useSWR from "swr";
 import type {
   AnalyticsBreakdownResponse,
   AnalyticsDays,
   AnalyticsSummaryResponse,
   AnalyticsTimeseriesResponse,
 } from "@open-inspect/shared";
+import { useSession } from "next-auth/react";
+import useSWR from "swr";
+
 import { ANALYTICS_REFRESH_INTERVAL_MS } from "@/lib/analytics";
 
 export function useAnalyticsDashboard(days: AnalyticsDays) {

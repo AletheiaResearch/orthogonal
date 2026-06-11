@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+
 import type { Logger } from "../../../logger";
-import { createMessagesHandler } from "./messages.handler";
 import type { MessageService } from "../../services/message.service";
+import { createMessagesHandler } from "./messages.handler";
 
 function createHandler() {
   const messageService = {
