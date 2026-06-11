@@ -29,7 +29,6 @@ Use TodoWrite to create a checklist tracking these phases:
 10. Post-deployment GitHub Bot setup (if enabled)
 11. Web app deployment
 12. Verification
-13. CI/CD setup (optional)
 
 ## Phase 1: Initial Questions
 
@@ -286,10 +285,6 @@ curl -I https://open-inspect-{deployment_name}.vercel.app
 
 Present deployment summary table. Instruct user to test: visit web app, sign in with GitHub, create
 session, send prompt.
-
-## Phase 13: CI/CD Setup (Optional)
-
-Ask if user wants GitHub Actions CI/CD. If yes, use `gh secret set` for all required secrets.
 
 ## Error Handling
 
