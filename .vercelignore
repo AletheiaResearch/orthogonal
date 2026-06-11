@@ -1,7 +1,7 @@
-# Ignore everything (folders and files) on root only
+# Ignore everything at repo root, then allow only what monorepo installs need.
 /*
-# Don't ignore these two files
 !package.json
-!package-lock.json
-# Don't ignore this directory
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
 !packages
+!apps
