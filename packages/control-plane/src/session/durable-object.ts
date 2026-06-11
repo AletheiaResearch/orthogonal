@@ -116,7 +116,7 @@ const WS_AUTH_TIMEOUT_MS = 30000; // 30 seconds
 const WS_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /** Statuses that indicate a session is finished — metrics are synced to D1 on these transitions. */
-const TERMINAL_STATUSES: SessionStatus[] = new Set(["completed", "failed", "cancelled"]);
+const TERMINAL_STATUSES: ReadonlySet<SessionStatus> = new Set(["completed", "failed", "cancelled"]);
 
 export class SessionDO extends DurableObject<Env> {
   private sql: SqlStorage;

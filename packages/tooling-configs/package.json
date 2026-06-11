@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "imports": {
+    "#oxlint/base": "./oxlint/base.ts"
+  },
   "exports": {
     "./oxlint/base": "./oxlint/base.ts",
     "./oxlint/next": "./oxlint/next.ts",

@@ -4,7 +4,7 @@ import { SessionIndexStore } from "../db/session-index";
 import type { Env } from "../types";
 import { error, json, parsePattern, type RequestContext, type Route } from "./shared";
 
-const SESSION_STATUSES: SessionStatus[] = new Set([
+const SESSION_STATUSES: ReadonlySet<SessionStatus> = new Set([
   "created",
   "active",
   "completed",
