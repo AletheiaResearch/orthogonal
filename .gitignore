@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 .pnpm-store/
+package-lock.json
 packages/*/package-lock.json
 apps/*/package-lock.json
 

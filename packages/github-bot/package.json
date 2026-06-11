@@ -12,14 +12,14 @@
     "lint:fix": "eslint src/ --fix"
   },
   "dependencies": {
-    "@cloudflare/workers-types": "^4.20241230.0",
-    "@open-inspect/shared": "file:../shared",
-    "hono": "^4.12.18"
+    "@cloudflare/workers-types": "catalog:",
+    "@open-inspect/shared": "workspace:*",
+    "hono": "catalog:"
   },
   "devDependencies": {
-    "esbuild": "^0.25.1",
-    "typescript": "^5.7.2",
-    "@vitest/coverage-v8": "^4.1.0",
-    "vitest": "^4.1.0"
+    "esbuild": "catalog:",
+    "typescript": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "vitest": "catalog:"
   }
 }

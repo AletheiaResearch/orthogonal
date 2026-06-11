@@ -158,14 +158,14 @@ for that provider.
 ### Setup
 
 ```bash
-cd packages/control-plane
-npm install
+# From repo root
+corepack enable && pnpm install
 ```
 
 ### Build
 
 ```bash
-npm run build
+pnpm --filter @open-inspect/control-plane build
 # Outputs to dist/index.js
 ```
 

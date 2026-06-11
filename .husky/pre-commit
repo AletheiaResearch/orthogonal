@@ -3,4 +3,4 @@ if [ -f packages/modal-infra/.venv/bin/activate ]; then
   . packages/modal-infra/.venv/bin/activate
 fi
 
-npx lint-staged
+pnpm exec lint-staged

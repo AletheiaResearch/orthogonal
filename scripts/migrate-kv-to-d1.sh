@@ -18,7 +18,7 @@ set -euo pipefail
 KV_NAMESPACE_ID="${1:?Usage: migrate-kv-to-d1.sh <kv-namespace-id> <d1-database-name>}"
 D1_DATABASE_NAME="${2:?Usage: migrate-kv-to-d1.sh <kv-namespace-id> <d1-database-name>}"
 
-WRANGLER="npx wrangler"
+WRANGLER="pnpm exec wrangler"
 SQL_FILE=$(mktemp)
 trap 'rm -f "$SQL_FILE"' EXIT
 

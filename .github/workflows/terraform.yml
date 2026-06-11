@@ -140,22 +140,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: "22"
-          cache: "npm"
+          cache: "pnpm"
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build worker packages
         run: |
-          npm run build -w @open-inspect/shared
-          npm run build -w @open-inspect/control-plane
-          npm run build -w @open-inspect/slack-bot
-          npm run build -w @open-inspect/github-bot
-          npm run build -w @open-inspect/linear-bot
+          pnpm --filter @open-inspect/shared build
+          pnpm --filter @open-inspect/control-plane build
+          pnpm --filter @open-inspect/slack-bot build
+          pnpm --filter @open-inspect/github-bot build
+          pnpm --filter @open-inspect/linear-bot build
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
@@ -279,22 +281,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: "22"
-          cache: "npm"
+          cache: "pnpm"
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build worker packages
         run: |
-          npm run build -w @open-inspect/shared
-          npm run build -w @open-inspect/control-plane
-          npm run build -w @open-inspect/slack-bot
-          npm run build -w @open-inspect/github-bot
-          npm run build -w @open-inspect/linear-bot
+          pnpm --filter @open-inspect/shared build
+          pnpm --filter @open-inspect/control-plane build
+          pnpm --filter @open-inspect/slack-bot build
+          pnpm --filter @open-inspect/github-bot build
+          pnpm --filter @open-inspect/linear-bot build
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v8.2.0

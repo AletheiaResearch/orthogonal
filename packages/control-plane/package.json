@@ -14,15 +14,15 @@
     "lint:fix": "eslint src/ --fix"
   },
   "dependencies": {
-    "@cloudflare/workers-types": "^4.20241230.0",
-    "@open-inspect/shared": "file:../shared"
+    "@cloudflare/workers-types": "catalog:",
+    "@open-inspect/shared": "workspace:*"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.16.13",
-    "esbuild": "^0.25.1",
-    "typescript": "^5.7.2",
-    "@vitest/coverage-v8": "^4.1.0",
-    "vitest": "^4.1.0",
-    "wrangler": "^4.0.0"
+    "@cloudflare/vitest-pool-workers": "catalog:",
+    "esbuild": "catalog:",
+    "typescript": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
   }
 }

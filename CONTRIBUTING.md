@@ -18,7 +18,7 @@ The quickest way to get a working environment:
 bash .openinspect/setup.sh
 ```
 
-This handles npm dependencies, builds the shared package, configures git hooks (husky +
+This handles pnpm dependencies, builds the shared package, configures git hooks (husky +
 lint-staged), and optionally sets up a Python virtualenv for `packages/modal-infra`.
 
 See [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) for full deployment instructions. See
@@ -28,19 +28,20 @@ For manual setup or individual steps:
 
 ```bash
 # Install dependencies
-npm install
+corepack enable
+pnpm install
 
 # Build shared package
-npm run build -w @open-inspect/shared
+pnpm --filter @open-inspect/shared build
 
 # Run type checking
-npm run typecheck
+pnpm run typecheck
 
 # Run linting
-npm run lint
+pnpm run lint
 
 # Run tests
-npm test
+pnpm -r run test
 ```
 
 ## Project Structure
@@ -58,8 +59,8 @@ npm test
 
 ### Code Style
 
-- Run `npm run lint` before committing
-- Run `npm run typecheck` to ensure type safety
+- Run `pnpm run lint` before committing
+- Run `pnpm run typecheck` to ensure type safety
 - Follow existing code patterns in the codebase
 
 ### Commit Messages
@@ -73,9 +74,9 @@ Use clear, descriptive commit messages:
 
 ### Pull Requests
 
-1. Ensure all tests pass: `npm test`
-2. Ensure linting passes: `npm run lint`
-3. Ensure type checking passes: `npm run typecheck`
+1. Ensure all tests pass: `pnpm -r run test`
+2. Ensure linting passes: `pnpm run lint`
+3. Ensure type checking passes: `pnpm run typecheck`
 4. Update documentation if needed
 5. Provide a clear description of your changes
 

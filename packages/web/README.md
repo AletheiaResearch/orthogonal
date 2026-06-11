@@ -99,17 +99,17 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8787
 ### Development
 
 ```bash
-# Install dependencies
-npm install
+# Install dependencies (from repo root)
+corepack enable && pnpm install
 
 # Run development server
-npm run dev
+pnpm --filter @open-inspect/web dev
 
 # Type check
-npm run typecheck
+pnpm --filter @open-inspect/web typecheck
 
 # Build for production
-npm run build
+pnpm --filter @open-inspect/web build
 ```
 
 ## Pages

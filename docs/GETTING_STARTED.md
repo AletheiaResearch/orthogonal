@@ -61,7 +61,8 @@ brew install node@22
 brew install python@3.12 uv
 
 # Wrangler CLI (for initial R2 bucket setup)
-npm install -g wrangler
+corepack enable
+pnpm add -g wrangler
 ```
 
 ---
@@ -75,10 +76,11 @@ account or organization.
 # Clone your fork
 git clone https://github.com/YOUR-USERNAME/background-agents.git
 cd background-agents
-npm install
+corepack enable
+pnpm install
 
 # Build the shared package (required before Terraform deployment)
-npm run build -w @open-inspect/shared
+pnpm --filter @open-inspect/shared build
 
 # Install Python dependencies for Modal deployment (includes sandbox-runtime)
 cd packages/modal-infra && uv sync --frozen && cd -
@@ -493,7 +495,7 @@ enable_service_bindings        = false
 
 ```bash
 # From the repository root
-npm run build -w @open-inspect/control-plane -w @open-inspect/slack-bot -w @open-inspect/github-bot
+pnpm --filter @open-inspect/control-plane --filter @open-inspect/slack-bot --filter @open-inspect/github-bot build
 ```
 
 Then run:
@@ -644,7 +646,8 @@ npx vercel --prod
 > **Note**: The Vercel project is configured with custom build commands for the monorepo structure.
 > Terraform sets these automatically:
 >
-> - Install: `cd ../.. && npm install && npm run build -w @open-inspect/shared`
+> - Install:
+>   `cd ../.. && corepack enable && pnpm install && pnpm --filter @open-inspect/shared build`
 > - Build: `next build`
 
 #### Option B: Link Git Repository (For Automatic Deployments)
@@ -803,7 +806,7 @@ To update after pulling changes from upstream:
 git pull upstream main
 
 # Rebuild shared package if it changed
-npm run build -w @open-inspect/shared
+pnpm --filter @open-inspect/shared build
 
 # Re-run Terraform (it only changes what's needed)
 cd terraform/environments/production
@@ -867,10 +870,10 @@ Terraform references the built worker bundles. Build them before running `terraf
 
 ```bash
 # Build shared package first
-npm run build -w @open-inspect/shared
+pnpm --filter @open-inspect/shared build
 
 # Build workers (required before Terraform)
-npm run build -w @open-inspect/control-plane -w @open-inspect/slack-bot -w @open-inspect/github-bot
+pnpm --filter @open-inspect/control-plane --filter @open-inspect/slack-bot --filter @open-inspect/github-bot build
 
 # Verify bundles exist
 ls packages/control-plane/dist/index.js

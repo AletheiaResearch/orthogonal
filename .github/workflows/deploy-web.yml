@@ -41,20 +41,23 @@ jobs:
         if: steps.check-secrets.outputs.configured == 'true'
         uses: actions/checkout@v6
 
+      - uses: pnpm/action-setup@v4
+        if: steps.check-secrets.outputs.configured == 'true'
+
       - name: Setup Node.js
         if: steps.check-secrets.outputs.configured == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: "22"
-          cache: "npm"
+          cache: "pnpm"
 
       - name: Install dependencies
         if: steps.check-secrets.outputs.configured == 'true'
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build shared package
         if: steps.check-secrets.outputs.configured == 'true'
-        run: npm run build -w @open-inspect/shared
+        run: pnpm --filter @open-inspect/shared build
 
       - name: Install Vercel CLI
         if: steps.check-secrets.outputs.configured == 'true'

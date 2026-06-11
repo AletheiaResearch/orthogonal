@@ -461,7 +461,7 @@ variables.
 
 ### Worker deployment fails
 
-1. Build workers first: `npm run build -w @open-inspect/control-plane`
+1. Build workers first: `pnpm --filter @open-inspect/control-plane build`
 2. Check script exists: `ls packages/control-plane/dist/index.js`
 3. Verify Cloudflare API token permissions:
    - `Workers Scripts: Edit`

@@ -6,12 +6,12 @@
 resource "null_resource" "control_plane_build" {
   triggers = {
     # Rebuild when source files change - use timestamp to always check
-    # In CI, this ensures fresh builds; locally, npm handles caching
+    # In CI, this ensures fresh builds; locally, pnpm handles caching
     always_run = timestamp()
   }
 
   provisioner "local-exec" {
-    command     = "npm run build"
+    command     = "pnpm run build"
     working_dir = "${var.project_root}/packages/control-plane"
   }
 }

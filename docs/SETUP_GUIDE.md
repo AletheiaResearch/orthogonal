@@ -39,7 +39,7 @@ Quick check:
 
 ```bash
 node -v
-npm -v
+pnpm -v
 git --version
 ```
 
@@ -94,7 +94,7 @@ ALLOWED_USERS=
 ALLOWED_EMAIL_DOMAINS=
 
 # Optional whitelabel branding (defaults shown). NEXT_PUBLIC_* vars are
-# inlined into the client bundle at build time — restart `npm run dev`
+# inlined into the client bundle at build time — restart `pnpm --filter @open-inspect/web dev`
 # after changing them.
 NEXT_PUBLIC_APP_NAME=Open-Inspect
 # Short label for the sidebar header.
@@ -124,7 +124,7 @@ If this does not match exactly, sign-in will fail.
 ### 4. Run the app
 
 ```bash
-npm run dev -w @open-inspect/web
+pnpm --filter @open-inspect/web dev
 ```
 
 Open `http://localhost:3000`.
@@ -152,28 +152,28 @@ Use this for day-to-day engineering work in the monorepo.
 
 ```bash
 # Build shared first if it changed
-npm run build -w @open-inspect/shared
+pnpm --filter @open-inspect/shared build
 
 # Monorepo checks
-npm run lint
-npm run typecheck
-npm test
+pnpm run lint
+pnpm run typecheck
+pnpm -r run test
 ```
 
 ### Targeted test commands
 
 ```bash
 # Control plane
-npm test -w @open-inspect/control-plane
-npm run test:integration -w @open-inspect/control-plane
+pnpm --filter @open-inspect/control-plane test
+pnpm --filter @open-inspect/control-plane run test:integration
 
 # Web
-npm test -w @open-inspect/web
+pnpm --filter @open-inspect/web test
 
 # Bots
-npm test -w @open-inspect/github-bot
-npm test -w @open-inspect/slack-bot
-npm test -w @open-inspect/linear-bot
+pnpm --filter @open-inspect/github-bot test
+pnpm --filter @open-inspect/slack-bot test
+pnpm --filter @open-inspect/linear-bot test
 ```
 
 ### Python (`modal-infra`) workflow

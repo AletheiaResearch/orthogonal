@@ -88,8 +88,8 @@ without changing any existing component behavior.
 #### 0.1 Install base dependencies
 
 ```bash
-npm install -w @open-inspect/web clsx tailwind-merge class-variance-authority
-npm install -D -w @open-inspect/web @radix-ui/react-slot
+pnpm --filter @open-inspect/web add clsx tailwind-merge class-variance-authority
+pnpm --filter @open-inspect/web add -D @radix-ui/react-slot
 ```
 
 > `@radix-ui/react-slot` is needed for shadcn's `Button` `asChild` pattern. Additional `@radix-ui/*`
@@ -125,7 +125,7 @@ darkMode: "class",
 **`src/app/layout.tsx`** — install `next-themes` and wrap the app:
 
 ```bash
-npm install -w @open-inspect/web next-themes
+pnpm --filter @open-inspect/web add next-themes
 ```
 
 Update the `Providers` component to include `ThemeProvider`:
@@ -230,9 +230,9 @@ borderRadius: {
 
 #### 0.6 Verify
 
-- `npm run build -w @open-inspect/web` passes
-- `npm run typecheck -w @open-inspect/web` passes
-- `npm run test -w @open-inspect/web` passes
+- `pnpm --filter @open-inspect/web build` passes
+- `pnpm --filter @open-inspect/web typecheck` passes
+- `pnpm --filter @open-inspect/web test` passes
 - Visual check: light and dark mode look identical to before
 
 ---
