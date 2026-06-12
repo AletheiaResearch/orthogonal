@@ -128,6 +128,8 @@ export interface GetRepositoryConfig {
   owner: string;
   /** Repository name */
   name: string;
+  /** Optional GitHub App installation ID override (e.g. from webhook payload). */
+  githubInstallationId?: string;
 }
 
 /**

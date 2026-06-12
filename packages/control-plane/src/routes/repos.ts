@@ -9,7 +9,7 @@ import type {
   RepoMetadata,
 } from "@open-inspect/shared";
 
-import { listRepositoriesAcrossInstallations } from "../auth/github-app";
+import { isGitHubAppConfigured, listRepositoriesAcrossInstallations } from "../auth/github-app";
 import { RepoMetadataStore } from "../db/repo-metadata";
 import { createLogger } from "../logger";
 import { SourceControlProviderError, resolveScmProviderFromEnv } from "../source-control";
@@ -35,7 +35,7 @@ async function listRepos(
   fallbackListRepositories: () => Promise<InstallationRepository[]>,
   cacheStore: ReturnType<typeof createKvCacheStore>
 ): Promise<InstallationRepository[]> {
-  if (resolveScmProviderFromEnv(env.SCM_PROVIDER) !== "github") {
+  if (resolveScmProviderFromEnv(env.SCM_PROVIDER) !== "github" || !isGitHubAppConfigured(env)) {
     return fallbackListRepositories();
   }
 

@@ -393,6 +393,7 @@ export class SessionDO extends DurableObject<Env> {
               ? {
                   owner: session.repo_owner,
                   name: session.repo_name,
+                  githubInstallationId: session.github_app_installation_id ?? undefined,
                 }
               : undefined
           );

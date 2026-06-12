@@ -104,6 +104,7 @@ export class SessionPullRequestService {
         pushAuth = await this.deps.sourceControlProvider.generatePushAuth({
           owner: session.repo_owner,
           name: session.repo_name,
+          githubInstallationId: session.github_app_installation_id ?? undefined,
         });
         this.deps.log.info("Generated fresh push auth token");
       } catch (error) {

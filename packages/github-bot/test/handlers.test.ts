@@ -366,6 +366,22 @@ describe("handleReviewRequested", () => {
     );
   });
 
+  it("passes webhook installation ID through to session creation", async () => {
+    const env = createMockEnv();
+    const log = createMockLogger();
+
+    await handleReviewRequested(
+      env,
+      log,
+      { ...reviewRequestedPayload, installation: { id: 424242 } },
+      "trace-session-install"
+    );
+
+    const cpFetch = getControlPlaneFetch(env);
+    const sessionBody = JSON.parse(cpFetch.mock.calls[0][1].body);
+    expect(sessionBody.githubAppInstallationId).toBe("424242");
+  });
+
   it("creates session, posts reaction, and sends prompt", async () => {
     const env = createMockEnv();
     const log = createMockLogger();

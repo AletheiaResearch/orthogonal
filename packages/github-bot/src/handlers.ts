@@ -40,6 +40,7 @@ async function createSession(
     scmLogin: string;
     scmUserId: string;
     scmAvatarUrl: string;
+    githubAppInstallationId?: string;
   }
 ): Promise<string> {
   const body: Record<string, unknown> = {
@@ -54,6 +55,9 @@ async function createSession(
   };
   if (params.reasoningEffort) {
     body.reasoningEffort = params.reasoningEffort;
+  }
+  if (params.githubAppInstallationId) {
+    body.githubAppInstallationId = params.githubAppInstallationId;
   }
   const response = await controlPlane.fetch("https://internal/sessions", {
     method: "POST",
@@ -241,6 +245,7 @@ export async function handleReviewRequested(
     scmLogin: sender.login,
     scmUserId: String(sender.id),
     scmAvatarUrl: sender.avatar_url,
+    githubAppInstallationId: resolveWebhookInstallationId(env, owner, payload.installation?.id),
   });
   log.info("session.created", { ...meta, session_id: sessionId, action: "review" });
 
@@ -342,6 +347,7 @@ export async function handlePullRequestOpened(
     scmLogin: sender.login,
     scmUserId: String(sender.id),
     scmAvatarUrl: sender.avatar_url,
+    githubAppInstallationId: resolveWebhookInstallationId(env, owner, payload.installation?.id),
   });
   log.info("session.created", { ...meta, session_id: sessionId, action: "auto_review" });
 
@@ -449,6 +455,7 @@ export async function handleIssueComment(
     scmLogin: sender.login,
     scmUserId: String(sender.id),
     scmAvatarUrl: sender.avatar_url,
+    githubAppInstallationId: resolveWebhookInstallationId(env, owner, payload.installation?.id),
   });
   log.info("session.created", { ...meta, session_id: sessionId, action: "comment" });
 
@@ -549,6 +556,7 @@ export async function handleReviewComment(
     scmLogin: sender.login,
     scmUserId: String(sender.id),
     scmAvatarUrl: sender.avatar_url,
+    githubAppInstallationId: resolveWebhookInstallationId(env, owner, payload.installation?.id),
   });
   log.info("session.created", { ...meta, session_id: sessionId, action: "review_comment" });
 

@@ -383,6 +383,11 @@ export const MIGRATIONS: readonly SchemaMigration[] = [
     description: "Add total_cost to session",
     run: `ALTER TABLE session ADD COLUMN total_cost REAL NOT NULL DEFAULT 0`,
   },
+  {
+    id: 31,
+    description: "Add github_app_installation_id to session",
+    run: `ALTER TABLE session ADD COLUMN github_app_installation_id TEXT`,
+  },
 ];
 
 /**

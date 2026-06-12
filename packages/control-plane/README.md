@@ -248,11 +248,13 @@ All secrets are configured via Terraform. Required secrets include:
 - `GITHUB_APP_ID` - GitHub App ID
 - `GITHUB_APP_PRIVATE_KEY` - GitHub App private key (PKCS#8 format)
 - `GITHUB_APP_INSTALLATION_ID` - Default installation ID (fallback for unmapped owners)
-- `github_app_installation_map` - Optional map of GitHub owner login to installation ID
 - `REPO_SECRETS_ENCRYPTION_KEY` - AES-GCM key for encrypting repo secrets in D1
 
 Optional variables:
 
+- `GITHUB_APP_INSTALLATION_MAP` - JSON map of GitHub owner login to installation ID for the same
+  GitHub App (populated from Terraform `github_app_installation_map`). Unmapped owners fall back to
+  `GITHUB_APP_INSTALLATION_ID`.
 - `SCM_PROVIDER` - Source control provider for this deployment (`github`, `bitbucket`, or `gitlab`,
   default: `github`). `bitbucket` returns explicit `501 Not Implemented` responses until
   implemented.

@@ -215,6 +215,7 @@ describe("createSessionLifecycleHandler", () => {
       spawnDepth: 1,
       codeServerEnabled: false,
       sandboxSettings: null,
+      githubAppInstallationId: null,
       createdAt: 1234,
       updatedAt: 1234,
     });

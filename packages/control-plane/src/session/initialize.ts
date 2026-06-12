@@ -48,6 +48,8 @@ export interface SessionInitInput {
   parentSessionId?: string | null;
   spawnSource?: SpawnSource;
   spawnDepth?: number;
+  /** GitHub App installation ID resolved at session creation (e.g. from webhook payload). */
+  githubAppInstallationId?: string | null;
   automationId?: string | null;
   automationRunId?: string | null;
 }
@@ -128,6 +130,7 @@ export async function initializeSession(
           parentSessionId: input.parentSessionId,
           spawnSource: input.spawnSource,
           spawnDepth: input.spawnDepth,
+          githubAppInstallationId: input.githubAppInstallationId,
         }),
       })
     );

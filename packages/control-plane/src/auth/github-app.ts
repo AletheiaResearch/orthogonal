@@ -666,6 +666,10 @@ export async function listRepositoriesAcrossInstallations(
     .map((installationId) => getGitHubAppConfig(env, installationId))
     .filter((config): config is GitHubAppConfig => config !== null);
 
+  if (configs.length === 0) {
+    throw new Error("GitHub App not configured");
+  }
+
   const results = await Promise.all(
     configs.map((config) => listInstallationRepositories(config, cacheBindings))
   );

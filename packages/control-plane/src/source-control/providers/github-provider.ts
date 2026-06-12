@@ -59,9 +59,17 @@ export class GitHubSourceControlProvider implements SourceControlProvider {
     this.userAgent = config.userAgent || USER_AGENT;
   }
 
-  private resolveAppConfig(owner?: string): GitHubProviderConfig["appConfig"] | undefined {
-    if (owner && this.appConfigForOwner) {
-      return this.appConfigForOwner(owner) ?? undefined;
+  private resolveAppConfig(
+    config?: GetRepositoryConfig
+  ): GitHubProviderConfig["appConfig"] | undefined {
+    if (config?.githubInstallationId && this.appConfig) {
+      return { ...this.appConfig, installationId: config.githubInstallationId };
+    }
+    if (config?.owner && this.appConfigForOwner) {
+      const ownerConfig = this.appConfigForOwner(config.owner);
+      if (ownerConfig) {
+        return ownerConfig;
+      }
     }
     return this.appConfig;
   }
@@ -218,7 +226,7 @@ export class GitHubSourceControlProvider implements SourceControlProvider {
    * Check whether a repository is accessible to the GitHub App installation.
    */
   async checkRepositoryAccess(config: GetRepositoryConfig): Promise<RepositoryAccessResult | null> {
-    const appConfig = this.resolveAppConfig(config.owner);
+    const appConfig = this.resolveAppConfig(config);
     if (!appConfig) {
       throw new SourceControlProviderError(
         "GitHub App not configured - cannot check repository access",
@@ -279,7 +287,7 @@ export class GitHubSourceControlProvider implements SourceControlProvider {
    * List branches for a repository.
    */
   async listBranches(config: GetRepositoryConfig): Promise<{ name: string }[]> {
-    const appConfig = this.resolveAppConfig(config.owner);
+    const appConfig = this.resolveAppConfig(config);
     if (!appConfig) {
       throw new SourceControlProviderError(
         "GitHub App not configured - cannot list branches",
@@ -305,7 +313,7 @@ export class GitHubSourceControlProvider implements SourceControlProvider {
    * Generate authentication for git push operations using GitHub App.
    */
   async generatePushAuth(config?: GetRepositoryConfig): Promise<GitPushAuthContext> {
-    const appConfig = this.resolveAppConfig(config?.owner);
+    const appConfig = this.resolveAppConfig(config);
     if (!appConfig) {
       throw new SourceControlProviderError(
         "GitHub App not configured - cannot generate push auth",
@@ -331,7 +339,7 @@ export class GitHubSourceControlProvider implements SourceControlProvider {
   }
 
   async generateCredentialHelperAuth(config?: GetRepositoryConfig): Promise<CredentialHelperAuth> {
-    const appConfig = this.resolveAppConfig(config?.owner);
+    const appConfig = this.resolveAppConfig(config);
     if (!appConfig) {
       throw new SourceControlProviderError(
         "GitHub App not configured - cannot generate credential helper auth",

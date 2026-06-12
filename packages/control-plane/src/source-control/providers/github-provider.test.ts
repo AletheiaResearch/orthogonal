@@ -263,6 +263,47 @@ describe("GitHubSourceControlProvider", () => {
       expect(auth).toEqual({ authType: "app", token: "ghs_mapped_push" });
     });
 
+    it("prefers githubInstallationId override over owner map lookup", async () => {
+      mockGetCachedInstallationToken.mockResolvedValueOnce("ghs_override_push");
+      const appConfigForOwner = vi.fn().mockReturnValue(mappedAppConfig);
+
+      const provider = new GitHubSourceControlProvider({
+        appConfig: fakeAppConfig,
+        appConfigForOwner,
+      });
+
+      await provider.generatePushAuth({
+        owner: "mapped-org",
+        name: "repo",
+        githubInstallationId: "override-999",
+      });
+
+      expect(appConfigForOwner).not.toHaveBeenCalled();
+      expect(mockGetCachedInstallationToken).toHaveBeenCalledWith(
+        { ...fakeAppConfig, installationId: "override-999" },
+        expect.any(Object)
+      );
+    });
+
+    it("falls back to default appConfig when appConfigForOwner returns null", async () => {
+      mockGetCachedInstallationToken.mockResolvedValueOnce("ghs_default_push");
+      const appConfigForOwner = vi.fn().mockReturnValue(null);
+
+      const provider = new GitHubSourceControlProvider({
+        appConfig: fakeAppConfig,
+        appConfigForOwner,
+      });
+
+      const auth = await provider.generatePushAuth({ owner: "unknown", name: "repo" });
+
+      expect(appConfigForOwner).toHaveBeenCalledWith("unknown");
+      expect(mockGetCachedInstallationToken).toHaveBeenCalledWith(
+        fakeAppConfig,
+        expect.any(Object)
+      );
+      expect(auth).toEqual({ authType: "app", token: "ghs_default_push" });
+    });
+
     it("uses appConfigForOwner for generateCredentialHelperAuth when owner is provided", async () => {
       const expiresAtEpochMs = Date.now() + 60 * 60 * 1000;
       mockGetCachedInstallationTokenWithExpiry.mockResolvedValueOnce({

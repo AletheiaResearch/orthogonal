@@ -158,6 +158,7 @@ async function handleCreateSession(
     codeServerEnabled,
     sandboxSettings,
     spawnSource: body.spawnSource,
+    githubAppInstallationId: body.githubAppInstallationId,
   };
 
   try {
