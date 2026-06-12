@@ -1,6 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" role="img" aria-labelledby="title desc">
-  <title id="title">Open Inspect logo mark</title>
-  <desc id="desc">A square outline with a smaller filled square inside.</desc>
-  <rect x="1" y="1" width="34" height="34" fill="none" stroke="#1a1a1a" stroke-width="2" />
-  <rect x="8" y="8" width="20" height="20" fill="#1a1a1a" />
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <g fill="none" stroke="#101010" stroke-width="3">
+    <path d="M206.3 244.9 L366.5 337.4 L206.3 429.9 L46.1 337.4 Z"/>
+    <path d="M206.3 59.9 L366.5 152.4 L206.3 244.9 L46.1 152.4 Z"/>
+    <path d="M206.3 244.9 L206.3 59.9 M366.5 337.4 L366.5 152.4 M206.3 429.9 L206.3 244.9 M46.1 337.4 L46.1 152.4"/>
+  </g>
+  <g fill="none" stroke="#101010" stroke-width="2.6">
+    <path d="M366.5 337.4 L465.8 394.8 L366.5 452.1 L267.2 394.8 Z"/>
+    <path d="M366.5 222.7 L465.8 280.1 L366.5 337.4 L267.2 280.1 Z"/>
+    <path d="M366.5 337.4 L366.5 222.7 M465.8 394.8 L465.8 280.1 M366.5 452.1 L366.5 337.4 M267.2 394.8 L267.2 280.1"/>
+  </g>
+  <g fill="none" stroke="#101010" stroke-width="2.2">
+    <path d="M405 244.9 L465.8 280.1 L405 315.2 L344.1 280.1 Z"/>
+    <path d="M405 174.6 L465.8 209.8 L405 244.9 L344.1 209.8 Z"/>
+    <path d="M405 244.9 L405 174.6 M465.8 280.1 L465.8 209.8 M405 315.2 L405 244.9 M344.1 280.1 L344.1 209.8"/>
+  </g>
+  <g fill="none" stroke="#101010" stroke-width="1.9">
+    <path d="M366.5 196.8 L405 219 L366.5 241.2 L328.1 219 Z"/>
+    <path d="M366.5 152.4 L405 174.6 L366.5 196.8 L328.1 174.6 Z"/>
+    <path d="M366.5 196.8 L366.5 152.4 M405 219 L405 174.6 M366.5 241.2 L366.5 196.8 M328.1 219 L328.1 174.6"/>
+  </g>
+  <path d="M206.3 59.9 L206.3 244.9 L465.8 394.8 L465.8 209.8 L366.5 152.4 L366.5 222.7 L405 244.9 L405 217.9" fill="none" stroke="#FF5C00" stroke-width="7.5" stroke-linejoin="miter"/>
 </svg>
