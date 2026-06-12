@@ -1,7 +1,8 @@
 # Removed sandbox provider inventory
 
-Everything deleted or de-wired in commit `e0931d3`. Use `git show e0931d3^:<path>` to recover file
-contents from the parent commit.
+Everything deleted or de-wired in the Modal-only migration. Find the commit with
+`git log --oneline --grep='standardize to modal'`, then use `git show <migration-commit>^:<path>` to
+recover file contents from the parent commit.
 
 ## Deleted packages and directories
 

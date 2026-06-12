@@ -1,6 +1,6 @@
 # Sandbox providers
 
-**Status:** Modal is the only supported sandbox backend (since commit `e0931d3`, June 2026).
+**Status:** Modal is the only supported sandbox backend (since the Modal-only migration, June 2026).
 
 Open-Inspect previously supported deploy-time selection among Modal, Daytona, and Vercel Sandboxes.
 That multi-provider layer was removed to simplify operations, tests, and documentation. Modal
@@ -26,11 +26,16 @@ Sandboxes) can be added without rediscovering the migration by hand.
 
 ## Recovering deleted code
 
-Reference implementations for Daytona and Vercel lived in the tree before `e0931d3`. To inspect them
-without checking out an old branch:
+Reference implementations for Daytona and Vercel lived in the tree before the migration. To inspect
+them without checking out an old branch, find the migration commit on your branch:
 
 ```bash
-git show e0931d3^:packages/control-plane/src/sandbox/provider-name.ts
-git show e0931d3^:packages/control-plane/src/sandbox/providers/daytona-provider.ts
-git show e0931d3^:packages/control-plane/src/sandbox/providers/vercel/provider.ts
+git log --oneline --grep='standardize to modal'
+# Then substitute <migration-commit> below (parent commit = <migration-commit>^)
+git show <migration-commit>^:packages/control-plane/src/sandbox/provider-name.ts
+git show <migration-commit>^:packages/control-plane/src/sandbox/providers/daytona-provider.ts
+git show <migration-commit>^:packages/control-plane/src/sandbox/providers/vercel/provider.ts
 ```
+
+See [CHANGELOG.md](./CHANGELOG.md) for a reference commit hash from the original PR branch (may
+differ after squash merge).

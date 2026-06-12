@@ -40,8 +40,9 @@ const QUERY_PATTERNS = {
   SELECT_LATEST_READY:
     /^SELECT ri\.\* FROM repo_images ri INNER JOIN repo_metadata rm ON ri\.repo_owner = rm\.repo_owner AND ri\.repo_name = rm\.repo_name WHERE ri\.repo_owner = \? AND ri\.repo_name = \?.*ORDER BY ri\.created_at DESC LIMIT 1$/,
   SELECT_STATUS:
-    /^SELECT \* FROM repo_images WHERE repo_owner = \? AND repo_name = \? ORDER BY created_at DESC LIMIT 10$/,
-  SELECT_ALL_STATUS: /^SELECT \* FROM repo_images ORDER BY created_at DESC LIMIT 100$/,
+    /^SELECT \* FROM repo_images WHERE repo_owner = \? AND repo_name = \? AND provider = \? ORDER BY created_at DESC LIMIT 10$/,
+  SELECT_ALL_STATUS:
+    /^SELECT \* FROM repo_images WHERE provider = \? ORDER BY created_at DESC LIMIT 100$/,
   UPDATE_STALE:
     /^UPDATE repo_images SET status = 'failed', error_message = \? WHERE status = 'building' AND created_at < \?$/,
   DELETE_OLD_FAILED: /^DELETE FROM repo_images WHERE status = 'failed' AND created_at < \?$/,
@@ -59,6 +60,11 @@ class FakeD1Database {
     this.repoMetadata.set(`${repoOwner.toLowerCase()}/${repoName.toLowerCase()}`, {
       image_build_enabled: enabled ? 1 : 0,
     });
+  }
+
+  /** Seed a legacy or test row without going through registerBuild. */
+  seedRow(row: RepoImageRow) {
+    this.rows.set(row.id, row);
   }
 
   private isImageBuildEnabled(repoOwner: string, repoName: string): boolean {
@@ -119,14 +125,10 @@ class FakeD1Database {
     }
 
     if (QUERY_PATTERNS.SELECT_LATEST_READY.test(normalized)) {
-      const [owner, name, ...rest] = args as string[];
+      const [owner, name, provider, ...rest] = args as string[];
       let branch: string | undefined;
-      let provider: string | undefined;
       if (normalized.includes("ri.base_branch = ?")) {
         branch = rest.shift();
-      }
-      if (normalized.includes("ri.provider = ?")) {
-        provider = rest.shift();
       }
       if (!this.isImageBuildEnabled(owner, name)) return null;
       let latest: RepoImageRow | null = null;
@@ -134,8 +136,8 @@ class FakeD1Database {
         if (
           row.repo_owner === owner &&
           row.repo_name === name &&
+          row.provider === provider &&
           (!branch || row.base_branch === branch) &&
-          (!provider || row.provider === provider) &&
           row.status === "ready"
         ) {
           if (!latest || row.created_at > latest.created_at) {
@@ -153,10 +155,10 @@ class FakeD1Database {
     const normalized = normalizeQuery(query);
 
     if (QUERY_PATTERNS.SELECT_STATUS.test(normalized)) {
-      const [owner, name] = args as [string, string];
+      const [owner, name, provider] = args as [string, string, string];
       const results: RepoImageRow[] = [];
       for (const row of this.rows.values()) {
-        if (row.repo_owner === owner && row.repo_name === name) {
+        if (row.repo_owner === owner && row.repo_name === name && row.provider === provider) {
           results.push({ ...row });
         }
       }
@@ -164,9 +166,12 @@ class FakeD1Database {
     }
 
     if (QUERY_PATTERNS.SELECT_ALL_STATUS.test(normalized)) {
+      const [provider] = args as [string];
       const results: RepoImageRow[] = [];
       for (const row of this.rows.values()) {
-        results.push({ ...row });
+        if (row.provider === provider) {
+          results.push({ ...row });
+        }
       }
       return results.toSorted((a, b) => b.created_at - a.created_at).slice(0, 100);
     }
@@ -700,6 +705,38 @@ describe("RepoImageStore", () => {
     it("returns empty array for unknown repo", async () => {
       const result = await store.getStatus("acme", "unknown");
       expect(result).toEqual([]);
+    });
+
+    it("excludes legacy non-modal provider rows", async () => {
+      db.seedRow({
+        id: "img-vercel-legacy",
+        repo_owner: "acme",
+        repo_name: "repo",
+        provider: "vercel",
+        provider_session_id: null,
+        provider_image_id: "vercel-img-old",
+        base_sha: "sha-old",
+        base_branch: "main",
+        status: "ready",
+        build_duration_seconds: 30,
+        error_message: null,
+        callback_token_hash: null,
+        callback_token_expires_at: null,
+        callback_token_used_at: null,
+        created_at: Date.now() - 120_000,
+      });
+
+      await store.registerBuild({
+        id: "img-modal",
+        repoOwner: "acme",
+        repoName: "repo",
+        provider: "modal",
+        baseBranch: "main",
+      });
+
+      const status = await store.getStatus("acme", "repo");
+      expect(status).toHaveLength(1);
+      expect(status[0].id).toBe("img-modal");
     });
 
     it("returns builds in reverse chronological order", async () => {

@@ -44,7 +44,7 @@ variable "modal_token_id" {
   default     = ""
 
   validation {
-    condition     = length(var.modal_token_id) > 0
+    condition     = length(trimspace(var.modal_token_id)) > 0
     error_message = "modal_token_id must be set."
   }
 }
@@ -56,7 +56,7 @@ variable "modal_token_secret" {
   default     = ""
 
   validation {
-    condition     = length(var.modal_token_secret) > 0
+    condition     = length(trimspace(var.modal_token_secret)) > 0
     error_message = "modal_token_secret must be set."
   }
 }
@@ -67,7 +67,7 @@ variable "modal_workspace" {
   default     = ""
 
   validation {
-    condition     = length(var.modal_workspace) > 0
+    condition     = length(trimspace(var.modal_workspace)) > 0
     error_message = "modal_workspace must be set."
   }
 }
@@ -271,7 +271,7 @@ variable "modal_api_secret" {
   default     = ""
 
   validation {
-    condition     = length(var.modal_api_secret) > 0
+    condition     = length(trimspace(var.modal_api_secret)) > 0
     error_message = "modal_api_secret must be set."
   }
 }

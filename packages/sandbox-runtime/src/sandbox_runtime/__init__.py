@@ -1,6 +1,7 @@
 """Provider-agnostic sandbox runtime for Open-Inspect.
 
-This package contains the code that runs inside Modal sandboxes. It includes:
+This package contains the in-sandbox agent runtime (currently deployed inside Modal
+containers). It includes:
 - Bridge: WebSocket/SSE communication with the control plane
 - Entrypoint: Supervisor process managing sandbox lifecycle
 - Auth: GitHub App and internal HMAC authentication

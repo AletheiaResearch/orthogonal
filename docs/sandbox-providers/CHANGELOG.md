@@ -5,14 +5,20 @@ the sole sandbox backend.
 
 ## Commit reference
 
+Find the migration commit on your branch:
+
+```bash
+git log --oneline --grep='standardize to modal'
+```
+
 | Field   | Value                                                                |
 | ------- | -------------------------------------------------------------------- |
-| Hash    | `e0931d3591a9c7752226b1c29ba05f9a7d7b3068`                           |
-| Short   | `e0931d3`                                                            |
-| Author  | Nejc Drobnic                                                         |
-| Date    | 2026-06-12                                                           |
 | Subject | `refactor(sandbox): standardize to modal for sandbox infrastructure` |
+| Date    | 2026-06-12                                                           |
 | Scale   | 76 files changed, ~193 insertions, ~6,570 deletions                  |
+
+**Reference commit (pre-squash PR branch):** `e0931d3591a9c7752226b1c29ba05f9a7d7b3068` (`e0931d3`).
+This hash may not exist on `main` after a squash merge — use the `git log` command above instead.
 
 ## Summary
 

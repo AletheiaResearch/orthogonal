@@ -1,5 +1,7 @@
 export type RepoImageProvider = "modal";
 
+const MODAL_REPO_IMAGE_PROVIDER: RepoImageProvider = "modal";
+
 export interface RepoImageBuild {
   id: string;
   repoOwner: string;
@@ -141,16 +143,16 @@ export class RepoImageStore {
     provider?: RepoImageProvider;
     baseBranch?: string;
   }): Promise<RepoImage | null> {
-    const filters = ["ri.repo_owner = ?", "ri.repo_name = ?"];
-    const args: string[] = [repoOwner.toLowerCase(), repoName.toLowerCase()];
+    const filters = ["ri.repo_owner = ?", "ri.repo_name = ?", "ri.provider = ?"];
+    const args: string[] = [
+      repoOwner.toLowerCase(),
+      repoName.toLowerCase(),
+      provider ?? MODAL_REPO_IMAGE_PROVIDER,
+    ];
 
     if (baseBranch) {
       filters.push("ri.base_branch = ?");
       args.push(baseBranch);
-    }
-    if (provider) {
-      filters.push("ri.provider = ?");
-      args.push(provider);
     }
 
     filters.push("ri.status = 'ready'", "rm.image_build_enabled = 1");
@@ -169,9 +171,9 @@ export class RepoImageStore {
   async getStatus(repoOwner: string, repoName: string): Promise<RepoImage[]> {
     const result = await this.db
       .prepare(
-        "SELECT * FROM repo_images WHERE repo_owner = ? AND repo_name = ? ORDER BY created_at DESC LIMIT 10"
+        "SELECT * FROM repo_images WHERE repo_owner = ? AND repo_name = ? AND provider = ? ORDER BY created_at DESC LIMIT 10"
       )
-      .bind(repoOwner.toLowerCase(), repoName.toLowerCase())
+      .bind(repoOwner.toLowerCase(), repoName.toLowerCase(), MODAL_REPO_IMAGE_PROVIDER)
       .all<RepoImage>();
 
     return result.results || [];
@@ -179,7 +181,8 @@ export class RepoImageStore {
 
   async getAllStatus(): Promise<RepoImage[]> {
     const result = await this.db
-      .prepare("SELECT * FROM repo_images ORDER BY created_at DESC LIMIT 100")
+      .prepare("SELECT * FROM repo_images WHERE provider = ? ORDER BY created_at DESC LIMIT 100")
+      .bind(MODAL_REPO_IMAGE_PROVIDER)
       .all<RepoImage>();
 
     return result.results || [];

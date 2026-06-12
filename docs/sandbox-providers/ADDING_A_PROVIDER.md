@@ -1,6 +1,6 @@
 # Adding a sandbox provider
 
-Checklist for introducing a second sandbox backend after the Modal-only migration (`e0931d3`). Read
+Checklist for introducing a second sandbox backend after the Modal-only migration. Read
 [CHANGELOG.md](./CHANGELOG.md) and [REMOVED.md](./REMOVED.md) first to see what was deleted and why.
 
 > SCM providers (GitHub, Bitbucket) use a separate checklist:
@@ -41,7 +41,7 @@ Pick one before writing code. A Cloudflare Sandbox SDK integration would likely 
 
 ## 3. Wire the factory
 
-Restore deploy-time selection (removed in `e0931d3`):
+Restore deploy-time selection (removed in the Modal-only migration):
 
 - [ ] Add selection helper (was `provider-name.ts`): `resolveSandboxBackendName()`, feature gates
       like `supportsRepoImageBackend()`
@@ -54,7 +54,8 @@ Restore deploy-time selection (removed in `e0931d3`):
 Reference the pre-migration factory:
 
 ```bash
-git show e0931d3:packages/control-plane/src/session/durable-object.ts
+git log --oneline --grep='standardize to modal'
+git show <migration-commit>^:packages/control-plane/src/session/durable-object.ts
 ```
 
 ## 4. Data plane / bootstrap
@@ -148,7 +149,7 @@ After migration, repo images UI is always on — no gating exists today.
 
 ## Estimated scope (order of magnitude)
 
-Based on the `e0931d3` removal (~6.4k lines across three providers):
+Based on the Modal-only migration removal (~6.4k lines across three providers):
 
 | Scope                                                               | Rough effort      |
 | ------------------------------------------------------------------- | ----------------- |

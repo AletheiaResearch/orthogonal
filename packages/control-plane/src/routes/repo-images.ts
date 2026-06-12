@@ -233,6 +233,9 @@ async function handleTriggerBuild(
   if (!env.MODAL_API_SECRET || !env.MODAL_WORKSPACE) {
     return error("Modal configuration not available", 503);
   }
+  if (!env.INTERNAL_CALLBACK_SECRET) {
+    return error("Internal authentication not configured", 503);
+  }
 
   const params = extractRepoParams(match);
   if (params instanceof Response) return params;

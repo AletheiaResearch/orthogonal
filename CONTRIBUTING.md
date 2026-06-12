@@ -52,7 +52,6 @@ pnpm -r run test
 | `packages/web`             | Next.js web application              |
 | `packages/sandbox-runtime` | Shared in-sandbox agent runtime      |
 | `packages/modal-infra`     | Modal sandbox infrastructure         |
-| `packages/modal-infra`     | Modal sandbox infrastructure         |
 | `packages/shared`          | Shared types and utilities           |
 
 ## Making Changes

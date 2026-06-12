@@ -1,7 +1,7 @@
 # Sandbox architecture (post-migration)
 
-What survived commit `e0931d3` and how Modal is wired today. This is the surface area a new provider
-must integrate with.
+What survived the Modal-only migration and how Modal is wired today. This is the surface area a new
+provider must integrate with.
 
 ## Data flow
 

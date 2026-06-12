@@ -62,8 +62,12 @@ function createRepoImageDb(row: RepoImageRow): D1Database {
   return {
     prepare,
     batch: async (statements: Array<{ run: () => Promise<unknown> }>) => {
-      await Promise.all(statements.map((statement) => statement.run()));
-      return [];
+      const results = [];
+      // oxlint-disable-next-line eslint(no-await-in-loop) -- D1 batch runs statements sequentially
+      for (const statement of statements) {
+        results.push(await statement.run());
+      }
+      return results;
     },
   } as unknown as D1Database;
 }
