@@ -1,12 +1,10 @@
 {
-  "name": "@open-inspect/web",
+  "name": "@orthogonal/orto",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:cloudflare": "npx opennextjs-cloudflare build",
-    "deploy:cloudflare": "npx opennextjs-cloudflare deploy",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
@@ -35,11 +33,12 @@
     "clsx": "catalog:",
     "cmdk": "catalog:",
     "diff": "catalog:",
-    "next": "catalog:",
+    "next": "16.2.7",
     "next-auth": "catalog:",
     "next-themes": "catalog:",
-    "react": "catalog:",
-    "react-dom": "catalog:",
+    "posthog-js": "catalog:",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
     "react-markdown": "catalog:",
     "react-resizable-panels": "catalog:",
     "recharts": "catalog:",
@@ -52,7 +51,6 @@
     "tailwindcss-animate": "catalog:"
   },
   "devDependencies": {
-    "@opennextjs/cloudflare": "catalog:",
     "@orthogonal/tooling-configs": "workspace:*",
     "@testing-library/jest-dom": "catalog:",
     "@testing-library/react": "catalog:",
@@ -66,7 +64,6 @@
     "postcss": "catalog:",
     "tailwindcss": "catalog:tailwind3",
     "typescript": "catalog:",
-    "vitest": "catalog:",
-    "wrangler": "catalog:"
+    "vitest": "catalog:"
   }
 }

@@ -1,10 +1,8 @@
 /**
  * Control Plane API utilities.
  *
- * Handles authentication and communication with the control plane.
- * On Cloudflare Workers, uses a service binding to avoid same-account
- * worker-to-worker fetch restrictions (error 1042). Falls back to
- * URL-based fetch for Vercel / local development.
+ * Handles authentication and communication with the control plane over
+ * URL-based fetch (Vercel and local development).
  */
 
 import { buildInternalAuthHeaders } from "@open-inspect/shared";
@@ -49,56 +47,7 @@ async function getControlPlaneHeaders(): Promise<HeadersInit> {
 }
 
 /**
- * A minimal interface for a Cloudflare service binding's fetch method.
- */
-interface ServiceBinding {
-  fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
-}
-
-function isServiceBinding(value: unknown): value is ServiceBinding {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "fetch" in value &&
-    typeof value.fetch === "function"
-  );
-}
-
-/**
- * Try to get the Cloudflare Workers service binding for the control plane.
- * Returns null when not running on Cloudflare Workers.
- */
-async function getServiceBinding(): Promise<ServiceBinding | null> {
-  // In local development, always use URL-based fetch — the service binding
-  // resolves to a local wrangler proxy that won't be running.
-  // In local development (next dev), always use URL-based fetch. When
-  // @opennextjs/cloudflare is loaded in a Node.js dev server it can return a
-  // stub service binding whose fetch fails with a "no local dev session" error.
-  if (process.env.NODE_ENV === "development") {
-    return null;
-  }
-
-  try {
-    const { getCloudflareContext } = await import("@opennextjs/cloudflare");
-    const ctx = await getCloudflareContext({ async: true });
-    const binding = (ctx as { env?: { CONTROL_PLANE_WORKER?: unknown } }).env?.CONTROL_PLANE_WORKER;
-    return isServiceBinding(binding) ? binding : null;
-  } catch (err) {
-    // Expected on non-Cloudflare runtimes (missing package). Log on edge
-    // so binding misconfigurations don't silently fall back to URL fetch.
-    if (typeof caches !== "undefined") {
-      console.warn("[control-plane] getCloudflareContext failed, falling back to URL fetch:", err);
-    }
-    return null;
-  }
-}
-
-/**
  * Make an authenticated request to the control plane.
- *
- * On Cloudflare Workers, uses the CONTROL_PLANE_WORKER service binding
- * to avoid error 1042 (same-account worker-to-worker restriction).
- * Falls back to URL-based fetch on other platforms.
  *
  * @param path - API path (e.g., "/sessions")
  * @param options - Fetch options (method, body, etc.)
@@ -110,22 +59,12 @@ export async function controlPlaneFetch(
 ): Promise<Response> {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const headers = await getControlPlaneHeaders();
-  const fetchOptions: RequestInit = {
+  const baseUrl = getControlPlaneUrl().replace(/\/+$/, "");
+  return fetch(`${baseUrl}${normalizedPath}`, {
     ...options,
     headers: {
       ...headers,
       ...options.headers,
     },
-  };
-
-  // On Cloudflare Workers, use the service binding to call the control plane
-  const binding = await getServiceBinding();
-  if (binding) {
-    const baseUrl = getControlPlaneUrl().replace(/\/+$/, "");
-    return binding.fetch(`${baseUrl}${normalizedPath}`, fetchOptions);
-  }
-
-  // Fallback: direct fetch (works on Vercel / local dev)
-  const baseUrl = getControlPlaneUrl().replace(/\/+$/, "");
-  return fetch(`${baseUrl}${normalizedPath}`, fetchOptions);
+  });
 }
