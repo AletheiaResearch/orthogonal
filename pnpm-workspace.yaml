@@ -69,6 +69,7 @@ catalog:
   oxlint: 1.68.0
   oxlint-tsgolint: 0.23.0
   postcss: 8.5.14
+  posthog-js: 1.381.0
   react: 19.2.4
   react-dom: 19.2.4
   react-markdown: 10.1.0
@@ -89,6 +90,7 @@ catalog:
   wrangler: 4.30.0
 
 allowBuilds:
+  core-js: false
   esbuild: true
   msw: true
   sharp: true

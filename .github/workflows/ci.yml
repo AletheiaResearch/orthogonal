@@ -89,6 +89,31 @@ jobs:
       - name: Build web package
         run: pnpm --filter @open-inspect/web build
 
+  build-orto:
+    name: Build (Orto)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm --filter @open-inspect/shared build
+
+      - name: Build orto package
+        run: pnpm --filter @orthogonal/orto build
+
   lint-python-sandbox-runtime:
     name: Lint & Format (Python - sandbox-runtime)
     runs-on: ubuntu-latest
@@ -283,6 +308,32 @@ jobs:
 
       - name: Run web tests
         run: pnpm --filter @open-inspect/web test
+
+  test-orto:
+    name: Test (orto)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [lint-typescript, typecheck-typescript]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm --filter @open-inspect/shared build
+
+      - name: Run orto tests
+        run: pnpm --filter @orthogonal/orto test
 
   test-bots:
     name: Test (bots)

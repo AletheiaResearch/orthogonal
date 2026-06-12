@@ -1,0 +1,39 @@
+import { getServerSession } from "next-auth";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+
+import { authOptions } from "@/lib/auth";
+import { controlPlaneFetch } from "@/lib/control-plane";
+import { ID_PATTERN } from "@/lib/route-params";
+
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  // Verify user is authenticated
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await params;
+  if (!ID_PATTERN.test(id)) {
+    return NextResponse.json({ error: "Invalid session ID" }, { status: 400 });
+  }
+  const userId = session.user.id || session.user.email || "anonymous";
+
+  try {
+    const response = await controlPlaneFetch(`/sessions/${id}/unarchive`, {
+      method: "POST",
+      body: JSON.stringify({ userId }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return NextResponse.json(data, { status: response.status });
+    }
+
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("Unarchive session error:", error);
+    return NextResponse.json({ error: "Failed to unarchive session" }, { status: 500 });
+  }
+}
