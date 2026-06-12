@@ -116,7 +116,6 @@ built for internal use where all employees are trusted and have access to compan
 | [web](packages/web)                         | Next.js web client                          |
 | [sandbox-runtime](packages/sandbox-runtime) | Shared in-sandbox agent runtime             |
 | [modal-infra](packages/modal-infra)         | Modal sandbox infrastructure                |
-| [daytona-infra](packages/daytona-infra)     | Daytona snapshot infrastructure             |
 | [slack-bot](packages/slack-bot)             | Slack integration (sessions from messages)  |
 | [github-bot](packages/github-bot)           | GitHub integration (auto-review, @mention)  |
 | [linear-bot](packages/linear-bot)           | Linear integration (issue → coding session) |
@@ -268,8 +267,6 @@ Inspired by [Ramp's Inspect](https://builders.ramp.com/post/why-we-built-our-bac
 built with:
 
 - [Modal](https://modal.com) - Cloud sandbox infrastructure
-- [Daytona](https://www.daytona.io) - Cloud development sandboxes
-- [Vercel Sandbox](https://vercel.com/docs/vercel-sandbox) - Cloud sandbox infrastructure
 - [Cloudflare Workers](https://workers.cloudflare.com) - Edge computing
 - [OpenCode](https://opencode.ai) - Coding agent runtime
 - [Next.js](https://nextjs.org) - Web framework

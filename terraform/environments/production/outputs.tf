@@ -76,21 +76,6 @@ output "web_app_platform" {
   value       = var.web_platform
 }
 
-output "sandbox_provider" {
-  description = "Sandbox backend selected for this deployment"
-  value       = var.sandbox_provider
-}
-
-output "vercel_base_snapshot_id" {
-  description = "Vercel base runtime snapshot ID configured for sandbox creation"
-  value       = local.use_vercel_backend && var.vercel_base_snapshot_id != "" ? var.vercel_base_snapshot_id : null
-}
-
-output "vercel_base_snapshot_name" {
-  description = "Managed Vercel base runtime snapshot sandbox name"
-  value       = local.use_vercel_backend && var.vercel_base_snapshot_id == "" ? module.vercel_sandbox_infra[0].snapshot_name : null
-}
-
 output "web_app_project_id" {
   description = "Vercel project ID (null when using Cloudflare)"
   value       = var.web_platform == "vercel" ? module.web_app[0].project_id : null
@@ -99,12 +84,12 @@ output "web_app_project_id" {
 # Modal
 output "modal_app_name" {
   description = "Modal app name"
-  value       = local.use_modal_backend ? module.modal_app[0].app_name : null
+  value       = module.modal_app.app_name
 }
 
 output "modal_health_url" {
   description = "Modal health check endpoint"
-  value       = local.use_modal_backend ? module.modal_app[0].api_health_url : null
+  value       = module.modal_app.api_health_url
 }
 
 # =============================================================================
@@ -119,7 +104,7 @@ output "verification_commands" {
     curl ${module.control_plane_worker.worker_url}/health
 
     # 2. Health check sandbox backend
-    ${local.use_modal_backend ? "curl ${module.modal_app[0].api_health_url}" : local.use_vercel_backend ? "# Vercel sandboxes use the Vercel Sandbox API directly. Base snapshot: ${var.vercel_base_snapshot_id != "" ? var.vercel_base_snapshot_id : module.vercel_sandbox_infra[0].snapshot_name}" : "# Daytona sandboxes use the REST API directly — no health endpoint to check"}
+    curl ${module.modal_app.api_health_url}
 
     # 3. Verify web app deployment
     curl ${local.web_app_url}

@@ -1272,8 +1272,7 @@ describe("SandboxLifecycleManager", () => {
           reason: "inactivity_timeout",
         })
       );
-      expect(storage.calls).toContain("clearSandboxCodeServerUrl");
-      expect(storage.calls).not.toContain("clearSandboxCodeServer");
+      expect(storage.calls).toContain("clearSandboxCodeServer");
     });
 
     it("calls onSandboxTerminating callback on heartbeat stale", async () => {

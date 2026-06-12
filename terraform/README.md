@@ -7,12 +7,11 @@ Terraform.
 
 The infrastructure spans multiple cloud providers:
 
-| Provider       | Resources                                            | Terraform Support                   |
-| -------------- | ---------------------------------------------------- | ----------------------------------- |
-| **Cloudflare** | Workers, KV Namespaces, Durable Objects, D1 Database | Native provider                     |
-| **Vercel**     | Next.js Web App, optional sandbox sessions           | Native provider + Sandbox API calls |
-| **Modal**      | Optional sandbox infrastructure                      | CLI wrapper (no provider exists)    |
-| **Daytona**    | Optional sandbox snapshots                           | REST API wrapper                    |
+| Provider       | Resources                                            | Terraform Support                |
+| -------------- | ---------------------------------------------------- | -------------------------------- |
+| **Cloudflare** | Workers, KV Namespaces, Durable Objects, D1 Database | Native provider                  |
+| **Vercel**     | Next.js web app (optional)                           | Native provider                  |
+| **Modal**      | Sandbox infrastructure                               | CLI wrapper (no provider exists) |
 
 ## Directory Structure
 
@@ -23,7 +22,6 @@ terraform/
 ├── modules/                      # Reusable Terraform modules
 │   ├── cloudflare-kv/           # KV namespace management
 │   ├── cloudflare-worker/       # Worker deployment with bindings (KV, DO, D1)
-│   ├── daytona-infra/           # Daytona snapshot bootstrap wrapper
 │   ├── vercel-project/          # Vercel project + environment vars
 │   └── modal-app/               # Modal CLI wrapper
 │       └── scripts/             # Deployment scripts
@@ -35,7 +33,6 @@ terraform/
 │       ├── d1.tf                # D1 database + migrations
 │       ├── workers-*.tf         # Worker builds/deployments per service
 │       ├── web-*.tf             # Web app resources (Vercel/OpenNext)
-│       ├── daytona.tf           # Daytona snapshot resources
 │       ├── modal.tf             # Modal infrastructure
 │       ├── checks.tf            # Terraform check blocks
 │       ├── moved.tf             # State move declarations
@@ -83,11 +80,6 @@ brew install node@22
 
 1. **Create API Token** at [Vercel Account Settings](https://vercel.com/account/tokens)
 2. **Note your Team ID** (found in team settings URL)
-3. If using `sandbox_provider = "vercel"`, also note the Project ID for the Vercel project that will
-   own sandbox sessions.
-4. Terraform builds an immutable Vercel base-runtime snapshot from the local checkout and passes a
-   deterministic snapshot name into the control-plane Worker. `VERCEL_BASE_SNAPSHOT_ID` is only
-   needed as a manual override.
 
 ### 4. Modal Setup
 
@@ -327,7 +319,6 @@ curl https://open-inspect-control-plane-prod.<subdomain>.workers.dev/health
 # Manual form: https://<workspace>[-<modal_environment_web_suffix>]--open-inspect-api-health.modal.run
 MODAL_WORKSPACE_SLUG="<workspace>" # or "<workspace>-<modal_environment_web_suffix>"
 curl https://${MODAL_WORKSPACE_SLUG}--open-inspect-api-health.modal.run
-# Daytona and Vercel use their provider APIs directly, so there is no Open-Inspect shim health URL.
 
 # 3. Verify Vercel deployment (replace with your Vercel app URL)
 curl https://<your-vercel-app>.vercel.app

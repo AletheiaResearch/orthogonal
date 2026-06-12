@@ -56,12 +56,6 @@ module "web_app" {
       sensitive = false
     },
     {
-      key       = "NEXT_PUBLIC_SANDBOX_PROVIDER"
-      value     = var.sandbox_provider
-      targets   = ["production", "preview"]
-      sensitive = false
-    },
-    {
       key       = "NEXT_PUBLIC_APP_NAME"
       value     = var.app_name
       targets   = ["production", "preview"]

@@ -24,9 +24,7 @@ minutes of changes.
 
 ## Getting Started
 
-Pre-built images are available when the deployment uses `sandbox_provider = "modal"` or
-`sandbox_provider = "vercel"`. Daytona deployments use persistent sandboxes instead, so the Images
-settings page is disabled for that backend.
+Pre-built images are always available on Modal-backed deployments.
 
 ### Enable for a Repository
 

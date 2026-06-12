@@ -15,11 +15,11 @@ This guide walks you through deploying your own instance of Open-Inspect using T
 
 Open-Inspect uses Terraform to automate deployment across multiple cloud providers:
 
-| Provider                                          | Purpose                          | What Terraform Creates                                                   |
-| ------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------ |
-| **Cloudflare**                                    | Control plane, session state     | Workers, KV namespaces, Durable Objects, D1 Database                     |
-| **Vercel** _or_ **Cloudflare Workers**            | Web application                  | Project + env vars (Vercel) _or_ Worker via OpenNext (Cloudflare)        |
-| **Modal**, **Daytona**, _or_ **Vercel Sandboxes** | Sandbox execution infrastructure | Modal app deployment, Daytona API config, _or_ Vercel Sandbox API config |
+| Provider                               | Purpose                                     | What Terraform Creates                                            |
+| -------------------------------------- | ------------------------------------------- | ----------------------------------------------------------------- |
+| **Cloudflare**                         | Control plane, session state                | Workers, KV namespaces, Durable Objects, D1 Database              |
+| **Vercel** _or_ **Cloudflare Workers** | Web application                             | Project + env vars (Vercel) _or_ Worker via OpenNext (Cloudflare) |
+| **Modal**                              | Sandbox execution infrastructure (required) | Modal app deployment via Terraform                                |
 
 > **Web platform choice**: Set `web_platform` in your `terraform.tfvars` to `"vercel"` (default) or
 > `"cloudflare"`. The Cloudflare option deploys the Next.js app as a Cloudflare Worker using
@@ -36,17 +36,15 @@ Open-Inspect uses Terraform to automate deployment across multiple cloud provide
 
 Create accounts on these services before continuing:
 
-| Service                                             | Purpose                                                        |
-| --------------------------------------------------- | -------------------------------------------------------------- |
-| [Cloudflare](https://dash.cloudflare.com)           | Control plane hosting (+ web app if using Cloudflare platform) |
-| [Vercel](https://vercel.com) _(optional)_           | Web application hosting (only if `web_platform = "vercel"`)    |
-| [Modal](https://modal.com) _(optional)_             | Sandbox infrastructure when `sandbox_provider = "modal"`       |
-| [Daytona](https://app.daytona.io) _(optional)_      | Sandbox infrastructure when `sandbox_provider = "daytona"`     |
-| [Vercel Sandboxes](https://vercel.com) _(optional)_ | Sandbox infrastructure when `sandbox_provider = "vercel"`      |
-| [GitHub](https://github.com/settings/developers)    | OAuth + repository access                                      |
-| [Anthropic](https://console.anthropic.com)          | Claude API                                                     |
-| [Slack](https://api.slack.com/apps) _(optional)_    | Slack bot integration                                          |
-| GitHub App Webhooks _(optional)_                    | GitHub bot (PR reviews)                                        |
+| Service                                          | Purpose                                                        |
+| ------------------------------------------------ | -------------------------------------------------------------- |
+| [Cloudflare](https://dash.cloudflare.com)        | Control plane hosting (+ web app if using Cloudflare platform) |
+| [Vercel](https://vercel.com) _(optional)_        | Web application hosting (only if `web_platform = "vercel"`)    |
+| [Modal](https://modal.com)                       | Sandbox infrastructure (required)                              |
+| [GitHub](https://github.com/settings/developers) | OAuth + repository access                                      |
+| [Anthropic](https://console.anthropic.com)       | Claude API                                                     |
+| [Slack](https://api.slack.com/apps) _(optional)_ | Slack bot integration                                          |
+| GitHub App Webhooks _(optional)_                 | GitHub bot (PR reviews)                                        |
 
 ### Required Tools
 
@@ -148,7 +146,8 @@ Create an R2 API Token:
 
 ### Modal
 
-> Only required when `sandbox_provider = "modal"`.
+Modal is required for all sandbox execution. See [sandbox-providers/](./sandbox-providers/README.md)
+for migration history and notes on adding another backend.
 
 1. Go to [Modal Settings](https://modal.com/settings)
 2. **Create a new API token**: Settings -> API Tokens -> New Token
@@ -158,60 +157,6 @@ Create an R2 API Token:
 5. Note the environment's **Web suffix** from Modal's environment settings. Use the normalized
    lowercase suffix made of letters, digits, and dashes. Leave it empty for the environment whose
    endpoints use `https://<workspace>--...modal.run`.
-
-### Daytona
-
-> Only required when `sandbox_provider = "daytona"`.
-
-1. Create a [Daytona](https://app.daytona.io) account and generate an **API key** with the following
-   permissions:
-   - **Sandboxes**: Read, Write (runtime sandbox management and preview URLs)
-   - **Snapshots**: Read, Write, Delete (automated snapshot builds via Terraform)
-2. Note the **API URL** (e.g., `https://app.daytona.io/api`) and optional **target**
-3. Seed the named base snapshot before pointing traffic at Daytona:
-   ```bash
-   cd packages/daytona-infra
-   pip install daytona   # or: uv pip install daytona
-   python -m src.bootstrap --force
-   ```
-   After initial setup, Terraform automatically rebuilds the snapshot when source files change.
-4. Set `sandbox_provider = "daytona"` in `terraform.tfvars`
-5. Set `daytona_api_url`, `daytona_api_key`, and `daytona_base_snapshot` in `terraform.tfvars`
-
-The control plane calls the Daytona REST API directly — no shim service to deploy.
-
-> **Important**: Unlike Modal, the Daytona provider does not automatically inject LLM API keys into
-> sandboxes. If you plan to use Claude models, add `ANTHROPIC_API_KEY` as a **global secret** in
-> Settings > Secrets after deploying. See [Secrets Management](SECRETS.md) for details.
-
-### Vercel Sandboxes
-
-> Only required when `sandbox_provider = "vercel"`.
-
-1. Create a [Vercel API token](https://vercel.com/account/tokens) that can access your sandbox
-   project.
-2. Note the **Project ID** for the project that will own sandbox sessions.
-3. Note the **Team/Account ID** if you use a Vercel team. Leave it unset for personal accounts where
-   the token can access the project directly.
-4. Set `sandbox_provider = "vercel"` in `terraform.tfvars`.
-5. Set `vercel_sandbox_token`, `vercel_sandbox_project_id`, and optionally `vercel_sandbox_team_id`
-   in `terraform.tfvars`.
-
-The control plane calls the Vercel Sandbox API directly from Cloudflare Workers. No Modal-style shim
-service is deployed. Vercel supports filesystem snapshots and repo prebuilt images; if you have a
-reusable base snapshot, set `vercel_base_snapshot_id` to use it instead of Terraform's managed base
-snapshot build.
-
-When Terraform runs with `sandbox_provider = "vercel"`, it builds a managed immutable Vercel
-base-runtime snapshot from the checked-out sandbox runtime and Vercel bootstrap source, then passes
-a deterministic snapshot name into the Worker deployment. The control plane resolves that name to
-the latest created Vercel snapshot at sandbox creation time. The `vercel_base_snapshot_id` setting
-is still available as a manual override. See [Vercel Sandbox Provider](VERCEL_SANDBOX_PROVIDER.md)
-for the full runtime, snapshot, and resource configuration model.
-
-> **Important**: Unlike Modal, the Vercel provider does not automatically inject LLM API keys into
-> sandboxes. If you plan to use Claude models, add `ANTHROPIC_API_KEY` as a **global secret** in
-> Settings > Secrets after deploying. See [Secrets Management](SECRETS.md) for details.
 
 ### Anthropic
 
@@ -393,22 +338,6 @@ modal_token_secret          = "your-modal-token-secret"
 modal_workspace             = "your-modal-workspace"
 modal_environment           = "your-modal-environment"
 modal_environment_web_suffix = "your-modal-web-suffix" # Lowercase letters, digits, dashes; empty for https://workspace--... endpoints
-
-# Sandbox provider: "modal" (default), "daytona", or "vercel"
-# sandbox_provider          = "modal"
-
-# Daytona (only required when sandbox_provider = "daytona")
-# daytona_api_url           = "https://app.daytona.io/api"
-# daytona_api_key           = "your-daytona-api-key"
-# daytona_base_snapshot     = "your-snapshot-name"
-
-# Vercel Sandboxes (only required when sandbox_provider = "vercel")
-# vercel_sandbox_token      = "your-vercel-token"
-# vercel_sandbox_project_id = "prj_xxxxx"
-# vercel_sandbox_team_id    = "team_xxxxx" # Optional
-# vercel_base_snapshot_id   = "snapshot_xxxxx" # Optional manual override; skips managed snapshot builds
-# vercel_sandbox_runtime    = "node24"
-# vercel_snapshot_expiration_ms = 0
 
 # GitHub App (used for both OAuth and repository access)
 github_client_id     = "Iv1.abc123..."           # From GitHub App settings
@@ -683,7 +612,6 @@ curl https://open-inspect-control-plane-{deployment_name}.YOUR-SUBDOMAIN.workers
 # Manual form: https://<workspace>[-<modal_environment_web_suffix>]--open-inspect-api-health.modal.run
 MODAL_WORKSPACE_SLUG="YOUR-WORKSPACE" # or "YOUR-WORKSPACE-YOUR-MODAL-WEB-SUFFIX"
 curl https://${MODAL_WORKSPACE_SLUG}--open-inspect-api-health.modal.run
-# Daytona and Vercel use their provider APIs directly, so there is no Open-Inspect shim health URL.
 
 # 3. Web app (should return 200)
 # Vercel:
@@ -813,17 +741,6 @@ If the bot doesn't see the original message when tagged in a thread reply:
 4. Check that `github_bot_username` matches your App's bot login (e.g., `my-app[bot]`)
 5. For PR reviews, ensure auto-review is enabled for the repository and the PR is not a draft
 6. For comment actions, ensure the bot is @mentioned in a **PR** comment (not an issue)
-
-### "Model not found" errors (Daytona or Vercel provider)
-
-If sessions fail with "Model not found" when using `sandbox_provider = "daytona"` or
-`sandbox_provider = "vercel"`, the required LLM API key is likely missing. Unlike Modal (which
-injects keys automatically), these providers require you to add them as global secrets:
-
-1. Go to **Settings > Secrets** in the web app
-2. Select **All Repositories (Global)** from the scope dropdown
-3. Add the key for your chosen provider (e.g., `ANTHROPIC_API_KEY` for Claude models)
-4. Click **Save**
 
 See [Secrets Management](SECRETS.md) for more on global and repository secrets.
 

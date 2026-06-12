@@ -46,13 +46,11 @@ cloudflare_worker_subdomain = ""
 # vercel_team_id = ""  # e.g., "team_xxxxxxxxxxxxxxxxxxxx"
 
 # Modal API token
-# Only required when sandbox_provider = "modal"
 # Create at: https://modal.com/settings
 modal_token_id = ""
 modal_token_secret = ""
 
 # Modal workspace, environment, and endpoint web suffix
-# Only required when sandbox_provider = "modal"
 # workspace: your Modal username (e.g., "myworkspace")
 # environment: Modal environment name used by the CLI
 # environment_web_suffix: Modal web suffix used in endpoint URLs:
@@ -61,27 +59,6 @@ modal_token_secret = ""
 modal_workspace               = ""
 modal_environment             = "main"
 modal_environment_web_suffix  = ""
-
-# Daytona REST API
-# Only required when sandbox_provider = "daytona"
-# Create an API key at https://app.daytona.io with permissions:
-#   Sandboxes: Read, Write  |  Snapshots: Read, Write, Delete
-# Seed the base snapshot with packages/daytona-infra/src/bootstrap.py before enabling.
-daytona_api_url = ""           # e.g., "https://app.daytona.io/api"
-daytona_api_key = ""           # Requires Sandboxes (Read/Write) + Snapshots (Read/Write/Delete)
-daytona_base_snapshot = ""     # Name of the seeded Daytona snapshot
-# daytona_target = ""          # Optional Daytona target name
-
-# Vercel Sandbox API
-# Only required when sandbox_provider = "vercel"
-# Create a Vercel access token and use a project ID with Sandbox access.
-vercel_sandbox_token      = ""
-vercel_sandbox_project_id = "" # e.g., "prj_xxxxxxxxxxxxxxxxxxxx"
-# vercel_sandbox_team_id  = "" # Optional team ID, e.g., "team_xxxxxxxxxxxxxxxxxxxx"
-# vercel_sandbox_api_base_url = "" # Optional API override for advanced testing
-# vercel_base_snapshot_id = "" # Optional manual override; skips Terraform-managed snapshot builds
-# vercel_sandbox_runtime  = "node24"
-# vercel_snapshot_expiration_ms = 0
 
 # =============================================================================
 # GitHub App Credentials
@@ -186,7 +163,6 @@ repo_secrets_encryption_key = ""
 internal_callback_secret = ""
 
 # Modal API secret (for control plane -> Modal authentication)
-# Only required when sandbox_provider = "modal"
 # Generate with: openssl rand -hex 32
 modal_api_secret = ""
 
@@ -196,12 +172,6 @@ nextauth_secret = ""
 # =============================================================================
 # Configuration
 # =============================================================================
-
-# Sandbox backend for session execution
-# - "modal": existing Modal-based sandboxes with filesystem snapshot restore
-# - "daytona": direct Daytona REST API integration with stop/start resume
-# - "vercel": Vercel Sandbox API with filesystem snapshot restore
-sandbox_provider = "modal"
 
 # Platform for the web app deployment
 # - "vercel": deploy the Next.js app to Vercel (requires vercel_api_token + vercel_team_id)

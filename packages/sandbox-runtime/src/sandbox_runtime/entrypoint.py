@@ -281,7 +281,7 @@ class SandboxSupervisor:
         Older workspaces/images (from before the credential-helper migration)
         may embed a GitHub App installation token in the `origin` URL. Modal
         snapshot restores receive a fresh fallback token, but long-running
-        sandboxes and Daytona persistent resumes can outlive embedded tokens.
+        Modal snapshot restores can outlive embedded tokens.
         Normalizing `origin` keeps git fetches routed through the helper.
 
         Returns False on failure — callers must short-circuit, since a

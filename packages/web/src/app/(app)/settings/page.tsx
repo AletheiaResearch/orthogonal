@@ -17,7 +17,6 @@ import { useSidebarContext } from "@/components/sidebar-layout";
 import { SidebarIcon, BackIcon } from "@/components/ui/icons";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
-import { supportsRepoImages } from "@/lib/sandbox-provider";
 
 const CATEGORY_LABELS: Record<SettingsCategory, string> = {
   secrets: "Secrets",
@@ -51,11 +50,7 @@ export default function SettingsPage() {
   const { isOpen, toggle } = useSidebarContext();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const repoImagesEnabled = supportsRepoImages();
-  const initialCategory =
-    isValidCategory(tabParam) && (tabParam !== "images" || repoImagesEnabled)
-      ? tabParam
-      : "secrets";
+  const initialCategory = isValidCategory(tabParam) ? tabParam : "secrets";
   const [activeCategory, setActiveCategoryRaw] = useState<SettingsCategory>(initialCategory);
 
   function setActiveCategory(category: SettingsCategory) {
@@ -64,12 +59,12 @@ export default function SettingsPage() {
   }
   const isMobile = useIsMobile();
   const [mobileView, setMobileView] = useState<"list" | "detail">(
-    isValidCategory(tabParam) && (tabParam !== "images" || repoImagesEnabled) ? "detail" : "list"
+    isValidCategory(tabParam) ? "detail" : "list"
   );
 
   // Sync state when searchParams change via client-side navigation
   useEffect(() => {
-    if (isValidCategory(tabParam) && (tabParam !== "images" || repoImagesEnabled)) {
+    if (isValidCategory(tabParam)) {
       setActiveCategoryRaw(tabParam);
       setMobileView("detail");
       return;
@@ -77,13 +72,13 @@ export default function SettingsPage() {
 
     setActiveCategoryRaw("secrets");
     setMobileView("list");
-  }, [repoImagesEnabled, tabParam]);
+  }, [tabParam]);
 
   const content = (
     <>
       {activeCategory === "secrets" && <SecretsSettings />}
       {activeCategory === "models" && <ModelsSettings />}
-      {activeCategory === "images" && repoImagesEnabled && <ImagesSettings />}
+      {activeCategory === "images" && <ImagesSettings />}
       {activeCategory === "appearance" && <AppearanceSettings />}
       {activeCategory === "keyboard-shortcuts" && <KeyboardShortcutsSettings />}
       {activeCategory === "data-controls" && <DataControlsSettings />}

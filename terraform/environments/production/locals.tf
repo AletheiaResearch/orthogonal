@@ -1,8 +1,5 @@
 locals {
-  name_suffix         = var.deployment_name
-  use_modal_backend   = var.sandbox_provider == "modal"
-  use_daytona_backend = var.sandbox_provider == "daytona"
-  use_vercel_backend  = var.sandbox_provider == "vercel"
+  name_suffix = var.deployment_name
 
   # URLs for cross-service configuration
   control_plane_host = "open-inspect-control-plane-${local.name_suffix}.${var.cloudflare_worker_subdomain}.workers.dev"

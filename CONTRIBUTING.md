@@ -52,7 +52,6 @@ pnpm -r run test
 | `packages/web`             | Next.js web application              |
 | `packages/sandbox-runtime` | Shared in-sandbox agent runtime      |
 | `packages/modal-infra`     | Modal sandbox infrastructure         |
-| `packages/daytona-infra`   | Daytona snapshot infrastructure      |
 | `packages/shared`          | Shared types and utilities           |
 
 ## Making Changes
@@ -86,6 +85,14 @@ For SCM/provider changes, follow:
 
 - `docs/adr/0001-single-provider-scm-boundaries.md`
 - `docs/provider-contribution-checklist.md`
+
+### Sandbox Provider Contributions
+
+Open-Inspect currently runs Modal as the only sandbox backend. To add or change sandbox providers,
+start with:
+
+- `docs/sandbox-providers/README.md`
+- `docs/sandbox-providers/ADDING_A_PROVIDER.md`
 
 ## Reporting Issues
 

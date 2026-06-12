@@ -1,28 +1,22 @@
-import { computeHmacHex } from "@open-inspect/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const { mockBuildRepoImage } = vi.hoisted(() => ({
+  mockBuildRepoImage: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../sandbox/client", () => ({
+  createModalClient: vi.fn(() => ({
+    buildRepoImage: mockBuildRepoImage,
+    deleteProviderImage: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
+
+import { generateInternalToken } from "../auth/internal";
 import { createRequestMetrics } from "../db/instrumented-d1";
 import type { RepoImageProvider } from "../db/repo-images";
-import type * as VercelClientModule from "../sandbox/providers/vercel/client";
 import type { Env } from "../types";
 import { repoImageRoutes } from "./repo-images";
 import type { RequestContext, Route } from "./shared";
-
-const vercelClient = vi.hoisted(() => ({
-  snapshotSession: vi.fn(),
-  deleteSnapshot: vi.fn(),
-  stopSession: vi.fn(),
-}));
-
-const VERCEL_CALLBACK_TOKEN = "a".repeat(64);
-
-vi.mock("../sandbox/providers/vercel/client", async (importOriginal) => {
-  const actual = await importOriginal<typeof VercelClientModule>();
-  return {
-    ...actual,
-    createVercelSandboxClient: vi.fn(() => vercelClient),
-  };
-});
 
 interface RepoImageRow {
   id: string;
@@ -46,19 +40,6 @@ function createRepoImageDb(row: RepoImageRow): D1Database {
   const prepare = (sql: string) => ({
     bind: (...args: unknown[]) => ({
       first: async () => {
-        if (sql.includes("SELECT id, provider, provider_session_id")) {
-          return row.id === args[0] && row.provider === args[1]
-            ? {
-                id: row.id,
-                provider: row.provider,
-                provider_session_id: row.provider_session_id,
-                status: row.status,
-                callback_token_hash: row.callback_token_hash,
-                callback_token_expires_at: row.callback_token_expires_at,
-                callback_token_used_at: row.callback_token_used_at,
-              }
-            : null;
-        }
         if (sql.includes("SELECT repo_owner, repo_name, provider, base_branch")) {
           return row.id === args[0] && row.provider === args[1] && row.status === "building"
             ? {
@@ -75,8 +56,14 @@ function createRepoImageDb(row: RepoImageRow): D1Database {
         return null;
       },
       run: async () => {
-        if (sql.includes("UPDATE repo_images SET callback_token_used_at")) {
-          row.callback_token_used_at = Number(args[0]);
+        if (sql.includes("INSERT INTO repo_images")) {
+          row.id = String(args[0]);
+          row.repo_owner = String(args[1]);
+          row.repo_name = String(args[2]);
+          row.provider = args[3] as RepoImageProvider;
+          row.base_branch = String(args[4]);
+          row.status = "building";
+          row.created_at = Number(args[5]);
         } else if (sql.includes("UPDATE repo_images SET status = 'ready'")) {
           row.status = "ready";
           row.provider_image_id = String(args[0]);
@@ -94,10 +81,12 @@ function createRepoImageDb(row: RepoImageRow): D1Database {
   return {
     prepare,
     batch: async (statements: Array<{ run: () => Promise<unknown> }>) => {
+      const results = [];
+      // oxlint-disable-next-line eslint(no-await-in-loop) -- D1 batch runs statements sequentially
       for (const statement of statements) {
-        await statement.run();
+        results.push(await statement.run());
       }
-      return [];
+      return results;
     },
   } as unknown as D1Database;
 }
@@ -108,6 +97,26 @@ function buildCompleteRoute(): Route {
   );
   if (!route) throw new Error("build-complete route not found");
   return route;
+}
+
+function buildFailedRoute(): Route {
+  const route = repoImageRoutes.find((candidate) =>
+    candidate.pattern.test("/repo-images/build-failed")
+  );
+  if (!route) throw new Error("build-failed route not found");
+  return route;
+}
+
+function triggerRoute(): Route {
+  const route = repoImageRoutes.find((candidate) =>
+    candidate.pattern.test("/repo-images/trigger/acme/repo")
+  );
+  if (!route) throw new Error("trigger route not found");
+  return route;
+}
+
+function createTriggerMatch(owner: string, name: string): RegExpMatchArray {
+  return { groups: { owner, name } } as unknown as RegExpMatchArray;
 }
 
 function createContext(waitUntilPromises: Promise<unknown>[]): RequestContext {
@@ -123,56 +132,51 @@ function createContext(waitUntilPromises: Promise<unknown>[]): RequestContext {
   };
 }
 
-function createEnv(db: D1Database): Env {
+function createEnv(db: D1Database, overrides: Partial<Env> = {}): Env {
   return {
     DB: db,
     INTERNAL_CALLBACK_SECRET: "callback-secret",
-    SANDBOX_PROVIDER: "vercel",
-    VERCEL_TOKEN: "vercel-token",
-    VERCEL_PROJECT_ID: "project-123",
+    MODAL_API_SECRET: "modal-secret",
+    MODAL_WORKSPACE: "test-workspace",
+    WORKER_URL: "https://worker.test",
     TOKEN_ENCRYPTION_KEY: "token-key",
     DEPLOYMENT_NAME: "test",
+    ...overrides,
   } as Env;
+}
+
+function createBuildingRow(overrides: Partial<RepoImageRow> = {}): RepoImageRow {
+  return {
+    id: "build-1",
+    repo_owner: "acme",
+    repo_name: "repo",
+    provider: "modal",
+    provider_session_id: null,
+    base_branch: "main",
+    provider_image_id: "",
+    status: "building",
+    base_sha: "",
+    build_duration_seconds: null,
+    error_message: null,
+    callback_token_hash: null,
+    callback_token_expires_at: null,
+    callback_token_used_at: null,
+    created_at: Date.now(),
+    ...overrides,
+  };
 }
 
 describe("repo image routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vercelClient.snapshotSession.mockResolvedValue({
-      snapshot: { id: "vercel-snapshot-1", status: "created", createdAt: 123 },
-      session: {
-        id: "vercel-session-1",
-        status: "stopped",
-        createdAt: 123,
-        cwd: "/workspace",
-        timeout: 1800000,
-      },
-    });
-    vercelClient.stopSession.mockResolvedValue(undefined);
+    mockBuildRepoImage.mockResolvedValue(undefined);
   });
 
-  it("snapshots Vercel repo image builds outside the build sandbox before marking ready", async () => {
+  it("marks Modal repo image builds ready on build-complete callback", async () => {
     const waitUntilPromises: Promise<unknown>[] = [];
-    const token = VERCEL_CALLBACK_TOKEN;
-    const tokenHash = await computeHmacHex(`repo-image-callback:${token}`, "callback-secret");
-    const row: RepoImageRow = {
-      id: "build-1",
-      repo_owner: "acme",
-      repo_name: "repo",
-      provider: "vercel",
-      provider_session_id: "vercel-session-1",
-      base_branch: "main",
-      provider_image_id: "",
-      status: "building",
-      base_sha: "",
-      build_duration_seconds: null,
-      error_message: null,
-      callback_token_hash: tokenHash,
-      callback_token_expires_at: Date.now() + 60_000,
-      callback_token_used_at: null,
-      created_at: Date.now(),
-    };
+    const row = createBuildingRow();
 
+    const token = await generateInternalToken("callback-secret");
     const response = await buildCompleteRoute().handler(
       new Request("https://test.local/repo-images/build-complete", {
         method: "POST",
@@ -182,7 +186,7 @@ describe("repo image routes", () => {
         },
         body: JSON.stringify({
           build_id: "build-1",
-          provider_session_id: "vercel-session-1",
+          provider_image_id: "modal-img-1",
           base_sha: "abc123",
           build_duration_seconds: 42.25,
         }),
@@ -193,68 +197,26 @@ describe("repo image routes", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ ok: true, snapshotPending: true });
-
-    expect(waitUntilPromises).toHaveLength(1);
-    await Promise.all(waitUntilPromises);
-
-    expect(vercelClient.snapshotSession).toHaveBeenCalledWith(
-      "vercel-session-1",
-      { expirationMs: 0 },
-      expect.objectContaining({
-        request_id: "request-1",
-        trace_id: "trace-1",
-        sandbox_id: "vercel-session-1",
-      })
-    );
-    expect(vercelClient.stopSession).toHaveBeenCalledWith(
-      "vercel-session-1",
-      expect.objectContaining({
-        request_id: "request-1",
-        trace_id: "trace-1",
-        sandbox_id: "vercel-session-1",
-      })
-    );
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      replacedImageId: null,
+    });
     expect(row.status).toBe("ready");
-    expect(row.provider_image_id).toBe("vercel-snapshot-1");
+    expect(row.provider_image_id).toBe("modal-img-1");
     expect(row.base_sha).toBe("abc123");
     expect(row.build_duration_seconds).toBe(42.25);
-    expect(row.callback_token_used_at).toEqual(expect.any(Number));
   });
 
-  it("rejects Vercel callbacks for an unbound provider session", async () => {
-    const token = VERCEL_CALLBACK_TOKEN;
-    const tokenHash = await computeHmacHex(`repo-image-callback:${token}`, "callback-secret");
-    const row: RepoImageRow = {
-      id: "build-1",
-      repo_owner: "acme",
-      repo_name: "repo",
-      provider: "vercel",
-      provider_session_id: "vercel-session-1",
-      base_branch: "main",
-      provider_image_id: "",
-      status: "building",
-      base_sha: "",
-      build_duration_seconds: null,
-      error_message: null,
-      callback_token_hash: tokenHash,
-      callback_token_expires_at: Date.now() + 60_000,
-      callback_token_used_at: null,
-      created_at: Date.now(),
-    };
+  it("rejects build-complete callbacks without internal auth", async () => {
+    const row = createBuildingRow();
 
     const response = await buildCompleteRoute().handler(
       new Request("https://test.local/repo-images/build-complete", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           build_id: "build-1",
-          provider_session_id: "other-vercel-session",
-          base_sha: "abc123",
-          build_duration_seconds: 42.25,
+          provider_image_id: "modal-img-1",
         }),
       }),
       createEnv(createRepoImageDb(row)),
@@ -263,8 +225,151 @@ describe("repo image routes", () => {
     );
 
     expect(response.status).toBe(401);
-    expect(vercelClient.snapshotSession).not.toHaveBeenCalled();
     expect(row.status).toBe("building");
-    expect(row.callback_token_used_at).toBeNull();
+  });
+
+  it("marks Modal repo image builds failed on build-failed callback", async () => {
+    const row = createBuildingRow();
+    const token = await generateInternalToken("callback-secret");
+
+    const response = await buildFailedRoute().handler(
+      new Request("https://test.local/repo-images/build-failed", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          build_id: "build-1",
+          error: "image build timed out",
+        }),
+      }),
+      createEnv(createRepoImageDb(row)),
+      [] as unknown as RegExpMatchArray,
+      createContext([])
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+    expect(row.status).toBe("failed");
+    expect(row.error_message).toBe("image build timed out");
+  });
+
+  it("rejects build-failed callbacks without internal auth", async () => {
+    const row = createBuildingRow();
+
+    const response = await buildFailedRoute().handler(
+      new Request("https://test.local/repo-images/build-failed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          build_id: "build-1",
+          error: "image build timed out",
+        }),
+      }),
+      createEnv(createRepoImageDb(row)),
+      [] as unknown as RegExpMatchArray,
+      createContext([])
+    );
+
+    expect(response.status).toBe(401);
+    expect(row.status).toBe("building");
+    expect(row.error_message).toBeNull();
+  });
+
+  it("rejects build-failed callbacks with an invalid internal token", async () => {
+    const row = createBuildingRow();
+
+    const response = await buildFailedRoute().handler(
+      new Request("https://test.local/repo-images/build-failed", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer invalid-token",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          build_id: "build-1",
+          error: "image build timed out",
+        }),
+      }),
+      createEnv(createRepoImageDb(row)),
+      [] as unknown as RegExpMatchArray,
+      createContext([])
+    );
+
+    expect(response.status).toBe(401);
+    expect(row.status).toBe("building");
+  });
+
+  it("returns 503 when trigger is called without INTERNAL_CALLBACK_SECRET", async () => {
+    const row = createBuildingRow({ id: "" });
+
+    const response = await triggerRoute().handler(
+      new Request("https://test.local/repo-images/trigger/acme/repo", {
+        method: "POST",
+      }),
+      createEnv(createRepoImageDb(row), { INTERNAL_CALLBACK_SECRET: undefined }),
+      createTriggerMatch("acme", "repo"),
+      createContext([])
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Internal authentication not configured",
+    });
+    expect(row.status).toBe("building");
+    expect(mockBuildRepoImage).not.toHaveBeenCalled();
+  });
+
+  it("triggers a Modal repo image build when configuration is complete", async () => {
+    const row = createBuildingRow({ id: "" });
+
+    const response = await triggerRoute().handler(
+      new Request("https://test.local/repo-images/trigger/acme/repo", {
+        method: "POST",
+      }),
+      createEnv(createRepoImageDb(row)),
+      createTriggerMatch("acme", "repo"),
+      createContext([])
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { buildId: string; status: string };
+    expect(body).toMatchObject({ status: "building" });
+    expect(body.buildId).toMatch(/^img-acme-repo-\d+$/);
+    expect(row.id).toBe(body.buildId);
+    expect(row.repo_owner).toBe("acme");
+    expect(row.repo_name).toBe("repo");
+    expect(row.status).toBe("building");
+    expect(mockBuildRepoImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        repoOwner: "acme",
+        repoName: "repo",
+        buildId: body.buildId,
+        callbackUrl: "https://worker.test/repo-images/build-complete",
+      }),
+      expect.objectContaining({ trace_id: "trace-1", request_id: "request-1" })
+    );
+  });
+
+  it("marks a triggered build failed when Modal returns an error", async () => {
+    mockBuildRepoImage.mockRejectedValueOnce(new Error("modal unavailable"));
+    const row = createBuildingRow({ id: "" });
+
+    const response = await triggerRoute().handler(
+      new Request("https://test.local/repo-images/trigger/acme/repo", {
+        method: "POST",
+      }),
+      createEnv(createRepoImageDb(row)),
+      createTriggerMatch("acme", "repo"),
+      createContext([])
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Failed to trigger build",
+    });
+    expect(row.status).toBe("failed");
+    expect(row.error_message).toBe("modal unavailable");
   });
 });

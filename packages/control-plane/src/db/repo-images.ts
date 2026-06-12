@@ -1,6 +1,6 @@
-import { timingSafeEqual } from "@open-inspect/shared";
+export type RepoImageProvider = "modal";
 
-export type RepoImageProvider = "modal" | "vercel";
+const MODAL_REPO_IMAGE_PROVIDER: RepoImageProvider = "modal";
 
 export interface RepoImageBuild {
   id: string;
@@ -8,8 +8,6 @@ export interface RepoImageBuild {
   repoName: string;
   provider: RepoImageProvider;
   baseBranch: string;
-  callbackTokenHash?: string;
-  callbackTokenExpiresAt?: number;
 }
 
 export interface RepoImage {
@@ -30,12 +28,6 @@ export interface RepoImage {
   created_at: number;
 }
 
-export interface RepoImageCallbackBuild {
-  id: string;
-  provider: RepoImageProvider;
-  provider_session_id: string | null;
-}
-
 export class RepoImageStore {
   constructor(private readonly db: D1Database) {}
 
@@ -52,11 +44,9 @@ export class RepoImageStore {
            provider_image_id,
            status,
            base_sha,
-           callback_token_hash,
-           callback_token_expires_at,
            created_at
          )
-         VALUES (?, ?, ?, ?, ?, '', 'building', '', ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, '', 'building', '', ?)`
       )
       .bind(
         build.id,
@@ -64,75 +54,9 @@ export class RepoImageStore {
         build.repoName.toLowerCase(),
         build.provider,
         build.baseBranch,
-        build.callbackTokenHash ?? null,
-        build.callbackTokenExpiresAt ?? null,
         now
       )
       .run();
-  }
-
-  async bindProviderSession(
-    buildId: string,
-    provider: RepoImageProvider,
-    providerSessionId: string
-  ): Promise<boolean> {
-    const result = await this.db
-      .prepare(
-        "UPDATE repo_images SET provider_session_id = ? WHERE id = ? AND provider = ? AND status = 'building'"
-      )
-      .bind(providerSessionId, buildId, provider)
-      .run();
-
-    return (result.meta?.changes ?? 0) > 0;
-  }
-
-  async consumeCallbackToken(params: {
-    buildId: string;
-    provider: RepoImageProvider;
-    tokenHash: string;
-    providerSessionId?: string;
-    now: number;
-  }): Promise<RepoImageCallbackBuild | null> {
-    const build = await this.db
-      .prepare(
-        `SELECT id, provider, provider_session_id, status, callback_token_hash, callback_token_expires_at, callback_token_used_at
-         FROM repo_images WHERE id = ? AND provider = ?`
-      )
-      .bind(params.buildId, params.provider)
-      .first<{
-        id: string;
-        provider: RepoImageProvider;
-        provider_session_id: string | null;
-        status: RepoImage["status"];
-        callback_token_hash: string | null;
-        callback_token_expires_at: number | null;
-        callback_token_used_at: number | null;
-      }>();
-
-    if (!build || build.status !== "building") return null;
-    if (!build.callback_token_hash || !build.callback_token_expires_at) return null;
-    if (build.callback_token_used_at !== null) return null;
-    if (build.callback_token_expires_at < params.now) return null;
-    if (!timingSafeEqual(build.callback_token_hash, params.tokenHash)) return null;
-    if (params.providerSessionId && build.provider_session_id !== params.providerSessionId) {
-      return null;
-    }
-
-    const result = await this.db
-      .prepare(
-        `UPDATE repo_images SET callback_token_used_at = ?
-         WHERE id = ? AND provider = ? AND status = 'building' AND callback_token_hash = ? AND callback_token_used_at IS NULL`
-      )
-      .bind(params.now, params.buildId, params.provider, params.tokenHash)
-      .run();
-
-    if ((result.meta?.changes ?? 0) === 0) return null;
-
-    return {
-      id: build.id,
-      provider: build.provider,
-      provider_session_id: build.provider_session_id,
-    };
   }
 
   async markReady(
@@ -219,16 +143,16 @@ export class RepoImageStore {
     provider?: RepoImageProvider;
     baseBranch?: string;
   }): Promise<RepoImage | null> {
-    const filters = ["ri.repo_owner = ?", "ri.repo_name = ?"];
-    const args: string[] = [repoOwner.toLowerCase(), repoName.toLowerCase()];
+    const filters = ["ri.repo_owner = ?", "ri.repo_name = ?", "ri.provider = ?"];
+    const args: string[] = [
+      repoOwner.toLowerCase(),
+      repoName.toLowerCase(),
+      provider ?? MODAL_REPO_IMAGE_PROVIDER,
+    ];
 
     if (baseBranch) {
       filters.push("ri.base_branch = ?");
       args.push(baseBranch);
-    }
-    if (provider) {
-      filters.push("ri.provider = ?");
-      args.push(provider);
     }
 
     filters.push("ri.status = 'ready'", "rm.image_build_enabled = 1");
@@ -247,9 +171,9 @@ export class RepoImageStore {
   async getStatus(repoOwner: string, repoName: string): Promise<RepoImage[]> {
     const result = await this.db
       .prepare(
-        "SELECT * FROM repo_images WHERE repo_owner = ? AND repo_name = ? ORDER BY created_at DESC LIMIT 10"
+        "SELECT * FROM repo_images WHERE repo_owner = ? AND repo_name = ? AND provider = ? ORDER BY created_at DESC LIMIT 10"
       )
-      .bind(repoOwner.toLowerCase(), repoName.toLowerCase())
+      .bind(repoOwner.toLowerCase(), repoName.toLowerCase(), MODAL_REPO_IMAGE_PROVIDER)
       .all<RepoImage>();
 
     return result.results || [];
@@ -257,7 +181,8 @@ export class RepoImageStore {
 
   async getAllStatus(): Promise<RepoImage[]> {
     const result = await this.db
-      .prepare("SELECT * FROM repo_images ORDER BY created_at DESC LIMIT 100")
+      .prepare("SELECT * FROM repo_images WHERE provider = ? ORDER BY created_at DESC LIMIT 100")
+      .bind(MODAL_REPO_IMAGE_PROVIDER)
       .all<RepoImage>();
 
     return result.results || [];
