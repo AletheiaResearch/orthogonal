@@ -15,6 +15,7 @@
     "clsx": "catalog:",
     "lucide-react": "catalog:",
     "next": "16.2.0",
+    "posthog-js": "catalog:",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "shadcn": "catalog:",
