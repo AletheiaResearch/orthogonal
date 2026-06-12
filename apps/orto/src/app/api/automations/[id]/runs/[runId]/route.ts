@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { authOptions } from "@/lib/auth";
 import { controlPlaneFetch } from "@/lib/control-plane";
+import { ID_PATTERN } from "@/lib/route-params";
 
 export async function GET(
   _request: NextRequest,
@@ -15,6 +16,12 @@ export async function GET(
   }
 
   const { id, runId } = await params;
+  if (!ID_PATTERN.test(id)) {
+    return NextResponse.json({ error: "Invalid automation ID" }, { status: 400 });
+  }
+  if (!ID_PATTERN.test(runId)) {
+    return NextResponse.json({ error: "Invalid run ID" }, { status: 400 });
+  }
 
   try {
     const response = await controlPlaneFetch(`/automations/${id}/runs/${runId}`);

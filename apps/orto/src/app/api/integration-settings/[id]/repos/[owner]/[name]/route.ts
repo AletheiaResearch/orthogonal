@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { authOptions } from "@/lib/auth";
 import { controlPlaneFetch } from "@/lib/control-plane";
+import { GITHUB_NAME_PATTERN, ID_PATTERN } from "@/lib/route-params";
 
 export async function GET(
   _request: NextRequest,
@@ -15,6 +16,15 @@ export async function GET(
   }
 
   const { id, owner, name } = await params;
+  if (!ID_PATTERN.test(id)) {
+    return NextResponse.json({ error: "Invalid integration ID" }, { status: 400 });
+  }
+  if (!GITHUB_NAME_PATTERN.test(owner)) {
+    return NextResponse.json({ error: "Invalid repository owner" }, { status: 400 });
+  }
+  if (!GITHUB_NAME_PATTERN.test(name)) {
+    return NextResponse.json({ error: "Invalid repository name" }, { status: 400 });
+  }
 
   try {
     const response = await controlPlaneFetch(
@@ -41,6 +51,15 @@ export async function PUT(
   }
 
   const { id, owner, name } = await params;
+  if (!ID_PATTERN.test(id)) {
+    return NextResponse.json({ error: "Invalid integration ID" }, { status: 400 });
+  }
+  if (!GITHUB_NAME_PATTERN.test(owner)) {
+    return NextResponse.json({ error: "Invalid repository owner" }, { status: 400 });
+  }
+  if (!GITHUB_NAME_PATTERN.test(name)) {
+    return NextResponse.json({ error: "Invalid repository name" }, { status: 400 });
+  }
 
   try {
     const body = await request.json();
@@ -72,6 +91,15 @@ export async function DELETE(
   }
 
   const { id, owner, name } = await params;
+  if (!ID_PATTERN.test(id)) {
+    return NextResponse.json({ error: "Invalid integration ID" }, { status: 400 });
+  }
+  if (!GITHUB_NAME_PATTERN.test(owner)) {
+    return NextResponse.json({ error: "Invalid repository owner" }, { status: 400 });
+  }
+  if (!GITHUB_NAME_PATTERN.test(name)) {
+    return NextResponse.json({ error: "Invalid repository name" }, { status: 400 });
+  }
 
   try {
     const response = await controlPlaneFetch(

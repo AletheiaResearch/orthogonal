@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { authOptions } from "@/lib/auth";
 import { controlPlaneFetch } from "@/lib/control-plane";
+import { ID_PATTERN } from "@/lib/route-params";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   // Verify user is authenticated
@@ -13,6 +14,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   const { id } = await params;
+  if (!ID_PATTERN.test(id)) {
+    return NextResponse.json({ error: "Invalid session ID" }, { status: 400 });
+  }
   const userId = session.user.id || session.user.email || "anonymous";
 
   try {

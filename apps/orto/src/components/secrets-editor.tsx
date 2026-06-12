@@ -8,8 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { normalizeKey, parseMaybeEnvContent, type ParsedEnvEntry } from "@/lib/env-paste";
+import { SECRET_KEY_PATTERN } from "@/lib/route-params";
 
-const VALID_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const MAX_KEY_LENGTH = 256;
 const MAX_VALUE_SIZE = 16384;
 const MAX_TOTAL_VALUE_SIZE = 65536;
@@ -56,7 +56,7 @@ interface SecretsResponse {
 function validateKey(value: string): string | null {
   if (!value) return "Key is required";
   if (value.length > MAX_KEY_LENGTH) return "Key is too long";
-  if (!VALID_KEY_PATTERN.test(value)) return "Key must match [A-Za-z_][A-Za-z0-9_]*";
+  if (!SECRET_KEY_PATTERN.test(value)) return "Key must match [A-Za-z_][A-Za-z0-9_]*";
   if (RESERVED_KEYS.has(value.toUpperCase())) return `Key '${value}' is reserved`;
   return null;
 }

@@ -3,9 +3,10 @@ import { NextResponse } from "next/server";
 
 import { authOptions } from "@/lib/auth";
 import { controlPlaneFetch } from "@/lib/control-plane";
+import { ID_PATTERN } from "@/lib/route-params";
 
-const ARTIFACT_ID_PATTERN = /^[A-Za-z0-9-]+$/;
-const SESSION_ID_PATTERN = /^[A-Za-z0-9-]+$/;
+const ARTIFACT_ID_PATTERN = ID_PATTERN;
+const SESSION_ID_PATTERN = ID_PATTERN;
 
 export async function GET(
   request: Request,

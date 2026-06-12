@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { authOptions } from "@/lib/auth";
 import { controlPlaneFetch } from "@/lib/control-plane";
+import { ID_PATTERN } from "@/lib/route-params";
 
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -12,6 +13,9 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
   }
 
   const { id } = await params;
+  if (!ID_PATTERN.test(id)) {
+    return NextResponse.json({ error: "Invalid automation ID" }, { status: 400 });
+  }
 
   try {
     const response = await controlPlaneFetch(`/automations/${id}/trigger`, {

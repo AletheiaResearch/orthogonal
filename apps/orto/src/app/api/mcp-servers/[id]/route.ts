@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { authOptions } from "@/lib/auth";
 import { controlPlaneFetch } from "@/lib/control-plane";
+import { ID_PATTERN } from "@/lib/route-params";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -12,6 +13,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   }
 
   const { id } = await params;
+  if (!ID_PATTERN.test(id)) {
+    return NextResponse.json({ error: "Invalid MCP server ID" }, { status: 400 });
+  }
   try {
     const response = await controlPlaneFetch(`/mcp-servers/${id}`);
     const data = await response.json();
@@ -29,6 +33,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const { id } = await params;
+  if (!ID_PATTERN.test(id)) {
+    return NextResponse.json({ error: "Invalid MCP server ID" }, { status: 400 });
+  }
   let body: unknown;
   try {
     body = await request.json();
@@ -58,6 +65,9 @@ export async function DELETE(
   }
 
   const { id } = await params;
+  if (!ID_PATTERN.test(id)) {
+    return NextResponse.json({ error: "Invalid MCP server ID" }, { status: 400 });
+  }
   try {
     const response = await controlPlaneFetch(`/mcp-servers/${id}`, {
       method: "DELETE",

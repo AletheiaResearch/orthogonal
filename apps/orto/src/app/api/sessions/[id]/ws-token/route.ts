@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 
 import { authOptions } from "@/lib/auth";
 import { controlPlaneFetch } from "@/lib/control-plane";
+import { ID_PATTERN } from "@/lib/route-params";
 
 /**
  * Generate a WebSocket authentication token for the current user.
@@ -26,6 +27,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   const { id: sessionId } = await params;
+  if (!ID_PATTERN.test(sessionId)) {
+    return NextResponse.json({ error: "Invalid session ID" }, { status: 400 });
+  }
 
   try {
     // Extract user info from NextAuth session

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { authOptions } from "@/lib/auth";
 import { controlPlaneFetch } from "@/lib/control-plane";
+import { SECRET_KEY_PATTERN } from "@/lib/route-params";
 
 export async function DELETE(
   _request: NextRequest,
@@ -15,6 +16,9 @@ export async function DELETE(
   }
 
   const { key } = await params;
+  if (!SECRET_KEY_PATTERN.test(key)) {
+    return NextResponse.json({ error: "Invalid secret key" }, { status: 400 });
+  }
 
   try {
     const response = await controlPlaneFetch(`/secrets/${encodeURIComponent(key)}`, {
