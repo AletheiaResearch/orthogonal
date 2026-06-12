@@ -69,16 +69,20 @@ const emptyForm: FormState = {
   enabled: true,
 };
 
+/** Render command tokens as a single editable string, quoting and escaping as needed. */
+export function formatCommandTokens(tokens: string[]): string {
+  return tokens
+    .map((t) =>
+      /[\s$`#!&|;<>(){}\\"]/.test(t) ? `"${t.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"` : t
+    )
+    .join(" ");
+}
+
 function metadataToForm(metadata: McpServerMetadata): FormState {
   return {
     name: metadata.name,
     type: metadata.type,
-    command:
-      metadata.command
-        ?.map((t) =>
-          /[\s$`#!&|;<>(){}\\"]/.test(t) ? `"${t.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"` : t
-        )
-        .join(" ") ?? "",
+    command: metadata.command ? formatCommandTokens(metadata.command) : "",
     url: metadata.url ?? "",
     envRows: [createEnvRow()],
     repoScopes: metadata.repoScopes ?? [],
@@ -87,13 +91,23 @@ function metadataToForm(metadata: McpServerMetadata): FormState {
   };
 }
 
-/** Minimal shell-quote aware parser: respects "..." and '...' grouping. */
-function parseCommand(cmd: string): string[] {
+/**
+ * Minimal shell-quote aware parser: respects "..." and '...' grouping.
+ * Inside double quotes, a backslash escapes only `"` and `\` (the characters
+ * formatCommandTokens emits); any other backslash stays literal.
+ */
+export function parseCommand(cmd: string): string[] {
   const tokens: string[] = [];
   let current = "";
   let quote: string | null = null;
+  let escaped = false;
   for (const ch of cmd) {
-    if (quote) {
+    if (escaped) {
+      current += ch === '"' || ch === "\\" ? ch : `\\${ch}`;
+      escaped = false;
+    } else if (quote === '"' && ch === "\\") {
+      escaped = true;
+    } else if (quote) {
       if (ch === quote) {
         quote = null;
       } else {
@@ -110,6 +124,7 @@ function parseCommand(cmd: string): string[] {
       current += ch;
     }
   }
+  if (escaped) current += "\\";
   if (current) tokens.push(current);
   return tokens;
 }
