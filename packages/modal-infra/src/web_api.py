@@ -55,7 +55,10 @@ def require_auth(authorization: str | None) -> None:
         )
 
 
-def _resolve_clone_token() -> str | None:
+def _resolve_clone_token(
+    repo_owner: str | None = None,
+    installation_id: str | None = None,
+) -> str | None:
     """Resolve a VCS clone token based on SCM_PROVIDER.
 
     - "gitlab": reads GITLAB_ACCESS_TOKEN from the environment.
@@ -63,7 +66,7 @@ def _resolve_clone_token() -> str | None:
 
     Returns None if credentials are missing or token generation fails.
     """
-    from .auth import generate_installation_token
+    from .auth import generate_installation_token, resolve_installation_id
 
     scm_provider = os.environ.get("SCM_PROVIDER", "github")
 
@@ -76,7 +79,7 @@ def _resolve_clone_token() -> str | None:
     try:
         app_id = os.environ.get("GITHUB_APP_ID")
         private_key = os.environ.get("GITHUB_APP_PRIVATE_KEY")
-        installation_id = os.environ.get("GITHUB_APP_INSTALLATION_ID")
+        installation_id = installation_id or resolve_installation_id(repo_owner)
 
         if app_id and private_key and installation_id:
             return generate_installation_token(
@@ -156,7 +159,14 @@ async def api_create_sandbox(
 
         snapshot_id = request.get("snapshot_id")
         repo_image_id = request.get("repo_image_id") or None
-        clone_token = _resolve_clone_token() if snapshot_id or repo_image_id else None
+        clone_token = (
+            _resolve_clone_token(
+                request.get("repo_owner"),
+                request.get("github_app_installation_id"),
+            )
+            if snapshot_id or repo_image_id
+            else None
+        )
 
         session_config = SessionConfig(
             session_id=request.get("session_id"),
@@ -467,7 +477,10 @@ async def api_restore_sandbox(
         timeout_seconds = int(request.get("timeout_seconds", DEFAULT_SANDBOX_TIMEOUT_SECONDS))
 
         manager = SandboxManager()
-        clone_token = _resolve_clone_token()
+        clone_token = _resolve_clone_token(
+            session_config.get("repo_owner"),
+            request.get("github_app_installation_id"),
+        )
 
         code_server_enabled = bool(request.get("code_server_enabled", False))
         agent_slack_notify_enabled = bool(request.get("agent_slack_notify_enabled", False))

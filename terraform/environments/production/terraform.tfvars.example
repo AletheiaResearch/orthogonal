@@ -91,6 +91,14 @@ EOF
 
 github_app_installation_id = ""
 
+# Optional multi-installation map. Keys are GitHub org/user logins, values are
+# installation IDs for the same GitHub App. The default installation ID above is
+# still used as a fallback.
+github_app_installation_map = {
+  # "org-a" = "111111"
+  # "org-b" = "222222"
+}
+
 # GitHub Bot (Optional)
 # Set enable_github_bot = true to deploy the GitHub bot worker for PR reviews
 # and @mention commands. Requires github_webhook_secret and github_bot_username.

@@ -386,8 +386,18 @@ export class SessionDO extends DurableObject<Env> {
         },
         isOpenAISecretsConfigured: () =>
           Boolean(this.env.DB && this.env.REPO_SECRETS_ENCRYPTION_KEY),
-        getScmCredentials: () =>
-          new ScmCredentialsService(this.sourceControlProvider, this.log).getCredentials(),
+        getScmCredentials: () => {
+          const session = this.getSession();
+          return new ScmCredentialsService(this.sourceControlProvider, this.log).getCredentials(
+            session
+              ? {
+                  owner: session.repo_owner,
+                  name: session.repo_name,
+                  githubInstallationId: session.github_app_installation_id ?? undefined,
+                }
+              : undefined
+          );
+        },
         broadcast: (message) => this.broadcast(message),
         generateId: () => generateId(),
         now: () => Date.now(),

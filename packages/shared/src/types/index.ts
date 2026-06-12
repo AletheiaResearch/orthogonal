@@ -573,6 +573,8 @@ export interface CreateSessionRequest {
   model?: string;
   reasoningEffort?: string;
   branch?: string;
+  /** Resolved GitHub App installation ID (e.g. from a webhook payload). */
+  githubAppInstallationId?: string;
 }
 
 export interface CreateSessionResponse {
@@ -606,6 +608,8 @@ export interface SpawnContext {
   model: string;
   reasoningEffort: string | null;
   baseBranch: string | null;
+  /** GitHub App installation ID stored on the parent session, if known. */
+  githubAppInstallationId?: string | null;
   owner: {
     userId: string;
     scmUserId: string | null;

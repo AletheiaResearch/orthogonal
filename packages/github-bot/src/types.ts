@@ -29,6 +29,9 @@ export interface Env {
   /** GitHub App installation ID for token exchange. */
   GITHUB_APP_INSTALLATION_ID: string;
 
+  /** JSON map of GitHub owner login to installation ID. */
+  GITHUB_APP_INSTALLATION_MAP?: string;
+
   /** Webhook secret for verifying GitHub webhook signatures. */
   GITHUB_WEBHOOK_SECRET: string;
 
@@ -56,6 +59,7 @@ export interface PullRequestOpenedPayload {
     draft: boolean;
   };
   repository: { owner: { login: string }; name: string; private: boolean };
+  installation?: { id: number };
   sender: { login: string; id: number; avatar_url: string };
 }
 
@@ -71,6 +75,7 @@ export interface ReviewRequestedPayload {
   };
   requested_reviewer?: { login: string };
   repository: { owner: { login: string }; name: string; private: boolean };
+  installation?: { id: number };
   sender: { login: string; id: number; avatar_url: string };
 }
 
@@ -87,6 +92,7 @@ export interface IssueCommentPayload {
     user: { login: string };
   };
   repository: { owner: { login: string }; name: string; private: boolean };
+  installation?: { id: number };
   sender: { login: string; id: number; avatar_url: string };
 }
 
@@ -107,5 +113,6 @@ export interface ReviewCommentPayload {
     user: { login: string };
   };
   repository: { owner: { login: string }; name: string; private: boolean };
+  installation?: { id: number };
   sender: { login: string; id: number; avatar_url: string };
 }

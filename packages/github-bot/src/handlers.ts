@@ -1,4 +1,9 @@
-import { buildInternalAuthHeaders, resolveAppName } from "@open-inspect/shared";
+import {
+  buildInternalAuthHeaders,
+  parseInstallationMap,
+  resolveAppName,
+  resolveInstallationId,
+} from "@open-inspect/shared";
 
 import { generateInstallationToken, postReaction, checkSenderPermission } from "./github-auth";
 import type { Logger } from "./logger";
@@ -35,6 +40,7 @@ async function createSession(
     scmLogin: string;
     scmUserId: string;
     scmAvatarUrl: string;
+    githubAppInstallationId?: string;
   }
 ): Promise<string> {
   const body: Record<string, unknown> = {
@@ -49,6 +55,9 @@ async function createSession(
   };
   if (params.reasoningEffort) {
     body.reasoningEffort = params.reasoningEffort;
+  }
+  if (params.githubAppInstallationId) {
+    body.githubAppInstallationId = params.githubAppInstallationId;
   }
   const response = await controlPlane.fetch("https://internal/sessions", {
     method: "POST",
@@ -103,6 +112,20 @@ function fireAndForgetReaction(
   );
 }
 
+function resolveWebhookInstallationId(
+  env: Env,
+  owner: string,
+  payloadInstallationId?: number
+): string {
+  return payloadInstallationId != null
+    ? String(payloadInstallationId)
+    : resolveInstallationId(
+        owner,
+        parseInstallationMap(env.GITHUB_APP_INSTALLATION_MAP),
+        env.GITHUB_APP_INSTALLATION_ID
+      );
+}
+
 type CallerGatingResult =
   | { allowed: true; ghToken: string; headers: Record<string, string> }
   | {
@@ -118,7 +141,8 @@ async function resolveCallerGating(
   repoName: string,
   log: Logger,
   traceId: string,
-  repoFullName: string
+  repoFullName: string,
+  payloadInstallationId?: number
 ): Promise<CallerGatingResult> {
   if (config.allowedTriggerUsers !== null) {
     if (!config.allowedTriggerUsers.some((u) => u.toLowerCase() === senderLogin.toLowerCase())) {
@@ -132,7 +156,7 @@ async function resolveCallerGating(
     generateInstallationToken({
       appId: env.GITHUB_APP_ID,
       privateKey: env.GITHUB_APP_PRIVATE_KEY,
-      installationId: env.GITHUB_APP_INSTALLATION_ID,
+      installationId: resolveWebhookInstallationId(env, owner, payloadInstallationId),
       userAgent,
     }),
     getAuthHeaders(env, traceId),
@@ -197,7 +221,8 @@ export async function handleReviewRequested(
     repoName,
     log,
     traceId,
-    repoFullName
+    repoFullName,
+    payload.installation?.id
   );
   if (!gating.allowed) return { outcome: "skipped", skip_reason: gating.reason };
   const { ghToken, headers } = gating;
@@ -220,6 +245,7 @@ export async function handleReviewRequested(
     scmLogin: sender.login,
     scmUserId: String(sender.id),
     scmAvatarUrl: sender.avatar_url,
+    githubAppInstallationId: resolveWebhookInstallationId(env, owner, payload.installation?.id),
   });
   log.info("session.created", { ...meta, session_id: sessionId, action: "review" });
 
@@ -297,7 +323,8 @@ export async function handlePullRequestOpened(
     repoName,
     log,
     traceId,
-    repoFullName
+    repoFullName,
+    payload.installation?.id
   );
   if (!gating.allowed) return { outcome: "skipped", skip_reason: gating.reason };
   const { ghToken, headers } = gating;
@@ -320,6 +347,7 @@ export async function handlePullRequestOpened(
     scmLogin: sender.login,
     scmUserId: String(sender.id),
     scmAvatarUrl: sender.avatar_url,
+    githubAppInstallationId: resolveWebhookInstallationId(env, owner, payload.installation?.id),
   });
   log.info("session.created", { ...meta, session_id: sessionId, action: "auto_review" });
 
@@ -401,7 +429,8 @@ export async function handleIssueComment(
     repoName,
     log,
     traceId,
-    repoFullName
+    repoFullName,
+    payload.installation?.id
   );
   if (!gating.allowed) return { outcome: "skipped", skip_reason: gating.reason };
   const { ghToken, headers } = gating;
@@ -426,6 +455,7 @@ export async function handleIssueComment(
     scmLogin: sender.login,
     scmUserId: String(sender.id),
     scmAvatarUrl: sender.avatar_url,
+    githubAppInstallationId: resolveWebhookInstallationId(env, owner, payload.installation?.id),
   });
   log.info("session.created", { ...meta, session_id: sessionId, action: "comment" });
 
@@ -500,7 +530,8 @@ export async function handleReviewComment(
     repoName,
     log,
     traceId,
-    repoFullName
+    repoFullName,
+    payload.installation?.id
   );
   if (!gating.allowed) return { outcome: "skipped", skip_reason: gating.reason };
   const { ghToken, headers } = gating;
@@ -525,6 +556,7 @@ export async function handleReviewComment(
     scmLogin: sender.login,
     scmUserId: String(sender.id),
     scmAvatarUrl: sender.avatar_url,
+    githubAppInstallationId: resolveWebhookInstallationId(env, owner, payload.installation?.id),
   });
   log.info("session.created", { ...meta, session_id: sessionId, action: "review_comment" });
 

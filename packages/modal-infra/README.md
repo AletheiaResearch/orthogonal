@@ -79,6 +79,8 @@ modal secret create github-app \
   GITHUB_APP_ID="123456" \
   GITHUB_APP_PRIVATE_KEY="$(cat private-key-pkcs8.pem)" \
   GITHUB_APP_INSTALLATION_ID="12345678"
+# Optional when the same App is installed on multiple orgs:
+#   GITHUB_APP_INSTALLATION_MAP='{"other-org":"87654321"}'
 
 # Internal API secret (for control plane authentication)
 modal secret create internal-api \

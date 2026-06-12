@@ -62,6 +62,7 @@ export function createChildSessionsHandler(deps: ChildSessionsHandlerDeps): Chil
         model: session.model,
         reasoningEffort: session.reasoning_effort ?? null,
         baseBranch: session.base_branch,
+        githubAppInstallationId: session.github_app_installation_id,
         owner: {
           userId: owner.user_id,
           scmUserId: owner.scm_user_id,

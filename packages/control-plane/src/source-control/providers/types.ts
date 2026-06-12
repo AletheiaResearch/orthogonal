@@ -12,6 +12,8 @@ import type { GitHubAppConfig } from "../../auth/github-app";
 export interface GitHubProviderConfig {
   /** GitHub App configuration (required for push auth) */
   appConfig?: GitHubAppConfig;
+  /** Resolve the installation-specific GitHub App config for a repo owner. */
+  appConfigForOwner?: (owner: string) => GitHubAppConfig | null;
   /** Cache store for caching installation tokens */
   cacheStore?: CacheStore;
   /** User-Agent value sent on outbound GitHub API requests */

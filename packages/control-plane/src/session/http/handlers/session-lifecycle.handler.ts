@@ -42,6 +42,7 @@ interface InitRequest {
   spawnDepth?: number;
   codeServerEnabled?: boolean;
   sandboxSettings?: SandboxSettings;
+  githubAppInstallationId?: string | null;
 }
 
 export interface SessionLifecycleHandlerDeps {
@@ -145,6 +146,7 @@ export function createSessionLifecycleHandler(
         spawnDepth: body.spawnDepth ?? 0,
         codeServerEnabled: body.codeServerEnabled ?? false,
         sandboxSettings: body.sandboxSettings ? JSON.stringify(body.sandboxSettings) : null,
+        githubAppInstallationId: body.githubAppInstallationId ?? null,
         createdAt: now,
         updatedAt: now,
       });

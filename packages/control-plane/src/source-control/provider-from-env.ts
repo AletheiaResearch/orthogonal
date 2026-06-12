@@ -1,6 +1,10 @@
 import { createKvCacheStore, resolveAppName } from "@open-inspect/shared";
 
-import { getGitHubAppConfig } from "../auth/github-app";
+import {
+  getGitHubAppConfig,
+  isGitHubAppConfigured,
+  resolveInstallationIdForOwner,
+} from "../auth/github-app";
 import type { Env } from "../types";
 import { resolveScmProviderFromEnv } from "./config";
 import { createSourceControlProvider } from "./providers";
@@ -15,6 +19,12 @@ export function createSourceControlProviderFromEnv(env: Env): SourceControlProvi
     provider,
     github: {
       appConfig: appConfig ?? undefined,
+      ...(isGitHubAppConfigured(env)
+        ? {
+            appConfigForOwner: (owner: string) =>
+              getGitHubAppConfig(env, resolveInstallationIdForOwner(env, owner)),
+          }
+        : {}),
       cacheStore: createKvCacheStore(env.REPOS_CACHE),
       userAgent,
     },

@@ -345,6 +345,14 @@ github_client_secret = "your-client-secret"      # Generated in GitHub App setti
 
 github_app_id              = "123456"
 github_app_installation_id = "12345678"
+
+# Optional: map GitHub owner logins to additional installation IDs for the same App.
+# Only needed when one deployment serves repos from multiple GitHub orgs/account installs.
+# Unmapped owners fall back to github_app_installation_id above.
+# github_app_installation_map = {
+#   "other-org" = "87654321"
+# }
+
 github_app_private_key     = <<-EOF
 -----BEGIN PRIVATE KEY-----
 ... paste your PKCS#8 key here ...

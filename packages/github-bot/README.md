@@ -65,19 +65,20 @@ The bot is deployed via Terraform as a standalone Cloudflare Worker alongside th
 
 ### Environment Bindings
 
-| Binding                      | Type                  | Description                                                                         |
-| ---------------------------- | --------------------- | ----------------------------------------------------------------------------------- |
-| `GITHUB_KV`                  | KV namespace          | Delivery dedupe store keyed by `X-GitHub-Delivery`                                  |
-| `CONTROL_PLANE`              | Service binding       | Fetcher to the control plane worker                                                 |
-| `DEPLOYMENT_NAME`            | Plain text            | Deployment identifier for logging                                                   |
-| `DEFAULT_MODEL`              | Plain text            | Model ID for new sessions (e.g., `anthropic/claude-haiku-4-5`)                      |
-| `GITHUB_BOT_USERNAME`        | Plain text            | Bot's GitHub login (e.g., `my-app[bot]`) for @mention detection and loop prevention |
-| `GITHUB_APP_ID`              | Secret                | GitHub App ID for JWT generation                                                    |
-| `GITHUB_APP_PRIVATE_KEY`     | Secret                | GitHub App private key (must be PKCS#8 format)                                      |
-| `GITHUB_APP_INSTALLATION_ID` | Secret                | GitHub App installation ID for token exchange                                       |
-| `GITHUB_WEBHOOK_SECRET`      | Secret                | Shared secret for verifying webhook signatures                                      |
-| `INTERNAL_CALLBACK_SECRET`   | Secret                | Shared secret for HMAC auth to the control plane                                    |
-| `LOG_LEVEL`                  | Plain text (optional) | Log level override (`debug`, `info`, `warn`, `error`)                               |
+| Binding                       | Type                  | Description                                                                         |
+| ----------------------------- | --------------------- | ----------------------------------------------------------------------------------- |
+| `GITHUB_KV`                   | KV namespace          | Delivery dedupe store keyed by `X-GitHub-Delivery`                                  |
+| `CONTROL_PLANE`               | Service binding       | Fetcher to the control plane worker                                                 |
+| `DEPLOYMENT_NAME`             | Plain text            | Deployment identifier for logging                                                   |
+| `DEFAULT_MODEL`               | Plain text            | Model ID for new sessions (e.g., `anthropic/claude-haiku-4-5`)                      |
+| `GITHUB_BOT_USERNAME`         | Plain text            | Bot's GitHub login (e.g., `my-app[bot]`) for @mention detection and loop prevention |
+| `GITHUB_APP_ID`               | Secret                | GitHub App ID for JWT generation                                                    |
+| `GITHUB_APP_PRIVATE_KEY`      | Secret                | GitHub App private key (must be PKCS#8 format)                                      |
+| `GITHUB_APP_INSTALLATION_ID`  | Secret                | Default GitHub App installation ID for token exchange                               |
+| `GITHUB_APP_INSTALLATION_MAP` | Secret (optional)     | JSON map of GitHub owner login → installation ID for multi-org installs on one App  |
+| `GITHUB_WEBHOOK_SECRET`       | Secret                | Shared secret for verifying webhook signatures                                      |
+| `INTERNAL_CALLBACK_SECRET`    | Secret                | Shared secret for HMAC auth to the control plane                                    |
+| `LOG_LEVEL`                   | Plain text (optional) | Log level override (`debug`, `info`, `warn`, `error`)                               |
 
 ### GitHub App Configuration
 
@@ -90,6 +91,11 @@ The existing GitHub App needs these additions:
 **Webhook URL**: `https://open-inspect-github-bot-{suffix}.{account}.workers.dev/webhooks/github`
 
 **Webhook secret**: Must match `GITHUB_WEBHOOK_SECRET` in the Terraform configuration.
+
+When the same GitHub App is installed on multiple orgs, set `GITHUB_APP_INSTALLATION_MAP` (JSON
+owner login → installation ID) on the bot worker. Webhook payloads include `installation.id`, which
+the bot prefers over the map; the map is the fallback when that field is absent. Sessions store the
+resolved installation ID so later git operations use the same install.
 
 ### Sandbox Prerequisites
 

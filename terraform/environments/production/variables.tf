@@ -129,6 +129,21 @@ variable "github_app_installation_id" {
   type        = string
 }
 
+variable "github_app_installation_map" {
+  description = "Map of GitHub owner login to GitHub App installation ID"
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition = alltrue([
+      for owner, installation_id in var.github_app_installation_map :
+      can(regex("^[a-zA-Z0-9-]+$", owner)) &&
+      can(tonumber(trimspace(installation_id)))
+    ])
+    error_message = "github_app_installation_map must use GitHub owner-login keys (alphanumeric and hyphens) and numeric installation ID string values."
+  }
+}
+
 # =============================================================================
 # GitHub Bot Configuration
 # =============================================================================

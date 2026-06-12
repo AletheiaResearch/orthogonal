@@ -336,6 +336,52 @@ describe("handlePullRequestOpened", () => {
 });
 
 describe("handleReviewRequested", () => {
+  it("uses payload installation ID when present", async () => {
+    const env = createMockEnv();
+    const log = createMockLogger();
+
+    await handleReviewRequested(
+      env,
+      log,
+      { ...reviewRequestedPayload, installation: { id: 424242 } },
+      "trace-install"
+    );
+
+    expect(generateInstallationToken).toHaveBeenCalledWith(
+      expect.objectContaining({ installationId: "424242" })
+    );
+  });
+
+  it("falls back to owner installation map when payload installation is missing", async () => {
+    const env = {
+      ...createMockEnv(),
+      GITHUB_APP_INSTALLATION_MAP: JSON.stringify({ acme: "555555" }),
+    } as Env;
+    const log = createMockLogger();
+
+    await handleReviewRequested(env, log, reviewRequestedPayload, "trace-map");
+
+    expect(generateInstallationToken).toHaveBeenCalledWith(
+      expect.objectContaining({ installationId: "555555" })
+    );
+  });
+
+  it("passes webhook installation ID through to session creation", async () => {
+    const env = createMockEnv();
+    const log = createMockLogger();
+
+    await handleReviewRequested(
+      env,
+      log,
+      { ...reviewRequestedPayload, installation: { id: 424242 } },
+      "trace-session-install"
+    );
+
+    const cpFetch = getControlPlaneFetch(env);
+    const sessionBody = JSON.parse(cpFetch.mock.calls[0][1].body);
+    expect(sessionBody.githubAppInstallationId).toBe("424242");
+  });
+
   it("creates session, posts reaction, and sends prompt", async () => {
     const env = createMockEnv();
     const log = createMockLogger();

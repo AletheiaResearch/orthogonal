@@ -128,6 +128,8 @@ export interface GetRepositoryConfig {
   owner: string;
   /** Repository name */
   name: string;
+  /** Optional GitHub App installation ID override (e.g. from webhook payload). */
+  githubInstallationId?: string;
 }
 
 /**
@@ -298,7 +300,7 @@ export interface SourceControlProvider {
    * @returns Git push authentication context with app token
    * @throws SourceControlProviderError
    */
-  generatePushAuth(): Promise<GitPushAuthContext>;
+  generatePushAuth(config?: GetRepositoryConfig): Promise<GitPushAuthContext>;
 
   /**
    * Generate credentials for the sandbox's git credential helper.
@@ -311,7 +313,7 @@ export interface SourceControlProvider {
    *
    * @throws SourceControlProviderError on configuration or upstream errors
    */
-  generateCredentialHelperAuth(): Promise<CredentialHelperAuth>;
+  generateCredentialHelperAuth(config?: GetRepositoryConfig): Promise<CredentialHelperAuth>;
 
   /**
    * Build provider-specific URL for manual pull request creation.
