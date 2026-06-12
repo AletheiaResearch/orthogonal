@@ -334,7 +334,7 @@ describe("repo image routes", () => {
     );
 
     expect(response.status).toBe(200);
-    const body = await response.json();
+    const body = (await response.json()) as { buildId: string; status: string };
     expect(body).toMatchObject({ status: "building" });
     expect(body.buildId).toMatch(/^img-acme-repo-\d+$/);
     expect(row.id).toBe(body.buildId);
