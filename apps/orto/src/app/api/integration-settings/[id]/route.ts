@@ -38,8 +38,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "Invalid integration ID" }, { status: 400 });
   }
 
+  let body: unknown;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  try {
     const response = await controlPlaneFetch(`/integration-settings/${encodeURIComponent(id)}`, {
       method: "PUT",
       body: JSON.stringify(body),

@@ -23,9 +23,14 @@ export async function PUT(
     return NextResponse.json({ error: "Invalid repository name" }, { status: 400 });
   }
 
+  let body: unknown;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
 
+  try {
     const response = await controlPlaneFetch(
       `/repo-images/toggle/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`,
       {
