@@ -1,0 +1,112 @@
+"use client";
+
+import type { AutomationRun } from "@open-inspect/shared";
+import Link from "next/link";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
+function runStatusBadge(status: AutomationRun["status"]) {
+  switch (status) {
+    case "starting":
+      return <Badge className="bg-muted text-muted-foreground">Starting</Badge>;
+    case "running":
+      return <Badge variant="info">Running</Badge>;
+    case "completed":
+      return <Badge className="bg-success-muted text-success">Completed</Badge>;
+    case "failed":
+      return <Badge className="bg-destructive-muted text-destructive">Failed</Badge>;
+    case "skipped":
+      return <Badge className="bg-warning-muted text-warning">Skipped</Badge>;
+  }
+}
+
+function formatDuration(startedAt: number | null, completedAt: number | null): string | null {
+  if (!startedAt || !completedAt) return null;
+  const durationMs = completedAt - startedAt;
+  const seconds = Math.floor(durationMs / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours}h ${remainingMinutes}m`;
+}
+
+interface RunHistoryProps {
+  runs: AutomationRun[];
+  total: number;
+  loading: boolean;
+  onLoadMore?: () => void;
+  hasMore: boolean;
+}
+
+export function RunHistory({ runs, total, loading, onLoadMore, hasMore }: RunHistoryProps) {
+  if (!loading && runs.length === 0) {
+    return (
+      <div className="rounded-md border border-border-muted bg-card p-6 text-center">
+        <p className="text-sm text-muted-foreground">No runs yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="divide-y divide-border-muted rounded-md border border-border-muted bg-card">
+        {runs.map((run) => {
+          const duration = formatDuration(run.startedAt, run.completedAt);
+          return (
+            <div key={run.id} className="px-4 py-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-2">
+                  {runStatusBadge(run.status)}
+                  {run.sessionTitle && (
+                    <span className="truncate text-sm text-foreground">{run.sessionTitle}</span>
+                  )}
+                  {duration && <span className="text-xs text-muted-foreground">{duration}</span>}
+                  {run.artifactSummary && (
+                    <span className="text-xs text-muted-foreground">{run.artifactSummary}</span>
+                  )}
+                </div>
+                <div className="flex flex-shrink-0 items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(run.scheduledAt).toLocaleString()}
+                  </span>
+                  {run.sessionId && (
+                    <Link
+                      href={`/session/${run.sessionId}`}
+                      className="text-xs text-accent hover:underline"
+                    >
+                      View session
+                    </Link>
+                  )}
+                </div>
+              </div>
+              {run.failureReason && (
+                <p className="mt-1 text-xs text-destructive">{run.failureReason}</p>
+              )}
+              {!run.failureReason && run.skipReason && (
+                <p className="mt-1 text-xs text-warning">{run.skipReason}</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {loading && (
+        <div className="flex justify-center py-4">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-current border-t-transparent text-muted-foreground" />
+        </div>
+      )}
+
+      {hasMore && !loading && onLoadMore && (
+        <div className="mt-3 text-center">
+          <Button variant="ghost" size="sm" onClick={onLoadMore}>
+            Load more ({runs.length} of {total})
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
