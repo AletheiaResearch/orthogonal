@@ -87,6 +87,14 @@ For SCM/provider changes, follow:
 - `docs/adr/0001-single-provider-scm-boundaries.md`
 - `docs/provider-contribution-checklist.md`
 
+### Sandbox Provider Contributions
+
+Open-Inspect currently runs Modal as the only sandbox backend. To add or change sandbox providers,
+start with:
+
+- `docs/sandbox-providers/README.md`
+- `docs/sandbox-providers/ADDING_A_PROVIDER.md`
+
 ## Reporting Issues
 
 When reporting issues, please include:

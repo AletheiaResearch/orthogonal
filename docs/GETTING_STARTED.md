@@ -15,11 +15,11 @@ This guide walks you through deploying your own instance of Open-Inspect using T
 
 Open-Inspect uses Terraform to automate deployment across multiple cloud providers:
 
-| Provider                                          | Purpose                          | What Terraform Creates                                                   |
-| ------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------ |
-| **Cloudflare**                                    | Control plane, session state     | Workers, KV namespaces, Durable Objects, D1 Database                     |
-| **Vercel** _or_ **Cloudflare Workers**            | Web application                  | Project + env vars (Vercel) _or_ Worker via OpenNext (Cloudflare)        |
-| **Modal**, **Daytona**, _or_ **Vercel Sandboxes** | Sandbox execution infrastructure | Modal app deployment, Daytona API config, _or_ Vercel Sandbox API config |
+| Provider                               | Purpose                                     | What Terraform Creates                                            |
+| -------------------------------------- | ------------------------------------------- | ----------------------------------------------------------------- |
+| **Cloudflare**                         | Control plane, session state                | Workers, KV namespaces, Durable Objects, D1 Database              |
+| **Vercel** _or_ **Cloudflare Workers** | Web application                             | Project + env vars (Vercel) _or_ Worker via OpenNext (Cloudflare) |
+| **Modal**                              | Sandbox execution infrastructure (required) | Modal app deployment via Terraform                                |
 
 > **Web platform choice**: Set `web_platform` in your `terraform.tfvars` to `"vercel"` (default) or
 > `"cloudflare"`. The Cloudflare option deploys the Next.js app as a Cloudflare Worker using
@@ -145,6 +145,9 @@ Create an R2 API Token:
    - Even personal accounts have an ID (usually starts with `team_`)
 
 ### Modal
+
+Modal is required for all sandbox execution. See [sandbox-providers/](./sandbox-providers/README.md)
+for migration history and notes on adding another backend.
 
 1. Go to [Modal Settings](https://modal.com/settings)
 2. **Create a new API token**: Settings -> API Tokens -> New Token
@@ -609,7 +612,6 @@ curl https://open-inspect-control-plane-{deployment_name}.YOUR-SUBDOMAIN.workers
 # Manual form: https://<workspace>[-<modal_environment_web_suffix>]--open-inspect-api-health.modal.run
 MODAL_WORKSPACE_SLUG="YOUR-WORKSPACE" # or "YOUR-WORKSPACE-YOUR-MODAL-WEB-SUFFIX"
 curl https://${MODAL_WORKSPACE_SLUG}--open-inspect-api-health.modal.run
-# Daytona and Vercel use their provider APIs directly, so there is no Open-Inspect shim health URL.
 
 # 3. Web app (should return 200)
 # Vercel:

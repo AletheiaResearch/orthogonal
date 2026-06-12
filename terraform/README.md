@@ -319,7 +319,6 @@ curl https://open-inspect-control-plane-prod.<subdomain>.workers.dev/health
 # Manual form: https://<workspace>[-<modal_environment_web_suffix>]--open-inspect-api-health.modal.run
 MODAL_WORKSPACE_SLUG="<workspace>" # or "<workspace>-<modal_environment_web_suffix>"
 curl https://${MODAL_WORKSPACE_SLUG}--open-inspect-api-health.modal.run
-# Daytona and Vercel use their provider APIs directly, so there is no Open-Inspect shim health URL.
 
 # 3. Verify Vercel deployment (replace with your Vercel app URL)
 curl https://<your-vercel-app>.vercel.app

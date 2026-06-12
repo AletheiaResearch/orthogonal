@@ -144,9 +144,12 @@ development environment.
 - agent-browser CLI + headless Chrome (for browser automation)
 - OpenCode (the coding agent)
 
-Open-Inspect uses Modal for sandbox execution:
+Open-Inspect uses Modal for sandbox execution (the only supported sandbox backend):
 
 - **Modal**: near-instant startup plus filesystem snapshot restore and repo-image builds
+
+For migration history and how to add another sandbox backend, see
+[sandbox-providers/](./sandbox-providers/README.md).
 
 ### Clients
 
