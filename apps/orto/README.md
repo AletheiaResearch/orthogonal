@@ -1,6 +1,7 @@
-# Open-Inspect Web Client
+# Orto — Orthogonal Web Client
 
-Next.js web application for interacting with Open-Inspect coding sessions.
+Next.js web application for interacting with coding sessions. Vercel-only copy of `packages/web`
+with PostHog analytics.
 
 ## Features
 
@@ -70,31 +71,11 @@ Required permissions for the GitHub App:
 
 ### Environment Variables
 
-Create `.env.local`:
-
-```bash
-# GitHub App (for user authentication)
-GITHUB_CLIENT_ID=your_github_app_client_id
-GITHUB_CLIENT_SECRET=your_github_app_client_secret
-
-# NextAuth
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your_random_secret  # Generate: openssl rand -base64 32
-
-# Access Control
-ALLOWED_USERS=username1,username2          # Comma-separated GitHub usernames
-ALLOWED_EMAIL_DOMAINS=example.com,corp.io  # Comma-separated email domains
-UNSAFE_ALLOW_ALL_USERS=false               # Set true to explicitly allow all users when both lists are empty
-
-# Control Plane
-CONTROL_PLANE_URL=http://localhost:8787
-NEXT_PUBLIC_WS_URL=ws://localhost:8787
-```
+Create `.env.local` from [.env.example](.env.example) — it lists the full set (GitHub OAuth,
+NextAuth, control plane, access control, branding, PostHog).
 
 > **Access Control**: If both `ALLOWED_USERS` and `ALLOWED_EMAIL_DOMAINS` are empty, sign-in is
-> denied unless `UNSAFE_ALLOW_ALL_USERS=true`. For Terraform-managed production deploys, Terraform
-> also fails validation unless you set at least one allowlist or explicitly opt in with
-> `unsafe_allow_all_users = true`.
+> denied unless `UNSAFE_ALLOW_ALL_USERS=true`.
 
 ### Development
 
@@ -103,13 +84,13 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8787
 corepack enable && pnpm install
 
 # Run development server
-pnpm --filter @open-inspect/web dev
+pnpm --filter @orthogonal/orto dev
 
 # Type check
-pnpm --filter @open-inspect/web typecheck
+pnpm --filter @orthogonal/orto typecheck
 
 # Build for production
-pnpm --filter @open-inspect/web build
+pnpm --filter @orthogonal/orto build
 ```
 
 ## Pages
@@ -167,3 +148,31 @@ Uses React state + hooks for simplicity. For larger apps, consider:
 - Zustand for global state
 - React Query for server state
 - Jotai for atoms
+
+## Analytics (PostHog)
+
+Set `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` to enable PostHog (US cloud). When unset, all PostHog code
+paths are no-ops.
+
+- `src/instrumentation-client.ts` initializes posthog-js with automatic pageview capture; events are
+  proxied through `/ingest` (rewrites in `next.config.ts`) so ad blockers don't drop them.
+- `PostHogIdentity` (mounted in `src/app/providers.tsx`) calls `posthog.identify(<github user id>)`
+  after GitHub login with person properties `email`, `name`, `github_login`, and `avatar_url`.
+  PostHog shows person avatars via Gravatar on `email`; `avatar_url` carries the GitHub picture as a
+  custom property.
+- Sign-out calls `posthog.reset()` so shared devices don't mix identities.
+
+## Deployment (Vercel)
+
+This app is deployed via a dashboard-managed Vercel project — it is **not** managed by Terraform
+(unlike `packages/web`).
+
+1. Create a Vercel project from this repository.
+2. **Root Directory**: `apps/orto`
+3. **Install Command**:
+   `cd ../.. && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @open-inspect/shared build`
+4. **Build Command**: `next build` (default)
+5. Set the environment variables from [.env.example](.env.example).
+
+`next`/`react`/`react-dom` are pinned in `package.json` (not `catalog:`) because Vercel's framework
+detection can't resolve pnpm catalog references.

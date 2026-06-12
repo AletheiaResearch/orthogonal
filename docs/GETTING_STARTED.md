@@ -24,6 +24,10 @@ Open-Inspect uses Terraform to automate deployment across multiple cloud provide
 > **Web platform choice**: Set `web_platform` in your `terraform.tfvars` to `"vercel"` (default) or
 > `"cloudflare"`. The Cloudflare option deploys the Next.js app as a Cloudflare Worker using
 > [OpenNext](https://opennext.js.org/cloudflare), so you don't need a Vercel account.
+>
+> The repo also contains `apps/orto`, a standalone Vercel-only copy of the web client (with PostHog
+> analytics) that is deployed manually and not managed by Terraform — see
+> [apps/orto/README.md](../apps/orto/README.md).
 
 **Your job**: Create accounts, gather credentials, and configure one file (`terraform.tfvars`).
 **Terraform's job**: Create all infrastructure and configure services.

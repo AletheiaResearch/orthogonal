@@ -50,6 +50,7 @@ pnpm -r run test
 | -------------------------- | ------------------------------------ |
 | `packages/control-plane`   | Cloudflare Workers + Durable Objects |
 | `packages/web`             | Next.js web application              |
+| `apps/orto`                | Next.js web app (Vercel + PostHog)   |
 | `packages/sandbox-runtime` | Shared in-sandbox agent runtime      |
 | `packages/modal-infra`     | Modal sandbox infrastructure         |
 | `packages/shared`          | Shared types and utilities           |

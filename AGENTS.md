@@ -41,6 +41,7 @@ it at build time.
 | `shared`        | TypeScript                         | Shared types, auth utilities, model definitions             |
 | `control-plane` | TypeScript / CF Workers + DO       | Session management, WebSocket streaming, GitHub integration |
 | `web`           | TypeScript / Next.js 16 + React 19 | User-facing dashboard, OAuth, real-time UI                  |
+| `orto` (apps)   | TypeScript / Next.js 16 + React 19 | Vercel-only copy of `web` with PostHog analytics            |
 | `slack-bot`     | TypeScript / CF Workers + Hono     | Slack event handler, session creation                       |
 | `github-bot`    | TypeScript / CF Workers + Hono     | PR review and @mention webhook handler                      |
 | `linear-bot`    | TypeScript / CF Workers + Hono     | Linear agent webhook handler                                |
@@ -65,6 +66,7 @@ pnpm run typecheck                               # tsc across all TS packages
 pnpm --filter @open-inspect/control-plane test   # unit tests (node env)
 pnpm --filter @open-inspect/control-plane run test:integration  # integration (workerd/Miniflare + real D1)
 pnpm --filter @open-inspect/web test
+pnpm --filter @orthogonal/orto test
 pnpm --filter @open-inspect/github-bot test
 pnpm --filter @open-inspect/slack-bot test
 pnpm --filter @open-inspect/linear-bot test
@@ -146,7 +148,8 @@ Pushing to `main` auto-deploys changed services:
 - **Terraform** → control plane + D1 migrations + web app if `web_platform = "cloudflare"`
   (triggers: `terraform/`, `packages/*/`)
 - **Vercel** → web app when `web_platform = "vercel"` (triggers: `packages/web/`,
-  `packages/shared/`)
+  `packages/shared/`). `apps/orto` deploys through its own dashboard-managed Vercel project (not
+  Terraform).
 - **Modal** → data plane (triggers: `packages/modal-infra/`, deployed via Terraform apply)
 
 CI runs lint, typecheck, and tests for all TypeScript and Python packages on every push and PR.
