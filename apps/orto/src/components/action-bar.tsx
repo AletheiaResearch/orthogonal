@@ -76,7 +76,12 @@ export function ActionBar({
 
   const handleCopyLink = async () => {
     const url = `${window.location.origin}/session/${sessionId}`;
-    await navigator.clipboard.writeText(url);
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      toast.error("Failed to copy link to clipboard");
+      return;
+    }
     toast.success("Link copied to clipboard");
   };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +31,12 @@ export function WebhookConfig({
   const keyLabel = isSentry ? "Sentry Client Secret" : "API Key";
 
   const handleCopy = async (text: string, type: "url" | "key" | "curl") => {
-    await navigator.clipboard.writeText(text);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      toast.error("Failed to copy to clipboard");
+      return;
+    }
     setCopied(type);
     setTimeout(() => setCopied(null), 2000);
   };
