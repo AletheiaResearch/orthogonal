@@ -4,6 +4,13 @@
 
 export { encryptToken, decryptToken, generateEncryptionKey, generateId } from "./crypto";
 
-export { isGitHubAppConfigured, getGitHubAppConfig, type GitHubAppConfig } from "./github-app";
+export {
+  isGitHubAppConfigured,
+  getGitHubAppConfig,
+  getUniqueInstallationIds,
+  listRepositoriesAcrossInstallations,
+  resolveInstallationIdForOwner,
+  type GitHubAppConfig,
+} from "./github-app";
 
 export { verifyInternalToken, generateInternalToken } from "./internal";

@@ -11,6 +11,8 @@
 
 import {
   DEFAULT_APP_NAME,
+  parseInstallationMap,
+  resolveInstallationId,
   type CacheStore,
   type InstallationRepository,
 } from "@open-inspect/shared";
@@ -93,6 +95,13 @@ export interface GitHubAppConfig {
   appId: string;
   privateKey: string; // PEM format
   installationId: string;
+}
+
+export interface GitHubAppEnv {
+  GITHUB_APP_ID?: string;
+  GITHUB_APP_PRIVATE_KEY?: string;
+  GITHUB_APP_INSTALLATION_ID?: string;
+  GITHUB_APP_INSTALLATION_MAP?: string;
 }
 
 /**
@@ -649,25 +658,71 @@ export async function listRepositoryBranches(
   return branches;
 }
 
+export async function listRepositoriesAcrossInstallations(
+  env: GitHubAppEnv,
+  cacheBindings?: InstallationTokenCacheBindings
+): Promise<{ repos: InstallationRepository[]; timing: ListReposTiming[] }> {
+  const configs = getUniqueInstallationIds(env)
+    .map((installationId) => getGitHubAppConfig(env, installationId))
+    .filter((config): config is GitHubAppConfig => config !== null);
+
+  const results = await Promise.all(
+    configs.map((config) => listInstallationRepositories(config, cacheBindings))
+  );
+  const reposByName = new Map<string, InstallationRepository>();
+
+  for (const result of results) {
+    for (const repo of result.repos) {
+      const key = repo.fullName.toLowerCase();
+      if (!reposByName.has(key)) {
+        reposByName.set(key, repo);
+      }
+    }
+  }
+
+  return {
+    repos: [...reposByName.values()],
+    timing: results.map((result) => result.timing),
+  };
+}
+
 /**
  * Check if GitHub App credentials are configured.
  */
-export function isGitHubAppConfigured(env: {
-  GITHUB_APP_ID?: string;
-  GITHUB_APP_PRIVATE_KEY?: string;
-  GITHUB_APP_INSTALLATION_ID?: string;
-}): boolean {
+export function isGitHubAppConfigured(env: GitHubAppEnv): boolean {
   return !!(env.GITHUB_APP_ID && env.GITHUB_APP_PRIVATE_KEY && env.GITHUB_APP_INSTALLATION_ID);
+}
+
+export function resolveInstallationIdForOwner(env: GitHubAppEnv, owner: string): string {
+  if (!env.GITHUB_APP_INSTALLATION_ID) {
+    throw new Error("GITHUB_APP_INSTALLATION_ID is required to resolve GitHub App installations");
+  }
+
+  return resolveInstallationId(
+    owner,
+    parseInstallationMap(env.GITHUB_APP_INSTALLATION_MAP),
+    env.GITHUB_APP_INSTALLATION_ID
+  );
+}
+
+export function getUniqueInstallationIds(env: GitHubAppEnv): string[] {
+  const ids = new Set<string>();
+  if (env.GITHUB_APP_INSTALLATION_ID) {
+    ids.add(env.GITHUB_APP_INSTALLATION_ID);
+  }
+  for (const id of parseInstallationMap(env.GITHUB_APP_INSTALLATION_MAP).values()) {
+    ids.add(id);
+  }
+  return [...ids];
 }
 
 /**
  * Get GitHub App config from environment.
  */
-export function getGitHubAppConfig(env: {
-  GITHUB_APP_ID?: string;
-  GITHUB_APP_PRIVATE_KEY?: string;
-  GITHUB_APP_INSTALLATION_ID?: string;
-}): GitHubAppConfig | null {
+export function getGitHubAppConfig(
+  env: GitHubAppEnv,
+  installationId?: string
+): GitHubAppConfig | null {
   if (!isGitHubAppConfigured(env)) {
     return null;
   }
@@ -675,6 +730,6 @@ export function getGitHubAppConfig(env: {
   return {
     appId: env.GITHUB_APP_ID!,
     privateKey: env.GITHUB_APP_PRIVATE_KEY!,
-    installationId: env.GITHUB_APP_INSTALLATION_ID!,
+    installationId: installationId ?? env.GITHUB_APP_INSTALLATION_ID!,
   };
 }

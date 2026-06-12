@@ -129,6 +129,12 @@ variable "github_app_installation_id" {
   type        = string
 }
 
+variable "github_app_installation_map" {
+  description = "Map of GitHub owner login to GitHub App installation ID"
+  type        = map(string)
+  default     = {}
+}
+
 # =============================================================================
 # GitHub Bot Configuration
 # =============================================================================

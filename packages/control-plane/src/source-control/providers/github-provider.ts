@@ -48,13 +48,22 @@ export class GitHubSourceControlProvider implements SourceControlProvider {
   readonly name = "github";
 
   private readonly appConfig?: GitHubProviderConfig["appConfig"];
+  private readonly appConfigForOwner?: GitHubProviderConfig["appConfigForOwner"];
   private readonly cacheStore?: GitHubProviderConfig["cacheStore"];
   private readonly userAgent: string;
 
   constructor(config: GitHubProviderConfig = {}) {
     this.appConfig = config.appConfig;
+    this.appConfigForOwner = config.appConfigForOwner;
     this.cacheStore = config.cacheStore;
     this.userAgent = config.userAgent || USER_AGENT;
+  }
+
+  private resolveAppConfig(owner?: string): GitHubProviderConfig["appConfig"] | undefined {
+    if (owner && this.appConfigForOwner) {
+      return this.appConfigForOwner(owner) ?? undefined;
+    }
+    return this.appConfig;
   }
 
   /**
@@ -209,7 +218,8 @@ export class GitHubSourceControlProvider implements SourceControlProvider {
    * Check whether a repository is accessible to the GitHub App installation.
    */
   async checkRepositoryAccess(config: GetRepositoryConfig): Promise<RepositoryAccessResult | null> {
-    if (!this.appConfig) {
+    const appConfig = this.resolveAppConfig(config.owner);
+    if (!appConfig) {
       throw new SourceControlProviderError(
         "GitHub App not configured - cannot check repository access",
         "permanent"
@@ -217,7 +227,7 @@ export class GitHubSourceControlProvider implements SourceControlProvider {
     }
 
     try {
-      const repo = await getInstallationRepository(this.appConfig, config.owner, config.name, {
+      const repo = await getInstallationRepository(appConfig, config.owner, config.name, {
         cacheStore: this.cacheStore,
         userAgent: this.userAgent,
       });
@@ -269,7 +279,8 @@ export class GitHubSourceControlProvider implements SourceControlProvider {
    * List branches for a repository.
    */
   async listBranches(config: GetRepositoryConfig): Promise<{ name: string }[]> {
-    if (!this.appConfig) {
+    const appConfig = this.resolveAppConfig(config.owner);
+    if (!appConfig) {
       throw new SourceControlProviderError(
         "GitHub App not configured - cannot list branches",
         "permanent"
@@ -277,7 +288,7 @@ export class GitHubSourceControlProvider implements SourceControlProvider {
     }
 
     try {
-      return await listRepositoryBranches(this.appConfig, config.owner, config.name, {
+      return await listRepositoryBranches(appConfig, config.owner, config.name, {
         cacheStore: this.cacheStore,
         userAgent: this.userAgent,
       });
@@ -293,8 +304,9 @@ export class GitHubSourceControlProvider implements SourceControlProvider {
   /**
    * Generate authentication for git push operations using GitHub App.
    */
-  async generatePushAuth(): Promise<GitPushAuthContext> {
-    if (!this.appConfig) {
+  async generatePushAuth(config?: GetRepositoryConfig): Promise<GitPushAuthContext> {
+    const appConfig = this.resolveAppConfig(config?.owner);
+    if (!appConfig) {
       throw new SourceControlProviderError(
         "GitHub App not configured - cannot generate push auth",
         "permanent"
@@ -302,7 +314,7 @@ export class GitHubSourceControlProvider implements SourceControlProvider {
     }
 
     try {
-      const token = await getCachedInstallationToken(this.appConfig, {
+      const token = await getCachedInstallationToken(appConfig, {
         cacheStore: this.cacheStore,
         userAgent: this.userAgent,
       });
@@ -318,8 +330,9 @@ export class GitHubSourceControlProvider implements SourceControlProvider {
     }
   }
 
-  async generateCredentialHelperAuth(): Promise<CredentialHelperAuth> {
-    if (!this.appConfig) {
+  async generateCredentialHelperAuth(config?: GetRepositoryConfig): Promise<CredentialHelperAuth> {
+    const appConfig = this.resolveAppConfig(config?.owner);
+    if (!appConfig) {
       throw new SourceControlProviderError(
         "GitHub App not configured - cannot generate credential helper auth",
         "permanent"
@@ -327,13 +340,10 @@ export class GitHubSourceControlProvider implements SourceControlProvider {
     }
 
     try {
-      const { token, expiresAtEpochMs } = await getCachedInstallationTokenWithExpiry(
-        this.appConfig,
-        {
-          cacheStore: this.cacheStore,
-          userAgent: this.userAgent,
-        }
-      );
+      const { token, expiresAtEpochMs } = await getCachedInstallationTokenWithExpiry(appConfig, {
+        cacheStore: this.cacheStore,
+        userAgent: this.userAgent,
+      });
       return {
         username: "x-access-token",
         password: token,

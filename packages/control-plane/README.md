@@ -235,7 +235,9 @@ and the control plane returns a manual GitHub `pull/new` URL instead of failing 
 
 - **No per-user repo access validation**: When a session is created, the system does not verify that
   the user has access to the requested repository
-- **Shared GitHub App installation**: A single `GITHUB_APP_INSTALLATION_ID` is used for all users
+- **Shared GitHub App installation(s)**: A default `GITHUB_APP_INSTALLATION_ID` is used for all
+  users. Optional `github_app_installation_map` routes specific repo owners to additional
+  installation IDs for the same GitHub App (multi-org installs on one deployment).
 - **Trust boundary is the organization**: All users with access to the web app can work with any
   repository the GitHub App is installed on
 
@@ -245,7 +247,8 @@ All secrets are configured via Terraform. Required secrets include:
 
 - `GITHUB_APP_ID` - GitHub App ID
 - `GITHUB_APP_PRIVATE_KEY` - GitHub App private key (PKCS#8 format)
-- `GITHUB_APP_INSTALLATION_ID` - Single installation for all users
+- `GITHUB_APP_INSTALLATION_ID` - Default installation ID (fallback for unmapped owners)
+- `github_app_installation_map` - Optional map of GitHub owner login to installation ID
 - `REPO_SECRETS_ENCRYPTION_KEY` - AES-GCM key for encrypting repo secrets in D1
 
 Optional variables:

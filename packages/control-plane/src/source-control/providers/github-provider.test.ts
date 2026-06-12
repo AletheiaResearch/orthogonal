@@ -13,6 +13,7 @@ vi.mock("../../auth/github-app", () => ({
 }));
 
 import {
+  getCachedInstallationToken,
   getCachedInstallationTokenWithExpiry,
   getInstallationRepository,
   listInstallationRepositories,
@@ -20,6 +21,7 @@ import {
 
 const mockGetInstallationRepository = vi.mocked(getInstallationRepository);
 const mockListInstallationRepositories = vi.mocked(listInstallationRepositories);
+const mockGetCachedInstallationToken = vi.mocked(getCachedInstallationToken);
 const mockGetCachedInstallationTokenWithExpiry = vi.mocked(getCachedInstallationTokenWithExpiry);
 
 const fakeAppConfig = {
@@ -232,6 +234,59 @@ describe("GitHubSourceControlProvider", () => {
         "web",
         expect.objectContaining({ userAgent: "Open-Inspect" })
       );
+    });
+  });
+
+  describe("owner-specific app config", () => {
+    const mappedAppConfig = {
+      appId: "123",
+      privateKey: "fake-key",
+      installationId: "mapped-789",
+    };
+
+    it("uses appConfigForOwner for generatePushAuth when owner is provided", async () => {
+      mockGetCachedInstallationToken.mockResolvedValueOnce("ghs_mapped_push");
+      const appConfigForOwner = vi.fn().mockReturnValue(mappedAppConfig);
+
+      const provider = new GitHubSourceControlProvider({
+        appConfig: fakeAppConfig,
+        appConfigForOwner,
+      });
+
+      const auth = await provider.generatePushAuth({ owner: "mapped-org", name: "repo" });
+
+      expect(appConfigForOwner).toHaveBeenCalledWith("mapped-org");
+      expect(mockGetCachedInstallationToken).toHaveBeenCalledWith(
+        mappedAppConfig,
+        expect.any(Object)
+      );
+      expect(auth).toEqual({ authType: "app", token: "ghs_mapped_push" });
+    });
+
+    it("uses appConfigForOwner for generateCredentialHelperAuth when owner is provided", async () => {
+      const expiresAtEpochMs = Date.now() + 60 * 60 * 1000;
+      mockGetCachedInstallationTokenWithExpiry.mockResolvedValueOnce({
+        token: "ghs_mapped_helper",
+        expiresAtEpochMs,
+      });
+      const appConfigForOwner = vi.fn().mockReturnValue(mappedAppConfig);
+
+      const provider = new GitHubSourceControlProvider({
+        appConfig: fakeAppConfig,
+        appConfigForOwner,
+      });
+
+      const auth = await provider.generateCredentialHelperAuth({
+        owner: "mapped-org",
+        name: "repo",
+      });
+
+      expect(appConfigForOwner).toHaveBeenCalledWith("mapped-org");
+      expect(mockGetCachedInstallationTokenWithExpiry).toHaveBeenCalledWith(
+        mappedAppConfig,
+        expect.any(Object)
+      );
+      expect(auth.password).toBe("ghs_mapped_helper");
     });
   });
 

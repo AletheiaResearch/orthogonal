@@ -9,9 +9,10 @@ import type {
   RepoMetadata,
 } from "@open-inspect/shared";
 
+import { listRepositoriesAcrossInstallations } from "../auth/github-app";
 import { RepoMetadataStore } from "../db/repo-metadata";
 import { createLogger } from "../logger";
-import { SourceControlProviderError } from "../source-control";
+import { SourceControlProviderError, resolveScmProviderFromEnv } from "../source-control";
 import type { Env } from "../types";
 import {
   type Route,
@@ -25,9 +26,25 @@ import {
 
 const logger = createLogger("router:repos");
 
-const REPOS_CACHE_KEY = "repos:list";
+const REPOS_CACHE_KEY = "repos:list:v2";
 const REPOS_CACHE_FRESH_MS = 5 * 60 * 1000; // Serve without revalidation for 5 minutes
 const REPOS_CACHE_KV_TTL_SECONDS = 3600; // Keep stale data in KV for 1 hour
+
+async function listRepos(
+  env: Env,
+  fallbackListRepositories: () => Promise<InstallationRepository[]>,
+  cacheStore: ReturnType<typeof createKvCacheStore>
+): Promise<InstallationRepository[]> {
+  if (resolveScmProviderFromEnv(env.SCM_PROVIDER) !== "github") {
+    return fallbackListRepositories();
+  }
+
+  const result = await listRepositoriesAcrossInstallations(env, {
+    cacheStore,
+    userAgent: env.APP_NAME,
+  });
+  return result.repos;
+}
 
 /**
  * Cached repos list structure stored in KV.
@@ -49,7 +66,7 @@ async function refreshReposCache(env: Env, traceId?: string): Promise<void> {
 
   let repos: InstallationRepository[];
   try {
-    repos = await provider.listRepositories();
+    repos = await listRepos(env, provider.listRepositories.bind(provider), cacheStore);
 
     logger.info("Repo fetch completed", {
       trace_id: traceId,
@@ -162,7 +179,9 @@ async function handleListRepos(
 
   let repos: InstallationRepository[];
   try {
-    repos = await ctx.metrics.time("scm_api", () => provider.listRepositories());
+    repos = await ctx.metrics.time("scm_api", () =>
+      listRepos(env, provider.listRepositories.bind(provider), cacheStore)
+    );
   } catch (e) {
     if (e instanceof SourceControlProviderError && e.errorType === "permanent" && !e.httpStatus) {
       return error("SCM provider not configured", 500);

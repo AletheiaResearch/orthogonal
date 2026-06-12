@@ -6,6 +6,8 @@ import {
   getGitHubAppConfig,
   getCachedInstallationToken,
   getCachedInstallationTokenWithExpiry,
+  getUniqueInstallationIds,
+  resolveInstallationIdForOwner,
   INSTALLATION_TOKEN_CACHE_MAX_AGE_MS,
   INSTALLATION_TOKEN_MIN_REMAINING_MS,
 } from "./github-app";
@@ -106,6 +108,17 @@ describe("github-app utilities", () => {
       });
     });
 
+    it("uses explicit installationId override when provided", () => {
+      const env = {
+        GITHUB_APP_ID: "12345",
+        GITHUB_APP_PRIVATE_KEY: "key",
+        GITHUB_APP_INSTALLATION_ID: "67890",
+      };
+
+      const config = getGitHubAppConfig(env, "99999");
+      expect(config?.installationId).toBe("99999");
+    });
+
     it("returns null when credentials are incomplete", () => {
       expect(getGitHubAppConfig({})).toBeNull();
       expect(
@@ -119,6 +132,32 @@ describe("github-app utilities", () => {
           GITHUB_APP_PRIVATE_KEY: "key",
         })
       ).toBeNull();
+    });
+  });
+
+  describe("getUniqueInstallationIds", () => {
+    it("returns default and mapped installation IDs", () => {
+      const env = {
+        GITHUB_APP_INSTALLATION_ID: "111111",
+        GITHUB_APP_INSTALLATION_MAP: JSON.stringify({ "org-a": "222222", "org-b": "333333" }),
+      };
+
+      expect(getUniqueInstallationIds(env).toSorted()).toEqual(["111111", "222222", "333333"]);
+    });
+  });
+
+  describe("resolveInstallationIdForOwner", () => {
+    const env = {
+      GITHUB_APP_INSTALLATION_ID: "111111",
+      GITHUB_APP_INSTALLATION_MAP: JSON.stringify({ "org-a": "222222" }),
+    };
+
+    it("returns mapped installation ID for known owner", () => {
+      expect(resolveInstallationIdForOwner(env, "Org-A")).toBe("222222");
+    });
+
+    it("falls back to default installation ID for unknown owner", () => {
+      expect(resolveInstallationIdForOwner(env, "other-org")).toBe("111111");
     });
   });
 
