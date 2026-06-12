@@ -9,7 +9,6 @@ import { RefreshIcon } from "@/components/ui/icons";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useRepos } from "@/hooks/use-repos";
-import { supportsRepoImages } from "@/lib/sandbox-provider";
 import { formatRelativeTime } from "@/lib/time";
 
 interface RepoImage {
@@ -30,26 +29,11 @@ interface ImageRegistryData {
 const REPO_IMAGES_KEY = "/api/repo-images";
 
 export function ImagesSettings() {
-  const repoImagesSupported = supportsRepoImages();
   const { repos, loading: reposLoading } = useRepos();
-  const { data, isLoading: imagesLoading } = useSWR<ImageRegistryData>(
-    repoImagesSupported ? REPO_IMAGES_KEY : null
-  );
+  const { data, isLoading: imagesLoading } = useSWR<ImageRegistryData>(REPO_IMAGES_KEY);
   const [togglingRepos, setTogglingRepos] = useState<Set<string>>(new Set());
   const [triggeringRepos, setTriggeringRepos] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
-
-  if (!repoImagesSupported) {
-    return (
-      <div>
-        <h2 className="mb-1 text-xl font-semibold text-foreground">Pre-Built Images</h2>
-        <p className="text-sm text-muted-foreground">
-          Pre-built images are only available when <code>SANDBOX_PROVIDER=modal</code> or{" "}
-          <code>SANDBOX_PROVIDER=vercel</code>.
-        </p>
-      </div>
-    );
-  }
 
   const loading = reposLoading || imagesLoading;
 

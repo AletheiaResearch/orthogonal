@@ -123,12 +123,6 @@ If you try to save a reserved key, the UI will show a validation error.
 
 ## Troubleshooting
 
-### "Model not found" errors (Daytona or Vercel sandbox provider)
-
-If you're using `sandbox_provider = "daytona"` or `sandbox_provider = "vercel"` with Claude models
-and see "Model not found" errors, add your `ANTHROPIC_API_KEY` as a global secret in Settings.
-Unlike Modal, these providers do not inject LLM API keys automatically.
-
 ### Secret not appearing in sandbox
 
 1. Verify the secret is saved under the correct scope (global or the specific repo)

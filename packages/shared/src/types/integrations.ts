@@ -51,8 +51,7 @@ export const DEFAULT_MAX_TOTAL_CHILD_SESSIONS = 15;
 /**
  * Sandbox environment settings. Provider-agnostic: describes what the user
  * wants, not how it's done. Resource fields (`cpuCores`, `memoryMib`) are
- * advisory and provider-dependent — Modal maps them directly, Vercel maps
- * them to vCPUs, and providers without resource reservations ignore them. We
+ * advisory and provider-dependent — Modal maps them directly. We
  * only check they're positive; the provider enforces its own real limits. When
  * unset, the provider's own default applies. At repo scope, `null` explicitly
  * uses the provider default instead of inheriting a global resource default.

@@ -12,7 +12,6 @@ import {
   ChevronRightIcon,
 } from "@/components/ui/icons";
 import { useIsMobile } from "@/hooks/use-media-query";
-import { supportsRepoImages } from "@/lib/sandbox-provider";
 
 const NAV_ITEMS = [
   {
@@ -72,9 +71,7 @@ interface SettingsNavProps {
 
 export function SettingsNav({ activeCategory, onSelect, onNavigate }: SettingsNavProps) {
   const isMobile = useIsMobile();
-  const navItems = supportsRepoImages()
-    ? NAV_ITEMS
-    : NAV_ITEMS.filter((item) => item.id !== "images");
+  const navItems = NAV_ITEMS;
 
   if (isMobile) {
     return (

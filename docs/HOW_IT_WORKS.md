@@ -144,15 +144,9 @@ development environment.
 - agent-browser CLI + headless Chrome (for browser automation)
 - OpenCode (the coding agent)
 
-Open-Inspect supports two backend patterns:
+Open-Inspect uses Modal for sandbox execution:
 
-- **Modal**: near-instant startup plus filesystem snapshot restore
-- **Daytona**: persistent stop/start sandboxes via direct REST API calls
-- **Vercel Sandboxes**: filesystem snapshot restore and repo-image builds via the Vercel Sandbox API
-
-Modal and Vercel support repo-image builds and live filesystem snapshot restore. Daytona uses
-persistent sandboxes instead: the control plane stops the sandbox on inactivity or stale heartbeat,
-then resumes that same sandbox later with the same logical sandbox ID and auth token.
+- **Modal**: near-instant startup plus filesystem snapshot restore and repo-image builds
 
 ### Clients
 
@@ -209,7 +203,7 @@ When restoring from a previous snapshot:
 └─────────────┘    └────────────┘    └─────────────┘    └───────┘
 ```
 
-1. **Restore snapshot**: Modal or Vercel restores the filesystem from a saved snapshot
+1. **Restore snapshot**: Modal restores the filesystem from a saved snapshot
 2. **Quick sync**: Pulls latest changes (usually just a few commits)
 3. **Start script**: Runs `.openinspect/start.sh` for runtime startup (if present)
 4. **Ready**: Sandbox is ready almost instantly
@@ -409,7 +403,7 @@ That's potentially minutes before the agent can start working.
 
 ### How Snapshots Solve This
 
-Modal and Vercel filesystem snapshots let us capture a sandbox's state after setup:
+Modal filesystem snapshots let us capture a sandbox's state after setup:
 
 ```
 First session:  Clone ─▶ Install/Build ─▶ Start Runtime ─▶ [Snapshot] ─▶ Work
@@ -420,11 +414,6 @@ Later sessions: [Restore Snapshot] ─▶ Quick sync ─▶ Start Runtime ─▶
 ```
 
 The first session for a repo pays the setup cost. Subsequent sessions restore in seconds.
-
-For Vercel, Terraform builds a base-runtime snapshot from the local checkout and wires a
-deterministic snapshot name into `VERCEL_BASE_SNAPSHOT_NAME`. Fresh Vercel sandboxes resolve that
-name to the newest created snapshot instead of cloning and installing the sandbox runtime on every
-session. See [Vercel Sandbox Provider](VERCEL_SANDBOX_PROVIDER.md) for the full provider flow.
 
 ### Image Prebuilding
 
@@ -468,9 +457,8 @@ Fresh sandboxes fetch git credentials on demand through the control plane instea
 token embedded in the environment or remote URL. Older snapshots and repo images may still receive
 env-token fallbacks so they can boot through the credential-helper migration. The helper authorizes
 HTTPS requests for the configured SCM host, preserving existing setup/start hooks that clone other
-private repositories available to the installation. This primarily protects continuously running
-sessions and Daytona persistent resumes from expired embedded credentials; Modal snapshot restores
-already mint a fresh fallback token on restore.
+private repositories available to the installation. Modal snapshot restores mint a fresh fallback
+token on restore.
 
 ### Secrets
 
@@ -481,9 +469,6 @@ You can configure environment variables (API keys, credentials) at global or per
 - Stored encrypted (AES-256-GCM) in D1 database
 - Injected into sandboxes at startup
 - Never exposed to clients (only key names are visible)
-
-> **Daytona and Vercel users**: LLM API keys (e.g., `ANTHROPIC_API_KEY` for Claude models) must be
-> added as global secrets. Modal injects these automatically via its own secrets mechanism.
 
 See [Secrets Management](./SECRETS.md) for setup instructions.
 

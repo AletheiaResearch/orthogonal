@@ -178,16 +178,14 @@ class FakeD1Database {
     const normalized = normalizeQuery(query);
 
     if (QUERY_PATTERNS.INSERT_BUILD.test(normalized)) {
-      const [
-        id,
-        owner,
-        name,
-        provider,
-        branch,
-        callbackTokenHash,
-        callbackTokenExpiresAt,
-        createdAt,
-      ] = args as [string, string, string, string, string, string | null, number | null, number];
+      const [id, owner, name, provider, branch, createdAt] = args as [
+        string,
+        string,
+        string,
+        string,
+        string,
+        number,
+      ];
       this.rows.set(id, {
         id,
         repo_owner: owner,
@@ -200,8 +198,8 @@ class FakeD1Database {
         base_sha: "",
         build_duration_seconds: null,
         error_message: null,
-        callback_token_hash: callbackTokenHash,
-        callback_token_expires_at: callbackTokenExpiresAt,
+        callback_token_hash: null,
+        callback_token_expires_at: null,
         callback_token_used_at: null,
         created_at: createdAt,
       });
@@ -368,19 +366,6 @@ describe("RepoImageStore", () => {
       expect(status[0].base_sha).toBe("");
     });
 
-    it("stores the requested provider", async () => {
-      await store.registerBuild({
-        id: "img-vercel",
-        repoOwner: "acme",
-        repoName: "repo",
-        provider: "vercel",
-        baseBranch: "main",
-      });
-
-      const status = await store.getStatus("acme", "repo");
-      expect(status[0].provider).toBe("vercel");
-    });
-
     it("normalizes owner and name to lowercase", async () => {
       await store.registerBuild({
         id: "img-1",
@@ -394,87 +379,6 @@ describe("RepoImageStore", () => {
       expect(status).toHaveLength(1);
       expect(status[0].repo_owner).toBe("acme");
       expect(status[0].repo_name).toBe("myrepo");
-    });
-  });
-
-  describe("Vercel callback binding", () => {
-    it("binds a provider session to a building Vercel build", async () => {
-      await store.registerBuild({
-        id: "img-vercel",
-        repoOwner: "acme",
-        repoName: "repo",
-        provider: "vercel",
-        baseBranch: "main",
-        callbackTokenHash: "token-hash",
-        callbackTokenExpiresAt: Date.now() + 60_000,
-      });
-
-      await expect(
-        store.bindProviderSession("img-vercel", "vercel", "vercel-session-1")
-      ).resolves.toBe(true);
-
-      const status = await store.getStatus("acme", "repo");
-      expect(status[0].provider_session_id).toBe("vercel-session-1");
-    });
-
-    it("consumes callback tokens once and rejects replays", async () => {
-      const now = Date.now();
-      await store.registerBuild({
-        id: "img-vercel",
-        repoOwner: "acme",
-        repoName: "repo",
-        provider: "vercel",
-        baseBranch: "main",
-        callbackTokenHash: "token-hash",
-        callbackTokenExpiresAt: now + 60_000,
-      });
-      await store.bindProviderSession("img-vercel", "vercel", "vercel-session-1");
-
-      const consumed = await store.consumeCallbackToken({
-        buildId: "img-vercel",
-        provider: "vercel",
-        providerSessionId: "vercel-session-1",
-        tokenHash: "token-hash",
-        now,
-      });
-      expect(consumed).toEqual({
-        id: "img-vercel",
-        provider: "vercel",
-        provider_session_id: "vercel-session-1",
-      });
-
-      const replay = await store.consumeCallbackToken({
-        buildId: "img-vercel",
-        provider: "vercel",
-        providerSessionId: "vercel-session-1",
-        tokenHash: "token-hash",
-        now,
-      });
-      expect(replay).toBeNull();
-    });
-
-    it("rejects callback tokens for a mismatched provider session", async () => {
-      const now = Date.now();
-      await store.registerBuild({
-        id: "img-vercel",
-        repoOwner: "acme",
-        repoName: "repo",
-        provider: "vercel",
-        baseBranch: "main",
-        callbackTokenHash: "token-hash",
-        callbackTokenExpiresAt: now + 60_000,
-      });
-      await store.bindProviderSession("img-vercel", "vercel", "vercel-session-1");
-
-      await expect(
-        store.consumeCallbackToken({
-          buildId: "img-vercel",
-          provider: "vercel",
-          providerSessionId: "other-session",
-          tokenHash: "token-hash",
-          now,
-        })
-      ).resolves.toBeNull();
     });
   });
 
@@ -552,37 +456,35 @@ describe("RepoImageStore", () => {
     it("only replaces a previous ready image for the same provider", async () => {
       db.setImageBuildEnabled("acme", "repo", true);
       await store.registerBuild({
-        id: "img-modal",
+        id: "img-modal-old",
         repoOwner: "acme",
         repoName: "repo",
         provider: "modal",
         baseBranch: "main",
       });
-      await store.markReady("img-modal", "modal", "modal-img", "sha-modal", 30);
+      await store.markReady("img-modal-old", "modal", "modal-img-old", "sha-old", 30);
 
       vi.advanceTimersByTime(1000);
 
       await store.registerBuild({
-        id: "img-vercel",
+        id: "img-modal-new",
         repoOwner: "acme",
         repoName: "repo",
-        provider: "vercel",
+        provider: "modal",
         baseBranch: "main",
       });
       const result = await store.markReady(
-        "img-vercel",
-        "vercel",
-        "vercel-snapshot",
-        "sha-vercel",
+        "img-modal-new",
+        "modal",
+        "modal-img-new",
+        "sha-new",
         40
       );
 
-      expect(result.replacedImageId).toBeNull();
+      expect(result.replacedImageId).toBe("modal-img-old");
 
       const modalReady = await store.getLatestReady("acme", "repo", "modal", "main");
-      const vercelReady = await store.getLatestReady("acme", "repo", "vercel", "main");
-      expect(modalReady!.provider_image_id).toBe("modal-img");
-      expect(vercelReady!.provider_image_id).toBe("vercel-snapshot");
+      expect(modalReady!.provider_image_id).toBe("modal-img-new");
     });
   });
 
@@ -728,87 +630,33 @@ describe("RepoImageStore", () => {
       const staging = await store.getLatestReady("acme", "repo", "modal", "staging");
       expect(staging).toBeNull();
     });
-
-    it("filters by provider", async () => {
-      db.setImageBuildEnabled("acme", "repo", true);
-      await store.registerBuild({
-        id: "img-modal",
-        repoOwner: "acme",
-        repoName: "repo",
-        provider: "modal",
-        baseBranch: "main",
-      });
-      await store.markReady("img-modal", "modal", "modal-img", "sha-modal", 30);
-
-      vi.advanceTimersByTime(1000);
-
-      await store.registerBuild({
-        id: "img-vercel",
-        repoOwner: "acme",
-        repoName: "repo",
-        provider: "vercel",
-        baseBranch: "main",
-      });
-      await store.markReady("img-vercel", "vercel", "vercel-snapshot", "sha-vercel", 40);
-
-      const modalImage = await store.getLatestReady("acme", "repo", "modal");
-      const vercelImage = await store.getLatestReady("acme", "repo", "vercel");
-      expect(modalImage!.provider_image_id).toBe("modal-img");
-      expect(vercelImage!.provider_image_id).toBe("vercel-snapshot");
-    });
-
-    it("does not return a newer image from another provider", async () => {
-      db.setImageBuildEnabled("acme", "repo", true);
-      await store.registerBuild({
-        id: "img-vercel",
-        repoOwner: "acme",
-        repoName: "repo",
-        provider: "vercel",
-        baseBranch: "main",
-      });
-      await store.markReady("img-vercel", "vercel", "vercel-snapshot", "sha-vercel", 40);
-
-      vi.advanceTimersByTime(1000);
-
-      await store.registerBuild({
-        id: "img-modal",
-        repoOwner: "acme",
-        repoName: "repo",
-        provider: "modal",
-        baseBranch: "main",
-      });
-      await store.markReady("img-modal", "modal", "modal-img", "sha-modal", 30);
-
-      const vercelImage = await store.getLatestReady("acme", "repo", "vercel");
-      expect(vercelImage!.provider_image_id).toBe("vercel-snapshot");
-    });
   });
 
   describe("getLatestReadyForAnyProvider", () => {
     it("returns the latest ready image across providers explicitly", async () => {
       db.setImageBuildEnabled("acme", "repo", true);
       await store.registerBuild({
-        id: "img-vercel",
-        repoOwner: "acme",
-        repoName: "repo",
-        provider: "vercel",
-        baseBranch: "main",
-      });
-      await store.markReady("img-vercel", "vercel", "vercel-snapshot", "sha-vercel", 40);
-
-      vi.advanceTimersByTime(1000);
-
-      await store.registerBuild({
-        id: "img-modal",
+        id: "img-modal-old",
         repoOwner: "acme",
         repoName: "repo",
         provider: "modal",
         baseBranch: "main",
       });
-      await store.markReady("img-modal", "modal", "modal-img", "sha-modal", 30);
+      await store.markReady("img-modal-old", "modal", "modal-img-old", "sha-old", 40);
+
+      vi.advanceTimersByTime(1000);
+
+      await store.registerBuild({
+        id: "img-modal-new",
+        repoOwner: "acme",
+        repoName: "repo",
+        provider: "modal",
+        baseBranch: "main",
+      });
+      await store.markReady("img-modal-new", "modal", "modal-img-new", "sha-new", 30);
 
       const latest = await store.getLatestReadyForAnyProvider("acme", "repo");
-      expect(latest!.provider_image_id).toBe("modal-img");
+      expect(latest!.provider_image_id).toBe("modal-img-new");
       expect(latest!.provider).toBe("modal");
     });
   });

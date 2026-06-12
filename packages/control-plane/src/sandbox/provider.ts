@@ -192,7 +192,7 @@ export interface SnapshotResult {
  * Configuration for resuming a previously stopped sandbox.
  */
 export interface ResumeConfig {
-  /** Provider's internal object ID (e.g., Daytona sandbox ID) */
+  /** Provider's internal object ID (Modal object ID) */
   providerObjectId: string;
   /** Session ID for context */
   sessionId: string;
@@ -232,7 +232,7 @@ export interface ResumeResult {
  * Configuration for explicitly stopping a sandbox.
  */
 export interface StopConfig {
-  /** Provider's internal object ID (e.g., Daytona sandbox ID) */
+  /** Provider's internal object ID (Modal object ID) */
   providerObjectId: string;
   /** Session ID for context */
   sessionId: string;

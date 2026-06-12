@@ -130,11 +130,9 @@ Wide events use `outcome` to indicate result:
 
 #### Provider Clients
 
-| Event                    | Level | Key Fields                                                                      | Description                               |
-| ------------------------ | ----- | ------------------------------------------------------------------------------- | ----------------------------------------- |
-| `modal.request`          | info  | `endpoint`, `session_id`, `sandbox_id`, `http_status`, `duration_ms`, `outcome` | One per control-plane -> Modal call       |
-| `vercel_sandbox.request` | info  | `endpoint`, `session_id`, `http_status`, `duration_ms`, `outcome`               | One per control-plane -> Vercel API call  |
-| `daytona.create_sandbox` | info  | `sandbox_id`, `target`, `duration_ms`, `outcome`                                | Daytona sandbox create/restore API result |
+| Event           | Level | Key Fields                                                                      | Description                         |
+| --------------- | ----- | ------------------------------------------------------------------------------- | ----------------------------------- |
+| `modal.request` | info  | `endpoint`, `session_id`, `sandbox_id`, `http_status`, `duration_ms`, `outcome` | One per control-plane -> Modal call |
 
 ---
 
