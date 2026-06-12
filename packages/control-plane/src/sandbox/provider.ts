@@ -76,6 +76,8 @@ export interface CreateSandboxConfig {
   mcpServers?: McpServerConfig[];
   /** Sandbox settings (tunnel ports, etc.) resolved from integration settings */
   sandboxSettings?: SandboxSettings;
+  /** GitHub App installation ID stored on the session (webhook override). */
+  githubAppInstallationId?: string;
 }
 
 /**
@@ -138,6 +140,8 @@ export interface RestoreConfig {
   agentSlackNotifyEnabled?: boolean;
   /** Sandbox settings (tunnel ports, etc.) resolved from integration settings */
   sandboxSettings?: SandboxSettings;
+  /** GitHub App installation ID stored on the session (webhook override). */
+  githubAppInstallationId?: string;
 }
 
 /**

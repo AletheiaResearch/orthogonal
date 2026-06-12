@@ -37,6 +37,7 @@ function createSession(overrides: Partial<SessionRow> = {}): SessionRow {
     code_server_enabled: 0,
     total_cost: 0,
     sandbox_settings: null,
+    github_app_installation_id: null,
     created_at: 1000,
     updated_at: 2000,
     ...overrides,
@@ -201,6 +202,7 @@ describe("createChildSessionsHandler", () => {
       model: "anthropic/claude-haiku-4-5",
       reasoningEffort: "high",
       baseBranch: "main",
+      githubAppInstallationId: null,
       owner: {
         userId: "user-1",
         scmUserId: null,
@@ -224,6 +226,17 @@ describe("createChildSessionsHandler", () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as Record<string, unknown>;
     expect(body.baseBranch).toBe("feature/branch-fix");
+  });
+
+  it("includes githubAppInstallationId from the parent session in spawn context", async () => {
+    const { handler, getSession, repository } = createHandler();
+    getSession.mockReturnValue(createSession({ github_app_installation_id: "424242" }));
+    repository.listParticipants.mockReturnValue([createParticipant()]);
+
+    const response = handler.getSpawnContext();
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(body.githubAppInstallationId).toBe("424242");
   });
 
   it("returns 404 when session is missing for child summary", async () => {

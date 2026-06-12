@@ -446,6 +446,7 @@ export class SandboxLifecycleManager {
         agentSlackNotifyEnabled,
         mcpServers,
         sandboxSettings,
+        githubAppInstallationId: session.github_app_installation_id ?? undefined,
       };
 
       const result = await this.provider.createSandbox(createConfig);
@@ -627,6 +628,7 @@ export class SandboxLifecycleManager {
         agentSlackNotifyEnabled,
         mcpServers,
         sandboxSettings,
+        githubAppInstallationId: session.github_app_installation_id ?? undefined,
       });
 
       if (result.success) {

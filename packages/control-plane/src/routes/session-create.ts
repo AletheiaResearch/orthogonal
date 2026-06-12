@@ -50,7 +50,9 @@ async function handleCreateSession(
   const repoOwner = body.repoOwner.toLowerCase();
   const repoName = body.repoName.toLowerCase();
 
-  const resolved = await resolveRepoOrError(env, repoOwner, repoName, ctx, logger);
+  const resolved = await resolveRepoOrError(env, repoOwner, repoName, ctx, logger, {
+    githubInstallationId: body.githubAppInstallationId,
+  });
   if (resolved instanceof Response) return resolved;
 
   const { repoId, defaultBranch } = resolved;

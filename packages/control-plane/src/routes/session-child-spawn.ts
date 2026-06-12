@@ -135,6 +135,7 @@ async function handleSpawnChild(
     parentSessionId: parentId,
     spawnSource: "agent",
     spawnDepth: childDepth,
+    githubAppInstallationId: spawnContext.githubAppInstallationId,
   };
 
   try {

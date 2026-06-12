@@ -437,7 +437,10 @@ same organization.
 
 ### Why Single-Tenant?
 
-The system uses a shared GitHub App installation for all git operations. This means:
+The system uses shared GitHub App installation credentials for all git operations. By default one
+`GITHUB_APP_INSTALLATION_ID` covers every repo; optional `GITHUB_APP_INSTALLATION_MAP` can route
+specific GitHub owner logins to additional installation IDs when the same App is installed on
+multiple orgs. This means:
 
 - Any user can access any repository the GitHub App is installed on
 - There's no per-user repository access validation

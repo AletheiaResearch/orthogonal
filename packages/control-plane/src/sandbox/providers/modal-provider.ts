@@ -78,6 +78,7 @@ export class ModalSandboxProvider implements SandboxProvider {
           agentSlackNotifyEnabled: config.agentSlackNotifyEnabled,
           mcpServers: config.mcpServers,
           sandboxSettings: config.sandboxSettings,
+          githubAppInstallationId: config.githubAppInstallationId,
         },
         config.correlation
       );
@@ -120,6 +121,7 @@ export class ModalSandboxProvider implements SandboxProvider {
           agentSlackNotifyEnabled: config.agentSlackNotifyEnabled,
           mcpServers: config.mcpServers,
           sandboxSettings: config.sandboxSettings,
+          githubAppInstallationId: config.githubAppInstallationId,
         },
         config.correlation
       );

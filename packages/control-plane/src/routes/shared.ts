@@ -72,9 +72,14 @@ export function createRouteSourceControlProvider(env: Env): SourceControlProvide
 export async function resolveInstalledRepo(
   provider: SourceControlProvider,
   repoOwner: string,
-  repoName: string
+  repoName: string,
+  options?: { githubInstallationId?: string }
 ): Promise<RepositoryAccessResult | null> {
-  return provider.checkRepositoryAccess({ owner: repoOwner, name: repoName });
+  return provider.checkRepositoryAccess({
+    owner: repoOwner,
+    name: repoName,
+    githubInstallationId: options?.githubInstallationId,
+  });
 }
 
 /**
@@ -124,11 +129,12 @@ export async function resolveRepoOrError(
   owner: string,
   name: string,
   ctx: RequestContext,
-  logger: Logger
+  logger: Logger,
+  options?: { githubInstallationId?: string }
 ): Promise<RepositoryAccessResult | Response> {
   try {
     const provider = createRouteSourceControlProvider(env);
-    const resolved = await resolveInstalledRepo(provider, owner, name);
+    const resolved = await resolveInstalledRepo(provider, owner, name, options);
     if (!resolved) {
       return error("Repository is not installed for the GitHub App", 404);
     }

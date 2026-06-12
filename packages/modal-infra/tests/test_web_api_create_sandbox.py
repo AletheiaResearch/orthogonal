@@ -77,8 +77,11 @@ async def test_create_sandbox_resolves_clone_token_for_prebuilt_boot(monkeypatch
     _patch_auth(monkeypatch)
     _patch_manager(monkeypatch, captured)
 
-    def resolve_clone_token(repo_owner: str | None = None) -> str:
-        calls.append(repo_owner)
+    def resolve_clone_token(
+        repo_owner: str | None = None,
+        installation_id: str | None = None,
+    ) -> str:
+        calls.append((repo_owner, installation_id))
         return "ghs_prebuilt"
 
     monkeypatch.setattr(web_api, "_resolve_clone_token", resolve_clone_token)
@@ -95,5 +98,5 @@ async def test_create_sandbox_resolves_clone_token_for_prebuilt_boot(monkeypatch
     )
 
     assert result["success"] is True
-    assert calls == ["acme"]
+    assert calls == [("acme", None)]
     assert captured["config"].clone_token == "ghs_prebuilt"

@@ -69,6 +69,7 @@ export interface CreateSandboxRequest {
   agentSlackNotifyEnabled?: boolean;
   mcpServers?: McpServerConfig[];
   sandboxSettings?: SandboxSettings;
+  githubAppInstallationId?: string;
 }
 
 export interface CreateSandboxResponse {
@@ -99,6 +100,7 @@ export interface RestoreSandboxRequest {
   agentSlackNotifyEnabled?: boolean;
   mcpServers?: McpServerConfig[];
   sandboxSettings?: SandboxSettings;
+  githubAppInstallationId?: string;
 }
 
 export interface RestoreSandboxResponse {
@@ -264,6 +266,7 @@ export class ModalClient {
           agent_slack_notify_enabled: request.agentSlackNotifyEnabled ?? false,
           mcp_servers: request.mcpServers || null,
           sandbox_settings: request.sandboxSettings ?? null,
+          github_app_installation_id: request.githubAppInstallationId || null,
         }),
       });
 
@@ -343,6 +346,7 @@ export class ModalClient {
           code_server_enabled: request.codeServerEnabled ?? false,
           agent_slack_notify_enabled: request.agentSlackNotifyEnabled ?? false,
           sandbox_settings: request.sandboxSettings ?? null,
+          github_app_installation_id: request.githubAppInstallationId || null,
         }),
       });
 
