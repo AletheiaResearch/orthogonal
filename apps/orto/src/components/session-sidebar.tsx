@@ -4,6 +4,7 @@ import type { Session } from "@open-inspect/shared";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import posthog from "posthog-js";
 import {
   Fragment,
   useState,
@@ -40,6 +41,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { archiveSession } from "@/lib/archive-session";
 import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
+import { posthogEnabled } from "@/lib/posthog";
 import {
   applyTitleUpdate,
   buildSessionsPageKey,
@@ -513,7 +515,12 @@ function UserMenu({ user }: { user?: { name?: string | null; image?: string | nu
           {user?.name || "User"}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => signOut()}>
+        <DropdownMenuItem
+          onClick={() => {
+            if (posthogEnabled) posthog.reset();
+            signOut();
+          }}
+        >
           <svg
             className="h-4 w-4"
             fill="none"

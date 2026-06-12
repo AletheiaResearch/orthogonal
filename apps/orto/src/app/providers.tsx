@@ -4,6 +4,7 @@ import { SessionProvider } from "next-auth/react";
 import { ThemeProvider } from "next-themes";
 import { SWRConfig } from "swr";
 
+import { PostHogIdentity } from "@/components/posthog-identity";
 import { SyntaxHighlightTheme } from "@/components/syntax-highlight-theme";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -18,6 +19,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <SWRConfig value={{ fetcher: swrFetcher, revalidateOnFocus: true, dedupingInterval: 2000 }}>
         <SessionProvider>
+          <PostHogIdentity />
           {children}
           <SyntaxHighlightTheme />
           <Toaster />
