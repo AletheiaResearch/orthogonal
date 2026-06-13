@@ -6,8 +6,8 @@ import {
   type SlackNotifySuccessOutput,
   type SlackNotifyToolEnvelope,
 } from "@open-inspect/shared";
+import { ChevronRightIcon, ErrorIcon, LinkIcon, SlackIcon } from "@orthogonal/ui";
 
-import { ChevronRightIcon, ErrorIcon, LinkIcon, SlackIcon } from "@/components/ui/icons";
 import { APP_NAME } from "@/lib/site-config";
 import { formatSessionEventTime } from "@/lib/time";
 import { getSafeExternalUrl } from "@/lib/urls";

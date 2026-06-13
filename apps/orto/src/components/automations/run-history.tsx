@@ -1,10 +1,8 @@
 "use client";
 
 import type { AutomationRun } from "@open-inspect/shared";
+import { Badge, Button } from "@orthogonal/ui";
 import Link from "next/link";
-
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 function runStatusBadge(status: AutomationRun["status"]) {
   switch (status) {

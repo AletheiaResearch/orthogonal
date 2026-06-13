@@ -1,11 +1,14 @@
-# Background Agents: Open-Inspect
+# Orthogonal
 
-An open-source background agents coding system inspired by
+[![CI](https://github.com/AletheiaResearch/orthogonal/actions/workflows/ci.yml/badge.svg)](https://github.com/AletheiaResearch/orthogonal/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/AletheiaResearch/orthogonal/graph/badge.svg?token=yOUIWRMZwo)](https://codecov.io/gh/AletheiaResearch/orthogonal)
+
+A background agent coding system inspired by
 [Ramp's Inspect](https://builders.ramp.com/post/why-we-built-our-background-agent).
 
 ## Overview
 
-Open-Inspect provides a hosted background coding agent that can:
+Orthogonal provides a hosted background coding agent that can:
 
 - Work on tasks in the background while you focus on other things
 - Access full development environments (Node.js, Python, git, browser automation, VS Code)
@@ -110,17 +113,19 @@ built for internal use where all employees are trusted and have access to compan
 
 ## Packages
 
-| Package                                     | Description                                 |
-| ------------------------------------------- | ------------------------------------------- |
-| [control-plane](packages/control-plane)     | Cloudflare Workers + Durable Objects        |
-| [web](packages/web)                         | Next.js web client                          |
-| [orto](apps/orto)                           | Next.js web client (Vercel + PostHog)       |
-| [sandbox-runtime](packages/sandbox-runtime) | Shared in-sandbox agent runtime             |
-| [modal-infra](packages/modal-infra)         | Modal sandbox infrastructure                |
-| [slack-bot](packages/slack-bot)             | Slack integration (sessions from messages)  |
-| [github-bot](packages/github-bot)           | GitHub integration (auto-review, @mention)  |
-| [linear-bot](packages/linear-bot)           | Linear integration (issue → coding session) |
-| [shared](packages/shared)                   | Shared types and utilities                  |
+| Package                                     | Description                                                                       |
+| ------------------------------------------- | --------------------------------------------------------------------------------- |
+| [control-plane](packages/control-plane)     | Cloudflare Workers + Durable Objects                                              |
+| [web](packages/web)                         | Next.js web client                                                                |
+| [orto](apps/orto)                           | Next.js web client (Vercel + PostHog)                                             |
+| [sandbox-runtime](packages/sandbox-runtime) | Shared in-sandbox agent runtime                                                   |
+| [modal-infra](packages/modal-infra)         | Modal sandbox infrastructure                                                      |
+| [slack-bot](packages/slack-bot)             | Slack integration (sessions from messages)                                        |
+| [github-bot](packages/github-bot)           | GitHub integration (auto-review, @mention)                                        |
+| [linear-bot](packages/linear-bot)           | Linear integration (issue → coding session)                                       |
+| [shared](packages/shared)                   | Shared types and utilities                                                        |
+| [ui](packages/ui)                           | Shared React component library (shadcn primitives + AI Elements–style agentic UI) |
+| [storybook](apps/storybook)                 | Storybook catalog for `@orthogonal/ui`                                            |
 
 ## Getting Started
 
@@ -260,7 +265,7 @@ docker compose up -d postgres redis
 
 ## License
 
-MIT
+UNLICENSED — proprietary. All rights reserved.
 
 ## Credits
 

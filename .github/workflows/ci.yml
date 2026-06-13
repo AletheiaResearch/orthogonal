@@ -10,412 +10,215 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
+env:
+  # Base for `turbo run --affected`: the PR base on pull_request, the previous commit on push.
+  TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+
 jobs:
-  lint-typescript:
-    name: Lint & Format (TypeScript)
+  # Detect which areas changed so language-specific jobs only run when relevant. A single
+  # required "CI Success" gate (below) avoids the skipped-required-check deadlock that plain
+  # workflow-level `paths:` filters cause.
+  changes:
+    name: Detect changes
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
+    # dorny/paths-filter reads the PR's changed files via the GitHub API on pull_request events,
+    # which needs pull-requests: read on top of the workflow-level contents: read.
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      ts: ${{ steps.filter.outputs.ts }}
+      python: ${{ steps.filter.outputs.python }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
-          node-version: "22"
-          cache: "pnpm"
+          persist-credentials: false
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
+        id: filter
+        with:
+          filters: |
+            ts:
+              - 'packages/shared/**'
+              - 'packages/control-plane/**'
+              - 'packages/web/**'
+              - 'packages/ui/**'
+              - 'packages/slack-bot/**'
+              - 'packages/github-bot/**'
+              - 'packages/linear-bot/**'
+              - 'packages/tooling-configs/**'
+              - 'apps/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'turbo.json'
+              - 'tsconfig*.json'
+              - 'oxlint*'
+              - 'scripts/**'
+              - '.github/actions/**'
+              - '.github/workflows/ci.yml'
+            python:
+              - 'packages/modal-infra/**'
+              - 'packages/sandbox-runtime/**'
+              - '.github/actions/**'
+              - '.github/workflows/ci.yml'
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build shared (for type-aware lint)
-        run: pnpm --filter @open-inspect/shared build
-
+  static:
+    name: Lint, Format & TypeCheck (TypeScript)
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0 # turbo --affected needs history
+          persist-credentials: false
+      - uses: ./.github/actions/pnpm-setup
+        # build-shared defaults true: type-aware oxlint (`pnpm lint`) needs @open-inspect/shared's
+        # dist/, and lint runs before `turbo run typecheck` would build it.
       - name: Format check
         run: pnpm fmt:check
-
       - name: Lint
         run: pnpm lint
+      - name: TypeCheck (affected)
+        run: pnpm exec turbo run typecheck --affected
 
-  typecheck-typescript:
-    name: TypeCheck (TypeScript)
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build shared package
-        run: pnpm --filter @open-inspect/shared build
-
-      - name: TypeCheck all packages
-        run: pnpm run typecheck
-
-  build-web:
-    name: Build (Web)
+  test:
+    name: Test (TypeScript)
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
-          node-version: "22"
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build shared package
-        run: pnpm --filter @open-inspect/shared build
-
-      - name: Build web package
-        run: pnpm --filter @open-inspect/web build
-
-  build-orto:
-    name: Build (Orto)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/pnpm-setup
         with:
-          node-version: "22"
-          cache: "pnpm"
+          build-shared: "false"
+      - name: Unit tests (affected)
+        run: pnpm exec turbo run test --affected
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build shared package
-        run: pnpm --filter @open-inspect/shared build
-
-      - name: Build orto package
-        run: pnpm --filter @orthogonal/orto build
-
-  lint-python-sandbox-runtime:
-    name: Lint & Format (Python - sandbox-runtime)
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    defaults:
-      run:
-        working-directory: packages/sandbox-runtime
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: "pip"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-
-      - name: Run Ruff linter
-        run: ruff check src/ tests/
-
-      - name: Run Ruff formatter check
-        run: ruff format --check src/ tests/
-
-  lint-python:
-    name: Lint & Format (Python - modal-infra)
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    defaults:
-      run:
-        working-directory: packages/modal-infra
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: "pip"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ../sandbox-runtime
-          pip install -e ".[dev]"
-
-      - name: Run Ruff linter
-        run: ruff check src/
-
-      - name: Run Ruff formatter check
-        run: ruff format --check src/
-
-  typecheck-python:
-    name: TypeCheck (Python)
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    defaults:
-      run:
-        working-directory: packages/modal-infra
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: "pip"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ../sandbox-runtime
-          pip install -e ".[dev]"
-
-      - name: Run MyPy
-        run: mypy src/
-        continue-on-error: true # Allow failures initially as types are added
-
-  typecheck-python-sandbox-runtime:
-    name: TypeCheck (Python - sandbox-runtime)
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: [lint-python-sandbox-runtime]
-    defaults:
-      run:
-        working-directory: packages/sandbox-runtime
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: "pip"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-
-      - name: Run MyPy
-        run: mypy src/
-        continue-on-error: true # Allow failures initially as types are added
-
-  test-cp-unit:
-    name: Test (control-plane unit)
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: [lint-typescript, typecheck-typescript]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build shared package
-        run: pnpm --filter @open-inspect/shared build
-
-      - name: Run shared tests
-        run: pnpm --filter @open-inspect/shared test
-
-      - name: Run control-plane unit tests
-        run: pnpm --filter @open-inspect/control-plane test
-
-  test-cp-integration:
+  test-integration:
     name: Test (control-plane integration)
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: [lint-typescript, typecheck-typescript]
+    timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
-          node-version: "22"
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build shared package
-        run: pnpm --filter @open-inspect/shared build
-
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/pnpm-setup
+        with:
+          build-shared: "false"
       - name: Install workerd runtime dependency
         run: sudo apt-get update && sudo apt-get install -y libc++1
+      - name: Integration tests (affected)
+        run: pnpm exec turbo run test:integration --affected
 
-      - name: Run control-plane integration tests
-        run: pnpm --filter @open-inspect/control-plane run test:integration
-
-  test-web:
-    name: Test (web)
+  build:
+    name: Build (TypeScript)
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: [lint-typescript, typecheck-typescript]
+    timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
-          node-version: "22"
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build shared package
-        run: pnpm --filter @open-inspect/shared build
-
-      - name: Run web tests
-        run: pnpm --filter @open-inspect/web test
-
-  test-orto:
-    name: Test (orto)
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: [lint-typescript, typecheck-typescript]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/pnpm-setup
         with:
-          node-version: "22"
-          cache: "pnpm"
+          build-shared: "false"
+      - name: Build (affected)
+        run: pnpm exec turbo run build --affected
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build shared package
-        run: pnpm --filter @open-inspect/shared build
-
-      - name: Run orto tests
-        run: pnpm --filter @orthogonal/orto test
-
-  test-bots:
-    name: Test (bots)
+  python-sandbox-runtime:
+    name: Python (sandbox-runtime)
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: [lint-typescript, typecheck-typescript]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build shared package
-        run: pnpm --filter @open-inspect/shared build
-
-      - name: Run github-bot tests
-        run: pnpm --filter @open-inspect/github-bot test
-
-      - name: Run slack-bot tests
-        run: pnpm --filter @open-inspect/slack-bot test
-
-      - name: Run linear-bot tests
-        run: pnpm --filter @open-inspect/linear-bot test
-
-  test-python-sandbox-runtime:
-    name: Test (Python - sandbox-runtime)
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: [lint-python-sandbox-runtime]
+    timeout-minutes: 8
     defaults:
       run:
         working-directory: packages/sandbox-runtime
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
-          python-version: "3.12"
-          cache: "pip"
-
+          persist-credentials: false
+      - uses: ./.github/actions/python-setup
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-
-      - name: Run tests
+        run: pip install -e ".[dev]"
+      - name: Ruff lint
+        run: ruff check src/ tests/
+      - name: Ruff format check
+        run: ruff format --check src/ tests/
+      - name: MyPy
+        run: mypy src/
+        continue-on-error: true # types still being added
+      - name: Tests
         run: pytest tests/ -v
 
-  test-python:
-    name: Test (Python - modal-infra)
+  python-modal-infra:
+    name: Python (modal-infra)
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: [lint-python]
+    timeout-minutes: 8
     defaults:
       run:
         working-directory: packages/modal-infra
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
-          python-version: "3.12"
-          cache: "pip"
-
+          persist-credentials: false
+      - uses: ./.github/actions/python-setup
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
           pip install -e ../sandbox-runtime
           pip install -e ".[dev]"
-
-      - name: Run tests
+      - name: Ruff lint
+        run: ruff check src/
+      - name: Ruff format check
+        run: ruff format --check src/
+      - name: MyPy
+        run: mypy src/
+        continue-on-error: true # types still being added
+      - name: Tests
         run: pytest tests/ -v
+
+  # Single required status check. Set branch protection to require ONLY "CI Success" — it passes
+  # when every job succeeded or was skipped, and fails if any failed/was cancelled. This is what
+  # lets the path-filtered jobs skip without deadlocking a required check.
+  ci-success:
+    name: CI Success
+    if: ${{ always() }}
+    needs:
+      - changes
+      - static
+      - test
+      - test-integration
+      - build
+      - python-sandbox-runtime
+      - python-modal-infra
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify required jobs
+        run: |
+          results="${{ join(needs.*.result, ' ') }}"
+          echo "Job results: $results"
+          for r in $results; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+              echo "::error::A required CI job did not succeed (result: $r)."
+              exit 1
+            fi
+          done
+          echo "All required jobs passed or were skipped."

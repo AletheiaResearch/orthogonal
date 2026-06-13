@@ -1,5 +1,5 @@
 export { ACTIVE_SANDBOX_STATUSES } from "./sandbox-statuses";
-export { CollapsibleSection } from "./collapsible-section";
+export { CollapsibleSection } from "@orthogonal/ui";
 export { ParticipantsSection } from "./participants-section";
 export { MetadataSection } from "./metadata-section";
 export { TasksSection } from "./tasks-section";

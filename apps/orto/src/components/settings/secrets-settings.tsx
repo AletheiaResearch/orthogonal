@@ -1,10 +1,9 @@
 "use client";
 
+import { Combobox, ChevronDownIcon, CheckIcon } from "@orthogonal/ui";
 import { useState } from "react";
 
 import { SecretsEditor } from "@/components/secrets-editor";
-import { Combobox } from "@/components/ui/combobox";
-import { ChevronDownIcon, CheckIcon } from "@/components/ui/icons";
 import { useRepos } from "@/hooks/use-repos";
 
 const GLOBAL_SCOPE = "__global__";

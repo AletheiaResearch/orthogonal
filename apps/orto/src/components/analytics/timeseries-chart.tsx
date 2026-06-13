@@ -1,4 +1,5 @@
 import type { AnalyticsTimeseriesResponse } from "@open-inspect/shared";
+import { Badge } from "@orthogonal/ui";
 import { useId } from "react";
 import {
   Area,
@@ -10,7 +11,6 @@ import {
   YAxis,
 } from "recharts";
 
-import { Badge } from "@/components/ui/badge";
 import {
   buildTimeseriesChartData,
   formatAnalyticsCount,

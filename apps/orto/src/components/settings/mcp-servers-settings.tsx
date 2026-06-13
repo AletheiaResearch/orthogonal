@@ -1,9 +1,6 @@
 "use client";
 
 import type { McpServerConfig, McpServerMetadata } from "@open-inspect/shared";
-import { useState, useCallback, type ClipboardEvent } from "react";
-import { toast } from "sonner";
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,14 +10,20 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { RadioCard } from "@/components/ui/form-controls";
-import { PlusIcon, TerminalIcon, GlobeIcon, ChevronRightIcon } from "@/components/ui/icons";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+  Button,
+  Checkbox,
+  RadioCard,
+  PlusIcon,
+  TerminalIcon,
+  GlobeIcon,
+  ChevronRightIcon,
+  Input,
+  Label,
+  Switch,
+} from "@orthogonal/ui";
+import { useState, useCallback, type ClipboardEvent } from "react";
+import { toast } from "sonner";
+
 import {
   useMcpServers,
   createMcpServer,

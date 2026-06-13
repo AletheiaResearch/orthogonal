@@ -1,0 +1,43 @@
+# Codecov config. Coverage is uploaded as a single merged report (see .github/workflows/coverage.yml);
+# per-package visibility comes from the path-based components below (no separate per-package uploads).
+coverage:
+  status:
+    # Start informational so coverage deltas surface in PRs without blocking merges; tighten later.
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
+
+component_management:
+  individual_components:
+    - component_id: shared
+      name: shared
+      paths: ["packages/shared/**"]
+    - component_id: control-plane
+      name: control-plane
+      paths: ["packages/control-plane/**"]
+    - component_id: web
+      name: web
+      paths: ["packages/web/**"]
+    - component_id: ui
+      name: ui
+      paths: ["packages/ui/**"]
+    - component_id: slack-bot
+      name: slack-bot
+      paths: ["packages/slack-bot/**"]
+    - component_id: github-bot
+      name: github-bot
+      paths: ["packages/github-bot/**"]
+    - component_id: linear-bot
+      name: linear-bot
+      paths: ["packages/linear-bot/**"]
+    - component_id: orto
+      name: orto
+      paths: ["apps/orto/**"]
+
+# Keep PR comments concise.
+comment:
+  layout: "condensed_header, diff, components, files"
+  require_changes: false

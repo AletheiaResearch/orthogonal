@@ -1,6 +1,8 @@
 "use client";
 
-import { ScreenshotArtifactCard } from "@/components/screenshot-artifact-card";
+import { ScreenshotArtifactCard } from "@orthogonal/ui";
+
+import { buildSessionMediaUrl } from "@/lib/media";
 import type { Artifact } from "@/types/session";
 
 interface MediaSectionProps {
@@ -17,10 +19,11 @@ export function MediaSection({ sessionId, mediaArtifacts, onOpenMedia }: MediaSe
       {mediaArtifacts.map((artifact) => (
         <ScreenshotArtifactCard
           key={artifact.id}
-          sessionId={sessionId}
           artifactId={artifact.id}
-          artifactType={artifact.type}
-          metadata={artifact.metadata}
+          src={buildSessionMediaUrl(sessionId, artifact.id)}
+          isVideo={artifact.type === "video"}
+          caption={artifact.metadata?.caption}
+          sourceUrl={artifact.metadata?.sourceUrl}
           onOpen={onOpenMedia}
           compact={true}
         />

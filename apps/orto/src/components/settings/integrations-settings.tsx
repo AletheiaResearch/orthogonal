@@ -1,9 +1,8 @@
 "use client";
 
 import { INTEGRATION_DEFINITIONS } from "@open-inspect/shared";
+import { ChevronRightIcon } from "@orthogonal/ui";
 import Link from "next/link";
-
-import { ChevronRightIcon } from "@/components/ui/icons";
 
 export function IntegrationsSettings() {
   return (

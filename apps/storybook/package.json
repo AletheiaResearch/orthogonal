@@ -1,0 +1,36 @@
+{
+  "name": "@orthogonal/storybook",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "storybook dev -p 6006 --no-open",
+    "build": "storybook build",
+    "chromatic": "chromatic --build-script-name=build --exit-zero-on-changes",
+    "lint": "oxlint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@orthogonal/ui": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@orthogonal/tooling-configs": "workspace:*",
+    "@storybook/addon-a11y": "catalog:",
+    "@storybook/addon-docs": "catalog:",
+    "@storybook/react-vite": "catalog:",
+    "@tailwindcss/typography": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vercel/config": "catalog:",
+    "autoprefixer": "catalog:",
+    "chromatic": "17.3.0",
+    "postcss": "catalog:",
+    "storybook": "catalog:",
+    "tailwindcss": "catalog:tailwind3",
+    "tailwindcss-animate": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}

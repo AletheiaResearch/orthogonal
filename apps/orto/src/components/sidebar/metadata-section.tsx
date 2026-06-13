@@ -1,10 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
-
-import { Badge, prBadgeVariant } from "@/components/ui/badge";
 import {
+  Badge,
+  prBadgeVariant,
   ClockIcon,
   SparkleIcon,
   GitPrIcon,
@@ -13,7 +11,10 @@ import {
   CopyIcon,
   CheckIcon,
   LinkIcon,
-} from "@/components/ui/icons";
+} from "@orthogonal/ui";
+import Link from "next/link";
+import { useState } from "react";
+
 import { formatModelName, truncateBranch, copyToClipboard } from "@/lib/format";
 import { getScmBranchUrl, getScmRepoUrl } from "@/lib/scm";
 import { formatSessionCost } from "@/lib/session-cost";

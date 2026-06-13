@@ -1,6 +1,21 @@
 "use client";
 
 import { DEFAULT_MODEL, getDefaultReasoningEffort, type ModelCategory } from "@open-inspect/shared";
+import {
+  Button,
+  CheckIcon,
+  Combobox,
+  type ComboboxGroup,
+  CopyIcon,
+  ErrorIcon,
+  MediaLightbox,
+  ModelIcon,
+  SafeMarkdown,
+  ScreenshotArtifactCard,
+  SendIcon,
+  SidebarIcon,
+  StopIcon,
+} from "@orthogonal/ui";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   Suspense,
@@ -17,10 +32,7 @@ import { mutate } from "swr";
 import useSWRMutation from "swr/mutation";
 
 import { ActionBar } from "@/components/action-bar";
-import { MediaLightbox } from "@/components/media-lightbox";
 import { ReasoningEffortPills } from "@/components/reasoning-effort-pills";
-import { SafeMarkdown } from "@/components/safe-markdown";
-import { ScreenshotArtifactCard } from "@/components/screenshot-artifact-card";
 import {
   SessionRightSidebar,
   SessionRightSidebarContent,
@@ -28,23 +40,13 @@ import {
 import { useSidebarContext } from "@/components/sidebar-layout";
 import { TerminalPanel } from "@/components/terminal-panel";
 import { ToolCallGroup } from "@/components/tool-call-group";
-import { Button } from "@/components/ui/button";
-import { Combobox, type ComboboxGroup } from "@/components/ui/combobox";
-import {
-  SidebarIcon,
-  ModelIcon,
-  CheckIcon,
-  SendIcon,
-  StopIcon,
-  CopyIcon,
-  ErrorIcon,
-} from "@/components/ui/icons";
 import { useEnabledModels } from "@/hooks/use-enabled-models";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useSessionSocket } from "@/hooks/use-session-socket";
 import { archiveSession } from "@/lib/archive-session";
 import { copyToClipboard, formatModelNameLower } from "@/lib/format";
 import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
+import { buildSessionMediaUrl } from "@/lib/media";
 import {
   isArchivedSessionListKey,
   isUnarchivedSessionListKey,
@@ -977,8 +979,12 @@ function SessionContent({
       )}
 
       <MediaLightbox
-        sessionId={sessionId}
-        artifact={selectedMediaArtifact}
+        src={
+          selectedMediaArtifact ? buildSessionMediaUrl(sessionId, selectedMediaArtifact.id) : null
+        }
+        type={selectedMediaArtifact?.type === "video" ? "video" : "image"}
+        title={selectedMediaArtifact?.metadata?.caption}
+        description={selectedMediaArtifact?.metadata?.sourceUrl}
         open={selectedMediaArtifactId !== null}
         onOpenChange={(open) => {
           if (!open) {
@@ -1416,10 +1422,11 @@ const EventItem = memo(function EventItem({
             <span className="text-xs text-secondary-foreground">{time}</span>
           </div>
           <ScreenshotArtifactCard
-            sessionId={sessionId}
             artifactId={event.artifactId}
-            artifactType={event.artifactType}
-            metadata={event.metadata as Artifact["metadata"] | undefined}
+            src={buildSessionMediaUrl(sessionId, event.artifactId)}
+            isVideo={event.artifactType === "video"}
+            caption={(event.metadata as Artifact["metadata"] | undefined)?.caption}
+            sourceUrl={(event.metadata as Artifact["metadata"] | undefined)?.sourceUrl}
             onOpen={onOpenMedia}
           />
         </div>

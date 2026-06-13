@@ -1,12 +1,12 @@
 "use client";
 
+import { Button } from "@orthogonal/ui";
 import Link from "next/link";
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import useSWR, { mutate } from "swr";
 
 import { buildSessionHref, type SessionItem } from "@/components/session-sidebar";
-import { Button } from "@/components/ui/button";
 import {
   isUnarchivedSessionListKey,
   removeSessionFromList,

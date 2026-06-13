@@ -11,20 +11,24 @@ import {
   type AutomationEventSource,
   type TriggerCondition,
 } from "@open-inspect/shared";
-import { useState, useCallback, useEffect, useMemo } from "react";
-
-import { Button } from "@/components/ui/button";
-import { Combobox, type ComboboxGroup } from "@/components/ui/combobox";
-import { RepoIcon, BranchIcon, ModelIcon, ChevronDownIcon } from "@/components/ui/icons";
-import { Input } from "@/components/ui/input";
 import {
+  Button,
+  Combobox,
+  type ComboboxGroup,
+  RepoIcon,
+  BranchIcon,
+  ModelIcon,
+  ChevronDownIcon,
+  Input,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+  Textarea,
+} from "@orthogonal/ui";
+import { useState, useCallback, useEffect, useMemo } from "react";
+
 import { useBranches } from "@/hooks/use-branches";
 import { useEnabledModels } from "@/hooks/use-enabled-models";
 import { useRepos } from "@/hooks/use-repos";

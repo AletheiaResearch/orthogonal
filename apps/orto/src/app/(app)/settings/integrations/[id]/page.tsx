@@ -1,6 +1,7 @@
 "use client";
 
 import { INTEGRATION_DEFINITIONS, type IntegrationId } from "@open-inspect/shared";
+import { SidebarIcon, BackIcon } from "@orthogonal/ui";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
@@ -9,7 +10,6 @@ import { GitHubIntegrationSettings } from "@/components/settings/integrations/gi
 import { LinearIntegrationSettings } from "@/components/settings/integrations/linear-integration-settings";
 import { SlackIntegrationSettings } from "@/components/settings/integrations/slack-integration-settings";
 import { useSidebarContext } from "@/components/sidebar-layout";
-import { SidebarIcon, BackIcon } from "@/components/ui/icons";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
 

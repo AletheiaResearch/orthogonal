@@ -8,10 +8,6 @@ import {
   type LinearGlobalConfig,
   type ValidModel,
 } from "@open-inspect/shared";
-import { useEffect, useState, type ReactNode } from "react";
-import { toast } from "sonner";
-import useSWR, { mutate } from "swr";
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,11 +17,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { RadioCard } from "@/components/ui/form-controls";
-import {
+  Button,
+  Checkbox,
+  RadioCard,
   Select,
   SelectContent,
   SelectGroup,
@@ -33,8 +27,12 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+  Textarea,
+} from "@orthogonal/ui";
+import { useEffect, useState, type ReactNode } from "react";
+import { toast } from "sonner";
+import useSWR, { mutate } from "swr";
+
 import { useEnabledModels } from "@/hooks/use-enabled-models";
 
 import { IntegrationSettingsSkeleton } from "./integration-settings-skeleton";

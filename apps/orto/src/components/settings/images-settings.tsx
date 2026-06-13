@@ -1,13 +1,18 @@
 "use client";
 
+import {
+  Button,
+  ErrorBanner,
+  RefreshIcon,
+  Switch,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@orthogonal/ui";
 import { useState } from "react";
 import useSWR, { mutate } from "swr";
 
-import { Button } from "@/components/ui/button";
-import { ErrorBanner } from "@/components/ui/error-banner";
-import { RefreshIcon } from "@/components/ui/icons";
-import { Switch } from "@/components/ui/switch";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useRepos } from "@/hooks/use-repos";
 import { formatRelativeTime } from "@/lib/time";
 

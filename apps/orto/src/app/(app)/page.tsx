@@ -6,6 +6,18 @@ import {
   isValidReasoningEffort,
   type ModelCategory,
 } from "@open-inspect/shared";
+import {
+  Button,
+  Combobox,
+  type ComboboxGroup,
+  ErrorBanner,
+  SidebarIcon,
+  RepoIcon,
+  ModelIcon,
+  BranchIcon,
+  ChevronDownIcon,
+  SendIcon,
+} from "@orthogonal/ui";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -14,17 +26,6 @@ import { mutate } from "swr";
 
 import { ReasoningEffortPills } from "@/components/reasoning-effort-pills";
 import { useSidebarContext } from "@/components/sidebar-layout";
-import { Button } from "@/components/ui/button";
-import { Combobox, type ComboboxGroup } from "@/components/ui/combobox";
-import { ErrorBanner } from "@/components/ui/error-banner";
-import {
-  SidebarIcon,
-  RepoIcon,
-  ModelIcon,
-  BranchIcon,
-  ChevronDownIcon,
-  SendIcon,
-} from "@/components/ui/icons";
 import { useBranches } from "@/hooks/use-branches";
 import { useEnabledModels } from "@/hooks/use-enabled-models";
 import { useRepos, type Repo } from "@/hooks/use-repos";

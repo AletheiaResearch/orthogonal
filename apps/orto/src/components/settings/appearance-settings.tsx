@@ -1,7 +1,7 @@
 "use client";
 
-import { SunIcon, MoonIcon, MonitorIcon } from "@/components/ui/icons";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { SunIcon, MoonIcon, MonitorIcon, ToggleGroup, ToggleGroupItem } from "@orthogonal/ui";
+
 import {
   useSyntaxHighlightPreferences,
   LIGHT_THEMES,

@@ -1,10 +1,8 @@
 "use client";
 
+import { Button, Input } from "@orthogonal/ui";
 import { useState } from "react";
 import { toast } from "sonner";
-
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 interface WebhookConfigProps {
   webhookUrl?: string;

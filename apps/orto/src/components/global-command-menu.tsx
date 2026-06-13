@@ -1,10 +1,10 @@
 "use client";
 
 import type { Session } from "@open-inspect/shared";
-import { useMemo } from "react";
-
-import { AppIcon } from "@/components/ui/app-icon";
 import {
+  AppIcon,
+  AutomationsIcon,
+  BranchIcon,
   Command,
   CommandDialog,
   CommandEmpty,
@@ -14,10 +14,15 @@ import {
   CommandList,
   CommandSeparator,
   CommandShortcut,
-} from "@/components/ui/command";
-import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { AutomationsIcon, BranchIcon, PlusIcon, SettingsIcon } from "@/components/ui/icons";
+  DialogDescription,
+  DialogTitle,
+  PlusIcon,
+  SettingsIcon,
+} from "@orthogonal/ui";
+import { useMemo } from "react";
+
 import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
+import { APP_ICON_URL, APP_NAME } from "@/lib/site-config";
 import { formatRelativeTime } from "@/lib/time";
 
 interface GlobalCommandMenuProps {
@@ -76,7 +81,7 @@ export function GlobalCommandMenu({
               <CommandShortcut>{SHORTCUT_LABELS.NEW_SESSION}</CommandShortcut>
             </CommandItem>
             <CommandItem onSelect={() => handleSelect(() => onNavigate("/"))}>
-              <AppIcon className="h-4 w-4" />
+              <AppIcon iconUrl={APP_ICON_URL} alt={`${APP_NAME} logo`} className="h-4 w-4" />
               <span>Home</span>
             </CommandItem>
             <CommandItem onSelect={() => handleSelect(() => onNavigate("/settings"))}>

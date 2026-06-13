@@ -1,24 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { toast } from "sonner";
-
-import { ArchiveSessionDialog } from "@/components/archive-session-dialog";
-import { Button } from "@/components/ui/button";
 import {
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   GlobeIcon,
   GitPrIcon,
   ArchiveIcon,
   MoreIcon,
   LinkIcon,
   GitHubIcon,
-} from "@/components/ui/icons";
+} from "@orthogonal/ui";
+import { useState } from "react";
+import { toast } from "sonner";
+
+import { ArchiveSessionDialog } from "@/components/archive-session-dialog";
 import { getSafeExternalUrl } from "@/lib/urls";
 import type { Artifact } from "@/types/session";
 

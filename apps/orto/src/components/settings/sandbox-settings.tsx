@@ -6,13 +6,10 @@ import {
   DEFAULT_MAX_TOTAL_CHILD_SESSIONS,
   MAX_TUNNEL_PORTS,
 } from "@open-inspect/shared";
+import { Button, Combobox, ChevronDownIcon, CheckIcon, PlusIcon, Input } from "@orthogonal/ui";
 import { useState, useCallback } from "react";
 import useSWR from "swr";
 
-import { Button } from "@/components/ui/button";
-import { Combobox } from "@/components/ui/combobox";
-import { ChevronDownIcon, CheckIcon, PlusIcon } from "@/components/ui/icons";
-import { Input } from "@/components/ui/input";
 import { useRepos } from "@/hooks/use-repos";
 
 const GLOBAL_SCOPE = "__global__";

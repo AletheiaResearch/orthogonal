@@ -1,0 +1,50 @@
+name: Chromatic
+
+on:
+  # Runs only when a PR is added to the merge queue (GitHub Settings → Branches → enable
+  # "Require merge queue" on the protected branch) — not on every commit in a PR.
+  merge_group:
+  # On-demand run (e.g. to establish/refresh the visual baseline).
+  workflow_dispatch:
+
+# Least-privilege default token: this workflow only checks out code and uploads to Chromatic.
+permissions:
+  contents: read
+
+# Prevent overlapping Chromatic runs (e.g. repeated manual dispatches) from wasting snapshots.
+concurrency:
+  group: chromatic-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  chromatic:
+    name: Chromatic
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "24"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Chromatic
+        uses: chromaui/action@1db61b73b7919508ee8e62336f04bd0aed6da756 # latest
+        with:
+          projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+          workingDir: apps/storybook
+          buildScriptName: build
+          exitZeroOnChanges: true
+          # TurboSnap: snapshot only stories affected by the diff — zero snapshots burned when no
+          # UI/story files changed. (merge_group events can't be paths-filtered natively.)
+          onlyChanged: true

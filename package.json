@@ -2,6 +2,7 @@
   "name": "open-inspect",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "lint": "oxlint",
@@ -23,6 +24,7 @@
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
     "oxlint-tsgolint": "catalog:",
+    "turbo": "catalog:",
     "typescript": "catalog:",
     "wrangler": "catalog:"
   },
@@ -44,7 +46,7 @@
     ]
   },
   "engines": {
-    "node": ">=20.0.0",
+    "node": "24.x",
     "pnpm": ">=11.3.0"
   },
   "packageManager": "pnpm@11.5.2"

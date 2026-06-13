@@ -1,6 +1,14 @@
 "use client";
 
 import type { AnalyticsDays } from "@open-inspect/shared";
+import {
+  Badge,
+  Button,
+  ErrorBanner,
+  SidebarIcon,
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@orthogonal/ui";
 import { useMemo, useState } from "react";
 
 import { AnalyticsRepoBarChart } from "@/components/analytics/repo-bar-chart";
@@ -8,11 +16,6 @@ import { AnalyticsSummaryCards } from "@/components/analytics/summary-cards";
 import { AnalyticsTimeseriesChart } from "@/components/analytics/timeseries-chart";
 import { AnalyticsUserTable } from "@/components/analytics/user-table";
 import { useSidebarContext } from "@/components/sidebar-layout";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { ErrorBanner } from "@/components/ui/error-banner";
-import { SidebarIcon } from "@/components/ui/icons";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useAnalyticsDashboard } from "@/hooks/use-analytics";
 import {
   ANALYTICS_DAYS,

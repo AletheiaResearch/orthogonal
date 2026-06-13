@@ -1,8 +1,8 @@
 "use client";
 
+import { TerminalIcon, LinkIcon } from "@orthogonal/ui";
 import { useMemo, useState } from "react";
 
-import { TerminalIcon, LinkIcon } from "@/components/ui/icons";
 import { buildAuthenticatedUrl } from "@/lib/urls";
 
 interface TerminalPanelProps {

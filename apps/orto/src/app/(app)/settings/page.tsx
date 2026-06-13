@@ -1,5 +1,6 @@
 "use client";
 
+import { SidebarIcon, BackIcon } from "@orthogonal/ui";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -14,7 +15,6 @@ import { SandboxSettingsPage } from "@/components/settings/sandbox-settings";
 import { SecretsSettings } from "@/components/settings/secrets-settings";
 import { SettingsNav, type SettingsCategory } from "@/components/settings/settings-nav";
 import { useSidebarContext } from "@/components/sidebar-layout";
-import { SidebarIcon, BackIcon } from "@/components/ui/icons";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
 

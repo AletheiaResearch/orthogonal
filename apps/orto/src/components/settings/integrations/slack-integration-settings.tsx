@@ -8,10 +8,6 @@ import {
   type SlackMentionsPolicy,
   type SlackRepoSettings,
 } from "@open-inspect/shared";
-import { useEffect, useState, type ReactNode } from "react";
-import { toast } from "sonner";
-import useSWR, { mutate } from "swr";
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,17 +17,19 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { RadioCard } from "@/components/ui/form-controls";
-import {
+  Button,
+  RadioCard,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+  Switch,
+} from "@orthogonal/ui";
+import { useEffect, useState, type ReactNode } from "react";
+import { toast } from "sonner";
+import useSWR, { mutate } from "swr";
+
 import { APP_NAME } from "@/lib/site-config";
 
 import { IntegrationSettingsSkeleton } from "./integration-settings-skeleton";

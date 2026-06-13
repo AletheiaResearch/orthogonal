@@ -1,8 +1,6 @@
 import type { AnalyticsBreakdownEntry, AnalyticsBreakdownResponse } from "@open-inspect/shared";
+import { Badge, Button, ChevronDownIcon, ChevronUpIcon } from "@orthogonal/ui";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { ChevronDownIcon, ChevronUpIcon } from "@/components/ui/icons";
 import {
   formatAnalyticsCount,
   formatAnalyticsDuration,
