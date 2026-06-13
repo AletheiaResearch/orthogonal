@@ -77,6 +77,12 @@ export const SlashCommandPopover = React.forwardRef<HTMLDivElement, SlashCommand
                 event.preventDefault();
                 onSelect(command);
               }}
+              // Keyboard activation (Enter/Space on a focused row) fires a click
+              // with `detail === 0`; mouse clicks (handled above on mousedown)
+              // have `detail >= 1`, so this selects without double-firing.
+              onClick={(event) => {
+                if (event.detail === 0) onSelect(command);
+              }}
               onMouseEnter={() => onActiveIndexChange(index)}
               className={cn(
                 "flex w-full select-none items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm outline-none transition-colors",

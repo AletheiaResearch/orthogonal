@@ -20,6 +20,7 @@ export function CollapsibleSection({
   return (
     <div className="border-border-muted border-b last:border-b-0">
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="text-foreground hover:bg-muted flex w-full items-center justify-between px-4 py-4 text-sm font-medium transition-colors"
       >

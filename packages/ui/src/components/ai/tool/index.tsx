@@ -11,7 +11,17 @@ export type ToolState = "input-streaming" | "input-available" | "output-availabl
 interface ToolContextValue {
   open: boolean;
   setOpen: (open: boolean) => void;
+  /** Shared id for the content pane the header points `aria-controls` at, when one is rendered. */
   contentId: string;
+  /**
+   * Id of the registered content pane that should carry `contentId`, or `null` when no pane is
+   * rendered. Lets the header drop `aria-controls` for compositions with no content
+   * (e.g. `ToolHeader` + an empty/absent `ToolOutput`) while ensuring exactly one element owns the
+   * id even when both `ToolInput` and `ToolOutput` render.
+   */
+  contentOwnerId: string | null;
+  /** Registers a rendered content pane by its stable key. Returns an unregister callback. */
+  registerContent: (key: string) => () => void;
 }
 
 const ToolContext = React.createContext<ToolContextValue | null>(null);
@@ -61,9 +71,18 @@ export function Tool({
     [isControlled, onOpenChange]
   );
 
+  // Track which content panes are rendered (in mount order) so the header can drop
+  // `aria-controls` when none exist, and so exactly one pane owns `contentId`.
+  const [contentKeys, setContentKeys] = React.useState<readonly string[]>([]);
+  const registerContent = React.useCallback((key: string) => {
+    setContentKeys((keys) => [...keys, key]);
+    return () => setContentKeys((keys) => keys.filter((k) => k !== key));
+  }, []);
+  const contentOwnerId = contentKeys.length > 0 ? contentKeys[0] : null;
+
   const value = React.useMemo<ToolContextValue>(
-    () => ({ open, setOpen, contentId }),
-    [open, setOpen, contentId]
+    () => ({ open, setOpen, contentId, contentOwnerId, registerContent }),
+    [open, setOpen, contentId, contentOwnerId, registerContent]
   );
 
   return (
@@ -133,14 +152,16 @@ export function ToolHeader({
   onClick,
   ...props
 }: ToolHeaderProps) {
-  const { open, setOpen, contentId } = useToolContext("ToolHeader");
+  const { open, setOpen, contentId, contentOwnerId } = useToolContext("ToolHeader");
   const meta = STATE_META[state];
 
   return (
     <button
       type="button"
       aria-expanded={open}
-      aria-controls={contentId}
+      // Only reference the content pane when one is actually rendered; output-only or
+      // empty compositions have no element with `contentId`, so a dangling ref is avoided.
+      aria-controls={contentOwnerId ? contentId : undefined}
       data-state={open ? "open" : "closed"}
       onClick={(event) => {
         onClick?.(event);
@@ -193,12 +214,20 @@ export interface ToolInputProps extends React.HTMLAttributes<HTMLDivElement> {
  * {@link Tool} is open.
  */
 export function ToolInput({ className, children, ...props }: ToolInputProps) {
-  const { open, contentId } = useToolContext("ToolInput");
-  if (!open) return null;
+  const { open, contentId, contentOwnerId, registerContent } = useToolContext("ToolInput");
+  const paneKey = React.useId();
+  const isRendered = open;
+
+  React.useEffect(() => {
+    if (!isRendered) return;
+    return registerContent(paneKey);
+  }, [isRendered, paneKey, registerContent]);
+
+  if (!isRendered) return null;
 
   return (
     <div
-      id={contentId}
+      id={contentOwnerId === paneKey ? contentId : undefined}
       className={cn("border-border-muted border-t px-3 py-2", className)}
       {...props}
     >
@@ -220,12 +249,23 @@ export interface ToolOutputProps extends React.HTMLAttributes<HTMLDivElement> {
  * Visible only when the parent {@link Tool} is open.
  */
 export function ToolOutput({ className, children, errorText, ...props }: ToolOutputProps) {
-  const { open } = useToolContext("ToolOutput");
-  if (!open) return null;
-  if (errorText == null && children == null) return null;
+  const { open, contentId, contentOwnerId, registerContent } = useToolContext("ToolOutput");
+  const paneKey = React.useId();
+  const isRendered = open && (errorText != null || children != null);
+
+  React.useEffect(() => {
+    if (!isRendered) return;
+    return registerContent(paneKey);
+  }, [isRendered, paneKey, registerContent]);
+
+  if (!isRendered) return null;
 
   return (
-    <div className={cn("border-border-muted border-t px-3 py-2", className)} {...props}>
+    <div
+      id={contentOwnerId === paneKey ? contentId : undefined}
+      className={cn("border-border-muted border-t px-3 py-2", className)}
+      {...props}
+    >
       {errorText != null ? (
         <>
           <div className="text-destructive mb-1 text-xs font-medium">Error</div>
