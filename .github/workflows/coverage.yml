@@ -38,6 +38,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   coverage:
     name: Coverage
@@ -45,6 +48,8 @@ jobs:
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/pnpm-setup
         with:
           build-shared: "false" # turbo's ^build handles it
