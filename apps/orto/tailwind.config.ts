@@ -8,6 +8,8 @@ const config: Config = {
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
     "../../packages/ui/src/**/*.{ts,tsx}",
+    "!../../packages/ui/src/**/*.stories.{ts,tsx}",
+    "!../../packages/ui/src/**/*.test.{ts,tsx}",
   ],
 };
 
