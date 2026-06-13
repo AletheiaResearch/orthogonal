@@ -1,12 +1,11 @@
 "use client";
 
+import { Button, GitHubIcon } from "@orthogonal/ui";
 import { useSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useState } from "react";
 import useSWR from "swr";
 
-import { Button } from "@/components/ui/button";
-import { GitHubIcon } from "@/components/ui/icons";
 import { useGlobalShortcuts } from "@/hooks/use-global-shortcuts";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { useSidebar } from "@/hooks/use-sidebar";

@@ -2,17 +2,16 @@
 
 import type { TriggerCondition, AutomationEventSource, JsonPathFilter } from "@open-inspect/shared";
 import { conditionRegistry } from "@open-inspect/shared";
-import { useState } from "react";
-
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
+  Button,
+  Input,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@orthogonal/ui";
+import { useState } from "react";
 
 interface ConditionBuilderProps {
   conditions: TriggerCondition[];

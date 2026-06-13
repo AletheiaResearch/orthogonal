@@ -1,14 +1,8 @@
 "use client";
 
+import { ChevronRightIcon, FileIcon, PencilIcon, TerminalIcon, BoltIcon } from "@orthogonal/ui";
 import { memo, useState } from "react";
 
-import {
-  ChevronRightIcon,
-  FileIcon,
-  PencilIcon,
-  TerminalIcon,
-  BoltIcon,
-} from "@/components/ui/icons";
 import { formatSessionEventTime } from "@/lib/time";
 import { formatToolGroup } from "@/lib/tool-formatters";
 import type { SandboxEvent } from "@/types/session";

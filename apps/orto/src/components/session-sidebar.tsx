@@ -1,6 +1,26 @@
 "use client";
 
 import type { Session } from "@open-inspect/shared";
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  MoreIcon,
+  SidebarIcon,
+  ArchiveIcon,
+  PlusIcon,
+  SettingsIcon,
+  AutomationsIcon,
+  BranchIcon,
+  DataControlsIcon,
+  Input,
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@orthogonal/ui";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -17,27 +37,6 @@ import {
 import useSWR, { mutate } from "swr";
 
 import { ArchiveSessionDialog } from "@/components/archive-session-dialog";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  MoreIcon,
-  SidebarIcon,
-  ArchiveIcon,
-  PlusIcon,
-  SettingsIcon,
-  AutomationsIcon,
-  BranchIcon,
-  DataControlsIcon,
-} from "@/components/ui/icons";
-import { Input } from "@/components/ui/input";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { archiveSession } from "@/lib/archive-session";
 import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";

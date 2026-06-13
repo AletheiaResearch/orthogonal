@@ -1,12 +1,11 @@
 "use client";
 
 import { MODEL_OPTIONS, DEFAULT_ENABLED_MODELS } from "@open-inspect/shared";
+import { Button, Switch } from "@orthogonal/ui";
 import { useState } from "react";
 import { toast } from "sonner";
 import useSWR, { mutate } from "swr";
 
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { MODEL_PREFERENCES_KEY } from "@/hooks/use-enabled-models";
 
 export function ModelsSettings() {

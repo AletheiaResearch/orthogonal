@@ -1,12 +1,10 @@
 "use client";
 
+import { Badge, Button, Input } from "@orthogonal/ui";
 import { useCallback, useEffect, useMemo, useState, type ClipboardEvent } from "react";
 import { toast } from "sonner";
 import useSWR, { mutate } from "swr";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { normalizeKey, parseMaybeEnvContent, type ParsedEnvEntry } from "@/lib/env-paste";
 import { SECRET_KEY_PATTERN } from "@/lib/route-params";
 

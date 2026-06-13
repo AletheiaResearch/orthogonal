@@ -1,6 +1,5 @@
 import type { Automation } from "@open-inspect/shared";
-
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@orthogonal/ui";
 
 export function AutomationStatusBadge({ automation }: { automation: Automation }) {
   if (automation.enabled && automation.consecutiveFailures > 0) {

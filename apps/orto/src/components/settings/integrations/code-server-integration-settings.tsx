@@ -5,10 +5,6 @@ import {
   type CodeServerSettings,
   type CodeServerGlobalConfig,
 } from "@open-inspect/shared";
-import { useEffect, useState, type ReactNode } from "react";
-import { toast } from "sonner";
-import useSWR, { mutate } from "swr";
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,16 +14,17 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { RadioCard } from "@/components/ui/form-controls";
-import {
+  Button,
+  RadioCard,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@orthogonal/ui";
+import { useEffect, useState, type ReactNode } from "react";
+import { toast } from "sonner";
+import useSWR, { mutate } from "swr";
 
 import { IntegrationSettingsSkeleton } from "./integration-settings-skeleton";
 

@@ -1,9 +1,9 @@
 "use client";
 
 import type { SandboxStatus } from "@open-inspect/shared";
+import { TerminalIcon, KeyIcon, CheckIcon } from "@orthogonal/ui";
 import { useState } from "react";
 
-import { TerminalIcon, KeyIcon, CheckIcon } from "@/components/ui/icons";
 import { copyToClipboard } from "@/lib/format";
 import { getSafeExternalUrl } from "@/lib/urls";
 

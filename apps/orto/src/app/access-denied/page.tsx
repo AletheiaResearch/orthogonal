@@ -1,9 +1,8 @@
 "use client";
 
+import { ErrorBanner } from "@orthogonal/ui";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-
-import { ErrorBanner } from "@/components/ui/error-banner";
 
 function AccessDeniedContent() {
   const searchParams = useSearchParams();

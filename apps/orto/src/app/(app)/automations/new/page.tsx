@@ -1,5 +1,6 @@
 "use client";
 
+import { Button, ErrorBanner, SidebarIcon, BackIcon } from "@orthogonal/ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -10,9 +11,6 @@ import {
 } from "@/components/automations/automation-form";
 import { WebhookConfig } from "@/components/automations/webhook-config";
 import { useSidebarContext } from "@/components/sidebar-layout";
-import { Button } from "@/components/ui/button";
-import { ErrorBanner } from "@/components/ui/error-banner";
-import { SidebarIcon, BackIcon } from "@/components/ui/icons";
 import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
 
 export default function NewAutomationPage() {

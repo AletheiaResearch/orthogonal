@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 /// <reference types="@testing-library/jest-dom" />
 
+import type * as OrthogonalUi from "@orthogonal/ui";
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -48,7 +49,8 @@ vi.mock("@/hooks/use-enabled-models", () => ({
   }),
 }));
 
-vi.mock("@/components/ui/combobox", () => ({
+vi.mock("@orthogonal/ui", async (importActual) => ({
+  ...(await importActual<typeof OrthogonalUi>()),
   Combobox: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 

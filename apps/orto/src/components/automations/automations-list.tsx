@@ -2,12 +2,11 @@
 
 import { describeCron, GITHUB_WEBHOOK_EVENT_CATALOG } from "@open-inspect/shared";
 import type { Automation } from "@open-inspect/shared";
+import { Button, FolderIcon, ClockIcon, BoltIcon } from "@orthogonal/ui";
 import Link from "next/link";
 import { useState } from "react";
 
 import { AutomationStatusBadge } from "@/components/automations/automation-status-badge";
-import { Button } from "@/components/ui/button";
-import { FolderIcon, ClockIcon, BoltIcon } from "@/components/ui/icons";
 import { formatRelativeTime } from "@/lib/time";
 
 interface AutomationsListProps {

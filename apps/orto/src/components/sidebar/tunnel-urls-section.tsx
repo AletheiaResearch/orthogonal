@@ -1,8 +1,8 @@
 "use client";
 
 import type { SandboxStatus } from "@open-inspect/shared";
+import { GlobeIcon } from "@orthogonal/ui";
 
-import { GlobeIcon } from "@/components/ui/icons";
 import { getSafeExternalUrl } from "@/lib/urls";
 
 import { ACTIVE_SANDBOX_STATUSES } from "./sandbox-statuses";

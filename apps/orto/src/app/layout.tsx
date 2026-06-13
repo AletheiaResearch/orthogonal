@@ -5,6 +5,7 @@ import { APP_FAVICON_URL, APP_NAME } from "@/lib/site-config";
 
 import { Providers } from "./providers";
 
+import "@orthogonal/ui/styles/tokens.css";
 import "./globals.css";
 
 const geistSans = Geist({

@@ -1,6 +1,7 @@
 "use client";
 
-import { ClockIcon, CheckCircleIcon, EmptyCircleIcon } from "@/components/ui/icons";
+import { ClockIcon, CheckCircleIcon, EmptyCircleIcon } from "@orthogonal/ui";
+
 import type { Task } from "@/types/session";
 
 interface TasksSectionProps {

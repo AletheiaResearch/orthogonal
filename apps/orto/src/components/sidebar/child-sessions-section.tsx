@@ -1,13 +1,11 @@
 "use client";
 
+import { Badge, CollapsibleSection } from "@orthogonal/ui";
 import Link from "next/link";
 import useSWR from "swr";
 
 import type { SessionItem } from "@/components/session-sidebar";
-import { Badge } from "@/components/ui/badge";
 import { formatRelativeTime } from "@/lib/time";
-
-import { CollapsibleSection } from "./collapsible-section";
 
 interface ChildSessionsSectionProps {
   sessionId: string;

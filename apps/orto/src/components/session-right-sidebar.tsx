@@ -1,9 +1,9 @@
 "use client";
 
 import type { ParticipantPresence, SessionState } from "@open-inspect/shared";
+import { TerminalIcon, LinkIcon } from "@orthogonal/ui";
 import { useMemo } from "react";
 
-import { TerminalIcon, LinkIcon } from "@/components/ui/icons";
 import { extractChangedFiles } from "@/lib/files";
 import { extractLatestTasks } from "@/lib/tasks";
 import { buildAuthenticatedUrl } from "@/lib/urls";

@@ -1,6 +1,7 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@orthogonal/ui";
+
 import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
 
 export function KeyboardShortcutsSettings() {

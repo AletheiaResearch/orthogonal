@@ -10,7 +10,8 @@ import {
   AppearanceIcon,
   TerminalIcon,
   ChevronRightIcon,
-} from "@/components/ui/icons";
+} from "@orthogonal/ui";
+
 import { useIsMobile } from "@/hooks/use-media-query";
 
 const NAV_ITEMS = [

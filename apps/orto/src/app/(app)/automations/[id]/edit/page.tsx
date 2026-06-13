@@ -1,5 +1,6 @@
 "use client";
 
+import { ErrorBanner, SidebarIcon, BackIcon } from "@orthogonal/ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, use } from "react";
@@ -9,8 +10,6 @@ import {
   type AutomationFormValues,
 } from "@/components/automations/automation-form";
 import { useSidebarContext } from "@/components/sidebar-layout";
-import { ErrorBanner } from "@/components/ui/error-banner";
-import { SidebarIcon, BackIcon } from "@/components/ui/icons";
 import { useAutomation } from "@/hooks/use-automations";
 import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
 

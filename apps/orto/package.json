@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@open-inspect/shared": "workspace:*",
+    "@orthogonal/ui": "workspace:*",
     "@radix-ui/react-alert-dialog": "catalog:",
     "@radix-ui/react-checkbox": "catalog:",
     "@radix-ui/react-dialog": "catalog:",

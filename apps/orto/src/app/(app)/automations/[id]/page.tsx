@@ -1,6 +1,7 @@
 "use client";
 
 import { describeCron, getReasoningConfig } from "@open-inspect/shared";
+import { Button, ErrorBanner, SidebarIcon, BackIcon, PencilIcon } from "@orthogonal/ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, use } from "react";
@@ -8,9 +9,6 @@ import { useState, use } from "react";
 import { AutomationStatusBadge } from "@/components/automations/automation-status-badge";
 import { RunHistory } from "@/components/automations/run-history";
 import { useSidebarContext } from "@/components/sidebar-layout";
-import { Button } from "@/components/ui/button";
-import { ErrorBanner } from "@/components/ui/error-banner";
-import { SidebarIcon, BackIcon, PencilIcon } from "@/components/ui/icons";
 import { useAutomation, useAutomationRuns } from "@/hooks/use-automations";
 import { formatModelNameLower } from "@/lib/format";
 import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";

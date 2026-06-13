@@ -1,17 +1,17 @@
 "use client";
 
 import { isValidCron, nextCronOccurrence, describeCron } from "@open-inspect/shared";
-import { useState, useMemo } from "react";
-
-import { RadioCard } from "@/components/ui/form-controls";
-import { Input } from "@/components/ui/input";
 import {
+  RadioCard,
+  Input,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@orthogonal/ui";
+import { useState, useMemo } from "react";
+
 import { detectPreset, buildCron, type PresetType } from "@/lib/cron-presets";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);

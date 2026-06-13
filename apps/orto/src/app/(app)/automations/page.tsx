@@ -1,13 +1,11 @@
 "use client";
 
+import { Button, ErrorBanner, SidebarIcon, PlusIcon } from "@orthogonal/ui";
 import Link from "next/link";
 import { useState } from "react";
 
 import { AutomationsList } from "@/components/automations/automations-list";
 import { useSidebarContext } from "@/components/sidebar-layout";
-import { Button } from "@/components/ui/button";
-import { ErrorBanner } from "@/components/ui/error-banner";
-import { SidebarIcon, PlusIcon } from "@/components/ui/icons";
 import { useAutomations } from "@/hooks/use-automations";
 import { SHORTCUT_LABELS } from "@/lib/keyboard-shortcuts";
 

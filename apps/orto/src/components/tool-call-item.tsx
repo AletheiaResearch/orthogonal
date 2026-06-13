@@ -10,7 +10,8 @@ import {
   FolderIcon,
   BoxIcon,
   GlobeIcon,
-} from "@/components/ui/icons";
+} from "@orthogonal/ui";
+
 import { formatSessionEventTime } from "@/lib/time";
 import { formatToolCall } from "@/lib/tool-formatters";
 import type { SandboxEvent } from "@/types/session";
