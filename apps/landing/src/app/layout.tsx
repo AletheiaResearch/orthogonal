@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 // via next/font/local).
 const cormorant = Cormorant({
   variable: "--font-cormorant",
-  weight: "600",
+  weight: "500",
   subsets: ["latin"],
 });
 
