@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Storybook-only base styles. The semantic tokens themselves come from
+ * @orthogonal/ui/styles/tokens.css (imported in preview.tsx). These rules mirror the small set of
+ * app-level base styles orto applies, so components preview the way they look in the real app.
+ */
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background-color: var(--accent);
+  color: #fff;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Remove backtick decorations from prose inline code (matches orto). */
+.prose :where(code):not(:where([class~="not-prose"], [class~="not-prose"] *))::before,
+.prose :where(code):not(:where([class~="not-prose"], [class~="not-prose"] *))::after {
+  content: none;
+}
+
+/* Minimal highlight.js theme so CodeBlock / Response stories render legible syntax in both themes. */
+pre code.hljs {
+  display: block;
+  padding: 0.75rem;
+}
+.hljs {
+  color: var(--foreground);
+  background: var(--muted);
+}
+.hljs-comment,
+.hljs-quote {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-doctag,
+.hljs-type {
+  color: var(--accent);
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute {
+  color: var(--success);
+}
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-template-variable,
+.hljs-variable {
+  color: var(--info);
+}
+.hljs-title,
+.hljs-name,
+.hljs-attr {
+  color: var(--warning);
+}

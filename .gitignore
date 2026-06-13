@@ -20,6 +20,7 @@ dist/
 build/
 .next/
 out/
+storybook-static/
 
 # IDE
 .idea/
