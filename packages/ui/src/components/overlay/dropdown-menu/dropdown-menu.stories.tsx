@@ -7,7 +7,6 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
@@ -198,13 +197,13 @@ export const Grouped: Story = {
   ),
 };
 
-/** Drive open state and a selected radio value from parent state. */
+/** Drive open state and a selected value from parent state. */
 export const Controlled: Story = {
   parameters: {
     docs: {
       description: {
         story:
-          "A controlled menu whose `open` state and a radio-group selection are held in local component state. The current selection is shown beneath the trigger.",
+          "A controlled menu whose `open` state and selected item are held in local component state. The current selection is shown beneath the trigger.",
       },
     },
   },
@@ -221,11 +220,11 @@ export const Controlled: Story = {
           <DropdownMenuContent className="w-56">
             <DropdownMenuLabel>Position</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuRadioGroup value={position} onValueChange={setPosition}>
+            <DropdownMenuGroup>
               <DropdownMenuItem onSelect={() => setPosition("top")}>Top</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setPosition("bottom")}>Bottom</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setPosition("right")}>Right</DropdownMenuItem>
-            </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
         <p className="text-muted-foreground text-sm">

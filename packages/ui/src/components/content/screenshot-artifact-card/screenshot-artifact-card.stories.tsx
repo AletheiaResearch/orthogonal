@@ -2,8 +2,10 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { ScreenshotArtifactCard } from "./index";
 
+// Deterministic, network-free inline fixture so stories (and Chromatic snapshots) render
+// identically regardless of any external host being reachable.
 const SAMPLE_IMAGE =
-  "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=800&q=60";
+  "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='800'%20height='500'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20y1='0'%20x2='1'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='%236366f1'/%3E%3Cstop%20offset='1'%20stop-color='%230ea5e9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width='800'%20height='500'%20fill='url(%23g)'/%3E%3Ctext%20x='400'%20y='260'%20font-family='sans-serif'%20font-size='40'%20fill='white'%20text-anchor='middle'%3ELanding%20page%20hero%3C/text%3E%3C/svg%3E";
 const SAMPLE_VIDEO =
   "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4";
 

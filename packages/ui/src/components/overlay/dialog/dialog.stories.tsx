@@ -132,7 +132,7 @@ export const WithForm: Story = {
           <DialogTitle>Edit profile</DialogTitle>
           <DialogDescription>Update your display name, then save your changes.</DialogDescription>
         </DialogHeader>
-        <form className="grid gap-4 py-2">
+        <form id="edit-profile-form" className="grid gap-4 py-2">
           <label className="grid gap-1 text-sm">
             <span className="text-muted-foreground">Name</span>
             <input
@@ -147,6 +147,7 @@ export const WithForm: Story = {
           </DialogClose>
           <button
             type="submit"
+            form="edit-profile-form"
             className="bg-foreground text-background rounded-md px-4 py-2 text-sm"
           >
             Save changes

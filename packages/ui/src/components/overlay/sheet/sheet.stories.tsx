@@ -221,7 +221,7 @@ export const WithForm: Story = {
           <SheetTitle>Edit profile</SheetTitle>
           <SheetDescription>Update your display name, then save your changes.</SheetDescription>
         </SheetHeader>
-        <form className="grid gap-4 py-4">
+        <form id="profile-form" className="grid gap-4 py-4">
           <label className="grid gap-1 text-sm">
             <span className="text-muted-foreground">Name</span>
             <input
@@ -236,6 +236,7 @@ export const WithForm: Story = {
           </SheetClose>
           <button
             type="submit"
+            form="profile-form"
             className="bg-foreground text-background rounded-md px-4 py-2 text-sm"
           >
             Save changes
