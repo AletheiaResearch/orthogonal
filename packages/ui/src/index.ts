@@ -1,6 +1,5 @@
 // @orthogonal/ui — Tier-1 barrel (generic primitives + composites).
-// Components live under ./components/<group>/. Stories are intentionally NOT exported here so
-// consumers (orto) never pull @storybook/* into their build graph.
+// Components live under ./components/<group>/<name>/. Stories are intentionally NOT exported here.
 
 export { cn } from "./lib/utils";
 

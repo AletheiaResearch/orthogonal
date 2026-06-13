@@ -8,7 +8,7 @@
   ],
   "exports": {
     ".": "./src/index.ts",
-    "./ai": "./src/ai/index.ts",
+    "./ai": "./src/components/ai/index.ts",
     "./lib/utils": "./src/lib/utils.ts",
     "./tailwind-preset": "./tailwind-preset.ts",
     "./styles/tokens.css": "./src/styles/tokens.css"
