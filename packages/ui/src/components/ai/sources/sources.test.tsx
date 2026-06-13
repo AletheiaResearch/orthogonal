@@ -201,6 +201,38 @@ describe("Sources", () => {
     expect(screen.getByRole("link", { name: /https:\/\/no-title\.example/i })).toBeInTheDocument();
   });
 
+  it("strips a javascript: href so the anchor has no navigable URL", () => {
+    render(
+      <Sources count={1} defaultOpen>
+        <SourcesTrigger />
+        <SourcesContent>
+          <Source href="javascript:alert(1)" title="Sneaky JS" />
+        </SourcesContent>
+      </Sources>
+    );
+
+    // An unsafe scheme is rejected → `href` is undefined, so no href attribute
+    // is rendered (an anchor without href has no implicit "link" role).
+    const anchor = screen.getByText("Sneaky JS").closest("a");
+    expect(anchor).not.toBeNull();
+    expect(anchor).not.toHaveAttribute("href");
+  });
+
+  it("strips a data: href so the anchor has no navigable URL", () => {
+    render(
+      <Sources count={1} defaultOpen>
+        <SourcesTrigger />
+        <SourcesContent>
+          <Source href="data:text/html,<svg/onload=alert(1)>" title="Sneaky data URL" />
+        </SourcesContent>
+      </Sources>
+    );
+
+    const anchor = screen.getByText("Sneaky data URL").closest("a");
+    expect(anchor).not.toBeNull();
+    expect(anchor).not.toHaveAttribute("href");
+  });
+
   it("throws when sub-components are used outside <Sources>", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(() => render(<SourcesTrigger />)).toThrow(/within <Sources>/);
