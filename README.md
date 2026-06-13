@@ -3,7 +3,7 @@
 [![CI](https://github.com/AletheiaResearch/orthogonal/actions/workflows/ci.yml/badge.svg)](https://github.com/AletheiaResearch/orthogonal/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/AletheiaResearch/orthogonal/graph/badge.svg?token=yOUIWRMZwo)](https://codecov.io/gh/AletheiaResearch/orthogonal)
 
-A background agents coding system inspired by
+A background agent coding system inspired by
 [Ramp's Inspect](https://builders.ramp.com/post/why-we-built-our-background-agent).
 
 ## Overview

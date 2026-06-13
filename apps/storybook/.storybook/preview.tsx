@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import type { Decorator, Preview } from "@storybook/react-vite";
 import { useEffect } from "react";
 

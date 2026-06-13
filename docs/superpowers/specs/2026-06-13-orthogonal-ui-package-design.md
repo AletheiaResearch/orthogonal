@@ -34,7 +34,7 @@ without installing Storybook. A new `apps/storybook` site renders the stories.
 
 ## Package layout
 
-```
+```text
 packages/ui/
   package.json            # @orthogonal/ui, private, type:module, no build
   tsconfig.json
@@ -152,7 +152,7 @@ components; `./ai` → `ai/index.ts`) imports `@storybook/*` or any `*.stories.t
   imports pulls them in**.
 
 `apps/storybook`: minimal `@storybook/react-vite` site; `.storybook/main.ts` globs
-`../../packages/ui/src/**/*.stories.@(ts|tsx)`; `.storybook/preview.ts` imports the preset-built
+`../../../packages/ui/src/**/*.stories.@(ts|tsx)`; `.storybook/preview.ts` imports the preset-built
 CSS + `tokens.css` and provides a light/dark toggle (via a global decorator toggling the `.dark`
 class).
 

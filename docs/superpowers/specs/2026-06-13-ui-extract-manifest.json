@@ -1,7 +1,7 @@
 {
   "classifications": [
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/alert-dialog.tsx",
+      "file": "apps/orto/src/components/ui/alert-dialog.tsx",
       "componentName": "AlertDialog",
       "kind": "primitive",
       "verdict": "move",
@@ -33,14 +33,12 @@
       "genericizeNote": ""
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/app-icon.tsx",
+      "file": "apps/orto/src/components/ui/app-icon.tsx",
       "componentName": "AppIcon",
       "kind": "primitive",
       "verdict": "genericize",
       "cleanImports": ["react"],
-      "appSpecificImports": [
-        "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/lib/site-config.ts"
-      ],
+      "appSpecificImports": ["apps/orto/src/lib/site-config.ts"],
       "internalUiImports": ["@/components/ui/icons"],
       "exports": ["AppIcon"],
       "hasTest": false,
@@ -48,7 +46,7 @@
       "notes": "app-icon.tsx (13 lines) imports two locals: (1) `@/components/ui/icons` -> InspectIcon, a sibling components/ui/* primitive whose source file has ZERO imports (only inline SVG React components), so it is a clean co-move candidate recorded in internalUiImports; (2) `@/lib/site-config` -> APP_ICON_URL, APP_NAME, which is the sole disqualifier. Coupling is shallow (two scalars feeding an env-vs-default icon choice) and trivially lifted to props, hence genericize rather than keep. No co-located test exists (only app-icon.tsx in components/ui/). `react` is the only external package the cleaned closure needs (JSX runtime; not an explicit import line)."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/badge.tsx",
+      "file": "apps/orto/src/components/ui/badge.tsx",
       "componentName": "Badge",
       "kind": "primitive",
       "verdict": "move",
@@ -60,7 +58,7 @@
       "notes": "Transitive closure is fully clean. Target imports class-variance-authority (cva, VariantProps), react, and the local @/lib/utils (cn). @/lib/utils itself imports only clsx and tailwind-merge \u2014 no app modules \u2014 and cn() is the explicitly allowed export that moves into the package. No @/lib/* (other than utils), @/hooks/*, @/types/*, @open-inspect/shared, control-plane, swr, analytics/posthog, or orto domain modules appear anywhere in the closure. No other components/ui/* primitives are imported. The extra export prBadgeVariant(state) is a pure string-switch helper mapping PR states (\"merged\"/\"closed\"/\"draft\"/\"open\") to badge variant names; it references PR domain semantics by string literal only and has zero imports, so it does not couple the closure to any app module \u2014 it ships as-is with the component. No co-located test (only badge.tsx exists in the ui dir). Safe to move into @orthogonal/ui as-is."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/button.tsx",
+      "file": "apps/orto/src/components/ui/button.tsx",
       "componentName": "Button",
       "kind": "primitive",
       "verdict": "move",
@@ -78,7 +76,7 @@
       "notes": "Transitive closure is fully clean. button.tsx imports only external packages (@radix-ui/react-slot, class-variance-authority, react) plus the single local module @/lib/utils. That utils.ts exports only cn() and itself depends only on external packages (clsx, tailwind-merge) with no further local imports \u2014 cn() is the allowed export that moves into the @orthogonal/ui package. No @/lib/* (other than utils), no @/hooks/*, @/types/*, @open-inspect/shared, control-plane, analytics, or orto domain modules anywhere in the closure. No other components/ui/* primitives are imported. No co-located test file exists (only button.tsx is present in the ui directory). The Tailwind variant class names (e.g. bg-accent, text-foreground, ring-ring) are design-token utility classes, not code coupling, so they do not affect the verdict. Safe to move as-is."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/checkbox.tsx",
+      "file": "apps/orto/src/components/ui/checkbox.tsx",
       "componentName": "Checkbox",
       "kind": "primitive",
       "verdict": "move",
@@ -91,7 +89,7 @@
       "genericizeNote": ""
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/combobox.tsx",
+      "file": "apps/orto/src/components/ui/combobox.tsx",
       "componentName": "Combobox",
       "kind": "primitive",
       "verdict": "move",
@@ -100,10 +98,10 @@
       "internalUiImports": ["@/components/ui/icons"],
       "exports": ["Combobox", "ComboboxOption", "ComboboxGroup"],
       "hasTest": true,
-      "notes": "Transitive import closure is fully clean. combobox.tsx imports only `react` (external) and `@/components/ui/icons` (another ui/* primitive, recorded in internalUiImports). icons.tsx (/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/icons.tsx) has ZERO imports \u2014 it is a pure SVG-component module with a local IconProps interface; verified by reading top-to-bottom and confirming no import lines via grep. Of icons.tsx, only CheckIcon is consumed. No @/lib (cn/utils is not even used), no @/hooks, no @/types, no @open-inspect/shared, no control-plane/network/swr/analytics, and no orto domain modules anywhere in the closure. Internal helpers OptionButton, isGrouped, flattenOptions are local to the file and not exported. Tailwind theme tokens (border, background, muted, accent, ring, etc.) are styling classes, not import-level couplings. Component is generic and parameterized via props (value/onChange/items/filterFn/prependContent render-prop). Co-located test combobox.test.tsx exists at /Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/combobox.test.tsx. Safe to move as-is; depends on the ui/* icons primitive also being moved."
+      "notes": "Transitive import closure is fully clean. combobox.tsx imports only `react` (external) and `@/components/ui/icons` (another ui/* primitive, recorded in internalUiImports). icons.tsx (apps/orto/src/components/ui/icons.tsx) has ZERO imports \u2014 it is a pure SVG-component module with a local IconProps interface; verified by reading top-to-bottom and confirming no import lines via grep. Of icons.tsx, only CheckIcon is consumed. No @/lib (cn/utils is not even used), no @/hooks, no @/types, no @open-inspect/shared, no control-plane/network/swr/analytics, and no orto domain modules anywhere in the closure. Internal helpers OptionButton, isGrouped, flattenOptions are local to the file and not exported. Tailwind theme tokens (border, background, muted, accent, ring, etc.) are styling classes, not import-level couplings. Component is generic and parameterized via props (value/onChange/items/filterFn/prependContent render-prop). Co-located test combobox.test.tsx exists at apps/orto/src/components/ui/combobox.test.tsx. Safe to move as-is; depends on the ui/* icons primitive also being moved."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/command.tsx",
+      "file": "apps/orto/src/components/ui/command.tsx",
       "componentName": "Command",
       "kind": "primitive",
       "verdict": "move",
@@ -125,7 +123,7 @@
       "notes": "Transitive closure is fully clean. command.tsx imports react, @radix-ui/react-dialog (type-only DialogProps), cmdk, plus three local modules: @/components/ui/dialog, @/components/ui/icons (SearchIcon), and cn from @/lib/utils. dialog.tsx adds only @radix-ui/react-dialog (runtime), react, and cn. icons.tsx has an EMPTY import closure (pure SVG function components, zero imports) \u2014 it lives under components/ui/ so it is a move candidate recorded in internalUiImports, NOT app-specific despite its app-flavored icon names (SlackIcon, GitHubIcon, RepoIcon, etc.); generic is decided by closure, not appearance. utils.ts contributes clsx and tailwind-merge (the allowed cn() export, which moves into the package). No @/lib/* besides utils, no @/hooks/*, @/types/*, @open-inspect/shared, control-plane/network/swr, analytics/posthog, or orto domain modules anywhere in the closure. No co-located command.test.tsx exists. Safe to move as-is along with its ui/* dependencies."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/dialog.tsx",
+      "file": "apps/orto/src/components/ui/dialog.tsx",
       "componentName": "Dialog",
       "kind": "primitive",
       "verdict": "move",
@@ -148,7 +146,7 @@
       "notes": "Standard shadcn/ui Radix Dialog wrapper. Transitive import closure is fully clean: the file imports react, @radix-ui/react-dialog, and @/lib/utils. @/lib/utils only re-exports cn() built on clsx + tailwind-merge, which MOVES into the package per the rule. No @/lib/* (besides utils), @/hooks/*, @/types/*, @open-inspect/shared, control-plane/network, analytics, or orto domain modules anywhere in the closure. No other components/ui/* primitives are imported. No co-located dialog.test.tsx exists (only alert-dialog.tsx sits beside it, and it is not imported here). Safe to move as-is."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/dropdown-menu.tsx",
+      "file": "apps/orto/src/components/ui/dropdown-menu.tsx",
       "componentName": "DropdownMenu",
       "kind": "primitive",
       "verdict": "move",
@@ -171,7 +169,7 @@
       "notes": "Clean shadcn-style Radix wrapper. Transitive import closure: target imports @radix-ui/react-dropdown-menu (external), react (external), and @/lib/utils. @/lib/utils (apps/orto/src/lib/utils.ts) only exports cn() and imports clsx + tailwind-merge (both external). cn() is the allowed util that moves into the package. No @/lib/* (other than utils), no @/hooks/*, @/types/*, @open-inspect/shared, control-plane, analytics, or domain modules anywhere in the closure. No other components/ui/* dependencies. No co-located dropdown-menu.test.tsx exists. Safe to move as-is."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/error-banner.tsx",
+      "file": "apps/orto/src/components/ui/error-banner.tsx",
       "componentName": "ErrorBanner",
       "kind": "primitive",
       "verdict": "move",
@@ -183,7 +181,7 @@
       "notes": "Trivial presentational primitive. The only local import is `@/lib/utils` (cn), which is explicitly allowed and moves into the package. utils.ts itself imports only external packages clsx and tailwind-merge. The transitive closure is fully clean: no @/lib/* (other than cn), no @/hooks/*, no @/types/*, no @open-inspect/shared, no network/data clients, no analytics, no domain modules. react is a peer dep (used only via React.ReactNode / React.HTMLAttributes types). The component relies on Tailwind theme tokens (destructive, destructive-border, destructive-muted) that must exist in the consuming app's Tailwind config, but those are CSS-layer concerns, not import-closure couplings, so they do not affect the verdict. No co-located test exists."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/form-controls.tsx",
+      "file": "apps/orto/src/components/ui/form-controls.tsx",
       "componentName": "RadioCard",
       "kind": "primitive",
       "verdict": "move",
@@ -196,7 +194,7 @@
       "notes": "Transitive closure is fully clean. form-controls.tsx imports only `react` (type-only: InputHTMLAttributes, ReactNode) and `cn` from @/lib/utils. @/lib/utils.ts imports only `clsx` and `tailwind-merge` (both external) and has no further local imports \u2014 `cn` is the allowed util that moves into the package. RadioCard is a pure presentational primitive (styled radio input via Tailwind classes, no app logic, no data fetching, no hooks/types/shared modules). No internal ui/* dependencies. No co-located test (form-controls.test.tsx does not exist). Safe to move as-is."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/icons.tsx",
+      "file": "apps/orto/src/components/ui/icons.tsx",
       "componentName": "SidebarIcon, BackIcon, ChevronDownIcon, ChevronUpIcon, ChevronRightIcon, SettingsIcon, PlusIcon, CheckIcon, CopyIcon, SendIcon, StopIcon, SearchIcon, LinkIcon, SlackIcon, ArchiveIcon, MoreIcon, ClockIcon, CheckCircleIcon, EmptyCircleIcon, ErrorIcon, SparkleIcon, GitHubIcon, GitPrIcon, InspectIcon, RepoIcon, ModelIcon, BranchIcon, FileIcon, PencilIcon, TerminalIcon, BoltIcon, GlobeIcon, FolderIcon, BoxIcon, RefreshIcon, SunIcon, MoonIcon, MonitorIcon, AppearanceIcon, KeyIcon, KeyboardIcon, DataControlsIcon, AutomationsIcon, IntegrationsIcon",
       "kind": "primitive",
       "verdict": "move",
@@ -254,7 +252,7 @@
       "genericizeNote": ""
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/input.tsx",
+      "file": "apps/orto/src/components/ui/input.tsx",
       "componentName": "Input",
       "kind": "primitive",
       "verdict": "move",
@@ -266,7 +264,7 @@
       "notes": "Plain forwardRef wrapper over a native <input> with Tailwind classes. Transitive local import closure is fully clean: input.tsx imports only react and cn from @/lib/utils. @/lib/utils contains only the cn() helper (clsx + tailwind-merge) which is the allowed utility that moves into the package. No @/lib/* (other than utils), @/hooks/*, @/types/*, @open-inspect/shared, network/data-fetching, analytics, or orto domain modules appear anywhere in the closure. No other components/ui/* primitives are imported. External packages required: react, clsx, tailwind-merge. No co-located test file exists (directory contains only input.tsx). Safe to move as-is."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/label.tsx",
+      "file": "apps/orto/src/components/ui/label.tsx",
       "componentName": "Label",
       "kind": "primitive",
       "verdict": "move",
@@ -284,7 +282,7 @@
       "notes": "Thin wrapper over @radix-ui/react-label Root with a cva labelVariants definition (single base style string, no variants/sizes). Only local import is @/lib/utils -> cn(), which is the allowed util that moves into the shared package; cn() itself only pulls in clsx and tailwind-merge (both external). No app-specific modules, no other ui/* primitives, no @open-inspect/shared, no hooks/types/lib domain code. Transitive closure is fully clean, so it is safe to move as-is. No co-located test file exists at apps/orto/src/components/ui/label.test.tsx."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/popover.tsx",
+      "file": "apps/orto/src/components/ui/popover.tsx",
       "componentName": "Popover, PopoverTrigger, PopoverContent, PopoverAnchor",
       "kind": "primitive",
       "verdict": "move",
@@ -297,7 +295,7 @@
       "genericizeNote": ""
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/scroll-area.tsx",
+      "file": "apps/orto/src/components/ui/scroll-area.tsx",
       "componentName": "ScrollArea, ScrollBar",
       "kind": "primitive",
       "verdict": "move",
@@ -310,7 +308,7 @@
       "notes": "Standard shadcn/ui Radix scroll-area wrapper. Transitive local import closure: scroll-area.tsx imports only @radix-ui/react-scroll-area, react, and cn from @/lib/utils. @/lib/utils.ts (verified by reading) exports only cn() which depends on clsx + tailwind-merge \u2014 both external, and cn is the allowed helper that moves into the package. No @/lib/* (other than utils), @/hooks/*, @/types/*, @open-inspect/shared, control-plane/network, analytics, or orto domain modules anywhere in the closure. No other components/ui/* primitives referenced. No co-located test file exists (only scroll-area.tsx in the ui directory matches scroll). Closure is fully clean \u2014 safe to move as-is."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/select.tsx",
+      "file": "apps/orto/src/components/ui/select.tsx",
       "componentName": "Select",
       "kind": "primitive",
       "verdict": "move",
@@ -333,7 +331,7 @@
       "notes": "Transitive closure is fully clean. Target imports: @radix-ui/react-select, react, @/components/ui/icons (CheckIcon, ChevronDownIcon, ChevronUpIcon), and @/lib/utils (cn). @/lib/utils only re-exports cn() built on clsx + tailwind-merge \u2014 the allowed export that MOVES into the package. @/components/ui/icons (icons.tsx) is a pure SVG-component module with ZERO imports (no external, no local; just a local IconProps interface and inline SVG functions) \u2014 it is itself a ui/* primitive move candidate, so it is recorded in internalUiImports, not disqualifying. No @/lib/* (other than utils), @/hooks/*, @/types/*, @open-inspect/shared, control-plane, analytics, or domain modules appear anywhere in the closure. SelectTrigger adds a benign density=\"default\"|\"compact\" prop that is purely presentational. No co-located select.test.tsx exists. Safe to move as-is, provided @/components/ui/icons is also moved into the shared package (or the three icon usages swapped for the package's icon source)."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/separator.tsx",
+      "file": "apps/orto/src/components/ui/separator.tsx",
       "componentName": "Separator",
       "kind": "primitive",
       "verdict": "move",
@@ -345,7 +343,7 @@
       "notes": "Thin Radix wrapper. Transitive closure is fully clean: separator.tsx imports @radix-ui/react-separator, react, and @/lib/utils. The only local import is @/lib/utils, which exports cn() and itself imports only clsx + tailwind-merge (both external). cn() is the allowed util that moves into the @orthogonal/ui package. No @/lib/* (other than utils), @/hooks/*, @/types/*, @open-inspect/shared, control-plane/network, analytics, or domain modules appear anywhere in the closure. No other components/ui/* primitives are referenced. No co-located separator.test.tsx exists (only separator.tsx in the ui dir). Safe to move as-is."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/sheet.tsx",
+      "file": "apps/orto/src/components/ui/sheet.tsx",
       "componentName": "Sheet, SheetContent, SheetTrigger, SheetClose, SheetPortal, SheetOverlay, SheetHeader, SheetFooter, SheetTitle, SheetDescription",
       "kind": "primitive",
       "verdict": "move",
@@ -374,7 +372,7 @@
       "notes": "Standard shadcn/ui Sheet primitive wrapping @radix-ui/react-dialog. The only local import is `@/lib/utils` (cn), which is the allowed utility that moves into the package. The cn closure resolves to clsx + tailwind-merge (both external). No app-specific modules, no @open-inspect/shared, no hooks/types/lib domain modules, no other components/ui/* dependencies. Styling uses generic Tailwind design tokens (bg-background, text-foreground, border-border, bg-overlay, text-muted-foreground) with no app coupling. No co-located sheet.test.tsx exists. Safe to move as-is."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/sonner.tsx",
+      "file": "apps/orto/src/components/ui/sonner.tsx",
       "componentName": "Toaster",
       "kind": "primitive",
       "verdict": "move",
@@ -386,7 +384,7 @@
       "notes": "Self-contained shadcn-style sonner Toaster wrapper. Only two imports, both external npm packages: `next-themes` (useTheme) and `sonner` (Toaster as Sonner, ToasterProps type). No local imports at all \u2014 the transitive closure terminates immediately with zero @/ or relative modules. The only Tailwind classNames reference design tokens (bg-background, text-foreground, border-border, text-muted-foreground, bg-accent, etc.) which are theme variables, not app-specific. next-themes/useTheme is a generic theming dependency (any consuming app supplies its own ThemeProvider), not an app/domain hook. Closure is fully clean \u2192 safe to move as-is. No co-located test (only sonner.tsx present in components/ui/)."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/switch.tsx",
+      "file": "apps/orto/src/components/ui/switch.tsx",
       "componentName": "Switch",
       "kind": "primitive",
       "verdict": "move",
@@ -399,7 +397,7 @@
       "genericizeNote": ""
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/tabs.tsx",
+      "file": "apps/orto/src/components/ui/tabs.tsx",
       "componentName": "Tabs, TabsList, TabsTrigger, TabsContent",
       "kind": "primitive",
       "verdict": "move",
@@ -412,7 +410,7 @@
       "notes": "Thin Radix Tabs wrapper. Transitive local closure: tabs.tsx -> @/lib/utils (cn only). utils.ts imports only clsx + tailwind-merge (external); cn is the allowed export that moves into the package. No @/lib/* (other than utils), @/hooks/*, @/types/*, @open-inspect/shared, control-plane, analytics, or domain modules anywhere in the closure. No dependency on other components/ui/* primitives. Styling uses standard Tailwind theme tokens (border, border-border, text-muted-foreground, ring, accent, foreground) that are part of the shared design system, not app-specific. No co-located test (tabs.test.tsx) exists. Safe to move as-is."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/textarea.tsx",
+      "file": "apps/orto/src/components/ui/textarea.tsx",
       "componentName": "Textarea",
       "kind": "primitive",
       "verdict": "move",
@@ -425,7 +423,7 @@
       "notes": "Plain shadcn-style textarea primitive. A forwardRef-wrapped native <textarea> with Tailwind classes merged via cn(). Transitive local import closure: only @/lib/utils (the cn() helper), which itself imports just clsx + tailwind-merge (both external). cn() MOVES into the package per the rule. External packages in the closure: react, clsx, tailwind-merge. No @/lib/* (other than utils), no @/hooks/*, no @/types/*, no @open-inspect/shared, no control-plane/network/data-fetching, no analytics/posthog, no orto domain modules, no other components/ui/* primitives. No co-located textarea.test.tsx exists in the ui directory. Closure is fully clean \u2014 safe to move as-is."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/toggle.tsx",
+      "file": "apps/orto/src/components/ui/toggle.tsx",
       "componentName": "Toggle",
       "kind": "primitive",
       "verdict": "move",
@@ -440,10 +438,10 @@
       "internalUiImports": [],
       "exports": ["Toggle", "toggleVariants"],
       "hasTest": false,
-      "notes": "Transitive closure is fully clean. toggle.tsx imports only external packages (@radix-ui/react-toggle, class-variance-authority, react) plus the allowed cn() from @/lib/utils. @/lib/utils (/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/lib/utils.ts) itself imports only clsx and tailwind-merge (external) and defines cn(), which moves into the package per the rule. No @/hooks, @/types, @open-inspect/shared, control-plane, analytics, or domain modules anywhere in the closure. Exports a forwardRef Toggle wrapping Radix TogglePrimitive.Root plus the toggleVariants cva config. No co-located test file (only toggle.tsx and unrelated toggle-group.tsx exist in components/ui). Safe to move as-is."
+      "notes": "Transitive closure is fully clean. toggle.tsx imports only external packages (@radix-ui/react-toggle, class-variance-authority, react) plus the allowed cn() from @/lib/utils. @/lib/utils (apps/orto/src/lib/utils.ts) itself imports only clsx and tailwind-merge (external) and defines cn(), which moves into the package per the rule. No @/hooks, @/types, @open-inspect/shared, control-plane, analytics, or domain modules anywhere in the closure. Exports a forwardRef Toggle wrapping Radix TogglePrimitive.Root plus the toggleVariants cva config. No co-located test file (only toggle.tsx and unrelated toggle-group.tsx exist in components/ui). Safe to move as-is."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/toggle-group.tsx",
+      "file": "apps/orto/src/components/ui/toggle-group.tsx",
       "componentName": "ToggleGroup, ToggleGroupItem",
       "kind": "primitive",
       "verdict": "move",
@@ -462,7 +460,7 @@
       "notes": "Clean Radix-based primitive. Transitive closure: toggle-group.tsx imports @radix-ui/react-toggle-group, class-variance-authority (VariantProps), react, the sibling ui primitive @/components/ui/toggle (for toggleVariants), and cn from @/lib/utils. toggle.tsx in turn imports @radix-ui/react-toggle, class-variance-authority (cva), react, and cn. @/lib/utils.ts depends only on clsx and tailwind-merge. No @/lib/* (other than utils cn), no @/hooks/*, @/types/*, @open-inspect/shared, control-plane/network clients, analytics/posthog, or orto domain modules. The single internal local dep (@/components/ui/toggle) is itself a move candidate (record in internalUiImports, not disqualifying), and cn MOVES into the package. Safe to move as-is; no co-located test (only toggle-group.tsx and toggle.tsx exist in the dir)."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/tooltip.tsx",
+      "file": "apps/orto/src/components/ui/tooltip.tsx",
       "componentName": "Tooltip, TooltipTrigger, TooltipContent, TooltipProvider",
       "kind": "primitive",
       "verdict": "move",
@@ -475,7 +473,7 @@
       "notes": "Thin wrapper over @radix-ui/react-tooltip. Three exports (TooltipProvider, Tooltip, TooltipTrigger) are direct re-exports of Radix primitives; TooltipContent is a forwardRef wrapper applying Tailwind classes via cn(). Only local import is @/lib/utils (cn()), which is explicitly allowed and moves into the package. utils.ts transitively pulls only clsx + tailwind-merge (both external). No app-specific imports, no other ui/* primitives, no co-located test. Closure is fully clean \u2014 safe to move as-is."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/media-lightbox.tsx",
+      "file": "apps/orto/src/components/media-lightbox.tsx",
       "componentName": "MediaLightbox",
       "kind": "composite",
       "verdict": "genericize",
@@ -491,7 +489,7 @@
       "genericizeNote": "Lift both couplings behind plain props so the component takes pre-resolved data instead of orto domain types. (1) Remove the `@/lib/media` import and the `sessionId` prop; replace the derived `mediaUrl` with a `mediaUrl: string | null` prop computed by the orto caller via buildSessionMediaUrl. (2) Remove the `@/types/session` Artifact import; replace the `artifact: Artifact | null` prop with a minimal local view-model that captures only what is rendered, e.g. `media: { kind: \"image\" | \"video\"; caption?: string; sourceUrl?: string } | null` (or accept discrete `isVideo: boolean`, `caption?: string`, `description?: string` props). The component already only reads four fields, so deriving `isVideo`, `caption`, and the description string in the caller and passing them down fully decouples it from @open-inspect/shared. After both lifts the closure is react + @radix-ui/react-dialog + (via dialog) clsx/tailwind-merge + cn, which is clean and movable."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/safe-markdown.tsx",
+      "file": "apps/orto/src/components/safe-markdown.tsx",
       "componentName": "SafeMarkdown",
       "kind": "composite",
       "verdict": "move",
@@ -509,13 +507,13 @@
       "notes": "The file has ZERO local imports \u2014 the transitive import closure terminates immediately at external npm packages. All imports are external: `react` (type-only `ComponentPropsWithoutRef`), `react-markdown`, `rehype-highlight`, `rehype-sanitize` (uses `defaultSchema`), and `remark-gfm`. The component renders sanitized markdown via a strict rehype-sanitize schema and custom element renderers. All styling is plain Tailwind utility classes (prose, text-accent, border-border, bg-muted, text-muted-foreground, etc.) with NO `cn()` helper and NO app-specific modules referenced. No `@open-inspect/shared`, no @/lib, @/hooks, @/types, no analytics/posthog, no domain logic. Verified no co-located test (safe-markdown.test.tsx/ts) exists and no other test references it. Safe to move as-is into @orthogonal/ui; consumers in the package must provide react-markdown + rehype/remark plugins as deps and the Tailwind theme tokens it expects."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/syntax-highlight-theme.tsx",
+      "file": "apps/orto/src/components/syntax-highlight-theme.tsx",
       "componentName": "SyntaxHighlightTheme",
       "kind": "composite",
       "verdict": "genericize",
       "cleanImports": ["react", "next-themes"],
       "appSpecificImports": [
-        "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/hooks/use-syntax-highlight-preferences.ts (imported as @/hooks/use-syntax-highlight-preferences \u2014 under @/hooks/*, disqualifying)"
+        "apps/orto/src/hooks/use-syntax-highlight-preferences.ts (imported as @/hooks/use-syntax-highlight-preferences \u2014 under @/hooks/*, disqualifying)"
       ],
       "internalUiImports": [],
       "exports": ["SyntaxHighlightTheme"],
@@ -524,28 +522,28 @@
       "genericizeNote": "Remove the @/hooks/use-syntax-highlight-preferences import and accept its outputs as props. Change the signature to e.g. SyntaxHighlightTheme({ colorSchemeMode, preferredLightTheme, preferredDarkTheme, themeRegistry, lightThemes, darkThemes }) \u2014 or, more compactly, a single `preferences: { colorSchemeMode, preferredLightTheme, preferredDarkTheme }` prop plus a `themeRegistry: { id; colorScheme: 'light'|'dark'; cssPath: string }[]` prop (deriving light/dark fallback lists internally by filtering on colorScheme). Move the SyntaxHighlightThemeDefinition/ColorSchemeMode types into the package. In orto, the existing useSyntaxHighlightPreferences hook stays app-side and just feeds these props at the call site, so the app keeps owning the localStorage store and the app-specific /hljs-themes/*.css asset paths. The component then depends only on react + next-themes. (next-themes' useTheme could also be lifted to a `resolvedTheme` prop if a next-themes dependency is undesirable, but keeping it is acceptable since next-themes is a clean external package.)"
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/sidebar/collapsible-section.tsx",
+      "file": "apps/orto/src/components/sidebar/collapsible-section.tsx",
       "componentName": "CollapsibleSection",
       "kind": "composite",
       "verdict": "move",
       "cleanImports": ["react"],
       "appSpecificImports": [],
       "internalUiImports": [
-        "@/components/ui/icons (ChevronDownIcon) -> /Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/ui/icons.tsx"
+        "@/components/ui/icons (ChevronDownIcon) -> apps/orto/src/components/ui/icons.tsx"
       ],
       "exports": ["CollapsibleSection"],
       "hasTest": false,
       "notes": "Transitive import closure is fully clean. The target imports useState from \"react\" (external) and ChevronDownIcon from \"@/components/ui/icons\" (an internal components/ui/* primitive that is itself a move candidate, recorded in internalUiImports \u2014 not disqualifying). The icons module (icons.tsx) has ZERO imports (verified via grep): it is a collection of self-contained SVG React components with a local IconProps interface, relying only on the JSX automatic runtime. No app-specific modules appear anywhere in the closure \u2014 no @/lib/* (and no cn/@/lib/utils usage at all), no @/hooks/*, no @/types/*, no @open-inspect/shared, no control-plane/network/data-fetching client, no analytics/posthog, and no orto domain modules. The component is a pure presentational collapsible wrapper styled with Tailwind utility classes (border, text-foreground, hover:bg-muted, etc.) and takes title/defaultOpen/children props. Safe to move as-is to @orthogonal/ui (it composes the ui icons primitive, which moves alongside it). No co-located test (collapsible-section.test.tsx) exists in the sidebar directory; only metadata-section.test.tsx is present there."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/screenshot-artifact-card.tsx",
+      "file": "apps/orto/src/components/screenshot-artifact-card.tsx",
       "componentName": "ScreenshotArtifactCard",
       "kind": "composite",
       "verdict": "genericize",
       "cleanImports": ["react", "clsx", "tailwind-merge"],
       "appSpecificImports": [
-        "@/lib/media (buildSessionMediaUrl -> /Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/lib/media.ts: builds orto-specific /api/sessions/.../media/... route)",
-        "@/types/session (Artifact type -> /Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/types/session.ts: under @/types/* and transitively imports @open-inspect/shared)"
+        "@/lib/media (buildSessionMediaUrl -> apps/orto/src/lib/media.ts: builds orto-specific /api/sessions/.../media/... route)",
+        "@/types/session (Artifact type -> apps/orto/src/types/session.ts: under @/types/* and transitively imports @open-inspect/shared)"
       ],
       "internalUiImports": [],
       "exports": ["ScreenshotArtifactCard"],
@@ -554,7 +552,7 @@
       "genericizeNote": "Lift both couplings behind props. (1) Replace the buildSessionMediaUrl(sessionId, artifactId) computation by accepting a precomputed `mediaUrl: string` (or `src`) prop; drop the `sessionId` prop and the `@/lib/media` import \u2014 the orto caller passes buildSessionMediaUrl(sessionId, artifactId). (2) Replace the Artifact-typed props with primitive props inline in the package: `isVideo?: boolean` (caller derives from artifactType === \"video\"), `caption?: string`, and `sourceUrl?: string`; drop `artifactType`/`metadata` and the `@/types/session` import. Keep `onOpen: (artifactId: string) => void` (or simplify to `onOpen: () => void`), `artifactId`, `className`, `compact`. Result closure: react, clsx, tailwind-merge, plus cn from the package's own utils."
     },
     {
-      "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/action-bar.tsx",
+      "file": "apps/orto/src/components/action-bar.tsx",
       "componentName": "ActionBar",
       "kind": "composite",
       "verdict": "keep",
@@ -588,42 +586,42 @@
   "aiProposal": {
     "referenceComponents": [
       {
-        "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/tool-call-item.tsx",
+        "file": "apps/orto/src/components/tool-call-item.tsx",
         "whatItDoes": "Renders a single collapsible tool-call row: chevron + tool icon + 'ToolName summary' line + timestamp; when expanded shows Arguments / Patch / Output panes. Special-cases apply_patch (splits patchText out of args) and delegates slack-notify to a separate component. Local ToolIcon maps formatter icon-name strings (file/pencil/terminal/etc.) to icon components.",
         "appCoupling": "Props are `event: Extract<SandboxEvent, { type: \"tool_call\" }>` (orto event union). Calls `formatToolCall(event)` from tool-formatters, `formatSessionEventTime` from @/lib/time, imports orto `@/components/ui/icons`, and branches on `event.tool === \"slack-notify\"`. Expanded/collapsed state is owned by the parent (isExpanded/onToggle)."
       },
       {
-        "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/tool-call-group.tsx",
+        "file": "apps/orto/src/components/tool-call-group.tsx",
         "whatItDoes": "Groups consecutive same-tool calls under one collapsible header ('Bash \u00b7 3 commands'). Single-call groups render the bare ToolCallItem with no wrapper. Owns expand state for the group and a Set of expanded child item ids. memo'd with a custom event-identity comparator. Local ToolIcon maps human tool names (Read/Edit/Bash) to icons.",
         "appCoupling": "Props are `events: Array<Extract<SandboxEvent, { type: \"tool_call\" }>>` plus groupId. Calls `formatToolGroup(events)` from tool-formatters and `formatSessionEventTime`; renders orto ToolCallItem and orto icons. The grouping/identity logic is generic but the data shape is orto's event union."
       },
       {
-        "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/reasoning-effort-pills.tsx",
+        "file": "apps/orto/src/components/reasoning-effort-pills.tsx",
         "whatItDoes": "A single button that cycles through the allowed reasoning-effort values for the currently selected model (low/medium/high/...), displaying the current value and calling onSelect with the next on click. Returns null if the model has no reasoning config. This is an INPUT control, not a thinking-token display.",
         "appCoupling": "Imports `MODEL_REASONING_CONFIG`, `ValidModel`, `ReasoningEffort` from @open-inspect/shared and looks up the efforts list + default by model id. The cycle/label/disabled UI is fully generic once the efforts array, current value, and onSelect are passed as plain props."
       },
       {
-        "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/safe-markdown.tsx",
+        "file": "apps/orto/src/components/safe-markdown.tsx",
         "whatItDoes": "Renders a markdown string with react-markdown + remark-gfm, hardened by a strict rehype-sanitize allowlist (tagNames/attributes/protocols, http(s)-only links) and rehype-highlight for code. Provides custom renderers for a/pre/code/p/ul/ol/blockquote/table/th/td and wraps output in Tailwind `prose` classes. Inline vs block code styling differ.",
         "appCoupling": "Essentially decoupled already: props are `{ content: string; className?: string }`. Only coupling is Tailwind theme class names (prose/text-accent/border/muted) and the @tailwindcss/typography plugin. No orto session/event types. Nearly a direct lift into a generic Response component."
       },
       {
-        "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/terminal-panel.tsx",
+        "file": "apps/orto/src/components/terminal-panel.tsx",
         "whatItDoes": "Full-height panel embedding a remote terminal in a sandboxed iframe, with a toolbar (terminal icon + 'Terminal' label, open-in-new-tab link, close button), loading state ('Connecting...'), and error state ('session expired'). Uses iframe sandbox/allow attributes for clipboard.",
         "appCoupling": "Props `{ url, token, onClose }`; builds the iframe src via `buildAuthenticatedUrl(url, token)` from @/lib/urls (token-injection is orto-specific). The toolbar/loading/error shell and sandboxed-iframe pattern are generic; the auth-url construction must move out to the caller."
       },
       {
-        "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/screenshot-artifact-card.tsx",
+        "file": "apps/orto/src/components/screenshot-artifact-card.tsx",
         "whatItDoes": "Thumbnail card for a screenshot or video artifact: 16/10 aspect preview with lazy-loaded img or muted video (with play-triangle overlay), loading/error fallbacks, and a caption + optional sourceUrl footer. Clicking the card calls onOpen. Has a compact variant.",
         "appCoupling": "Props include `sessionId`, `artifactId`, `artifactType?: Artifact[\"type\"]`, `metadata?: Artifact[\"metadata\"]`, `onOpen(artifactId)`. Derives the media URL via `buildSessionMediaUrl(sessionId, artifactId)` and uses orto `Artifact` types and `cn`. Generic core is: a src string + caption + type + onOpen; URL construction is orto glue."
       },
       {
-        "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/components/media-lightbox.tsx",
+        "file": "apps/orto/src/components/media-lightbox.tsx",
         "whatItDoes": "Modal lightbox (built on the Dialog primitive) showing a full-size screenshot or video with controls, a title/description from artifact metadata, loading/error states, and max-viewport sizing. Resets loaded/error state when the media or open state changes.",
         "appCoupling": "Props `{ sessionId, artifact: Artifact | null, open, onOpenChange }`; builds the media URL via `buildSessionMediaUrl` and reads orto `Artifact.type`/`metadata`. Built on orto's @/components/ui/dialog. Generic core is: src + media type + open/onOpenChange; artifact shape and URL builder are orto glue."
       },
       {
-        "file": "/Users/quantumly/Documents/Development/AletheiaResearch/Orthogonal/orthogonal/apps/orto/src/lib/tool-formatters.ts",
+        "file": "apps/orto/src/lib/tool-formatters.ts",
         "whatItDoes": "Pure formatting layer that turns a tool_call event into display metadata: `formatToolCall` returns `{ toolName, summary, icon, getDetails() }` with per-tool summaries (Read\u2192basename + line count, Bash\u2192truncated command, Grep\u2192pattern + match count, apply_patch\u2192add/update/delete tallies, etc.); `formatToolGroup` returns a per-tool count summary. Helpers: basename, truncate, countLines, patch summary.",
         "appCoupling": "Operates entirely on `Extract<SandboxEvent, { type: \"tool_call\" }>` and hardcodes OpenCode/Claude-Code tool names (read/edit/bash/grep/glob/task/webfetch/todowrite/apply_patch) and their camelCase arg keys. This is the decoupling fault line: it must stay APP-SIDE glue and must NOT be ported into any Tier-2 primitive \u2014 the generic Tool takes already-formatted name/summary/icon/input/output via props or a render-prop."
       }
