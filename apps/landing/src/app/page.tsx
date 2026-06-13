@@ -78,14 +78,9 @@ export default function Home() {
         </h1>
       </div>
 
-      <footer className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <span className="size-1.5 animate-pulse rounded-full bg-[#FF5C00]" />
-          <span className="font-mono text-xs tracking-wide text-[#EDEBE6]/55">
-            Private beta · Coming soon
-          </span>
-        </div>
-        <span className="font-mono text-xs text-[#EDEBE6]/30">© {new Date().getFullYear()}</span>
+      <footer className="flex items-center justify-between text-xs tracking-wide">
+        <span className="font-sans text-[#EDEBE6]/55">Private beta · Coming soon</span>
+        <span className="font-sans tabular-nums text-[#EDEBE6]/30">© {new Date().getFullYear()}</span>
       </footer>
     </main>
   );
