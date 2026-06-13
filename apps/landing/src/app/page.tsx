@@ -54,7 +54,19 @@ function Wordmark({ className }: { className?: string }) {
 
 export default function Home() {
   return (
-    <main className="flex min-h-dvh flex-col justify-between px-6 py-8 sm:px-10 sm:py-10 lg:px-16 lg:py-12">
+    <main className="relative isolate flex min-h-dvh flex-col justify-between px-6 py-8 sm:px-10 sm:py-10 lg:px-16 lg:py-12">
+      {/* Faint orthogonal grid — radial-masked so it fades to nothing at the edges. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, rgba(237,235,230,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(237,235,230,0.05) 1px, transparent 1px)",
+          backgroundSize: "64px 64px",
+          maskImage: "radial-gradient(ellipse 78% 62% at 50% 42%, #000 20%, transparent 80%)",
+          WebkitMaskImage: "radial-gradient(ellipse 78% 62% at 50% 42%, #000 20%, transparent 80%)",
+        }}
+      />
       <header className="flex items-center gap-3">
         <Mark className="size-8" />
         <Wordmark className="h-5" />
@@ -67,9 +79,12 @@ export default function Home() {
       </div>
 
       <footer className="flex items-center justify-between">
-        <span className="font-mono text-xs tracking-wide text-[#EDEBE6]/55">
-          Private beta · Coming soon
-        </span>
+        <div className="flex items-center gap-2.5">
+          <span className="size-1.5 animate-pulse rounded-full bg-[#FF5C00]" />
+          <span className="font-mono text-xs tracking-wide text-[#EDEBE6]/55">
+            Private beta · Coming soon
+          </span>
+        </div>
         <span className="font-mono text-xs text-[#EDEBE6]/30">© {new Date().getFullYear()}</span>
       </footer>
     </main>
