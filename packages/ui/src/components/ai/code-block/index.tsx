@@ -135,6 +135,7 @@ export function CodeBlockCopyButton({
   timeoutMs = DEFAULT_COPIED_TIMEOUT_MS,
   className,
   children,
+  onClick,
   ...props
 }: CodeBlockCopyButtonProps) {
   const { code } = useContext(CodeBlockContext);
@@ -168,7 +169,12 @@ export function CodeBlockCopyButton({
   return (
     <button
       type="button"
-      onClick={handleCopy}
+      onClick={(event) => {
+        onClick?.(event);
+        if (!event.defaultPrevented) {
+          void handleCopy();
+        }
+      }}
       aria-label={copied ? "Copied" : "Copy code"}
       data-copied={copied}
       className={cn(

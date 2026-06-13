@@ -104,7 +104,7 @@ PromptInput.displayName = "PromptInput";
 
 export interface PromptInputTextareaProps extends Omit<
   React.TextareaHTMLAttributes<HTMLTextAreaElement>,
-  "value" | "onChange"
+  "value" | "onChange" | "name"
 > {
   /** Controlled value of the textarea. */
   value: string;
