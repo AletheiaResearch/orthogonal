@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangleIcon, ExternalLinkIcon, GlobeIcon, RotateCwIcon, XIcon } from "lucide-react";
-import { type ReactNode, useEffect, useId, useState } from "react";
+import { type ReactNode, useEffect, useId, useMemo, useState } from "react";
 
 import { cn } from "../../../lib/utils";
 
@@ -12,6 +12,21 @@ import { cn } from "../../../lib/utils";
  */
 export const DEFAULT_WEB_PREVIEW_SANDBOX =
   "allow-scripts allow-same-origin allow-popups allow-forms";
+
+/**
+ * Returns `src` only when it is a safe, navigable web URL (http/https), and
+ * `undefined` otherwise. Guards the host-page "open in new tab" anchor and the
+ * iframe against unsafe schemes (e.g. `javascript:`/`data:`) that could execute
+ * in the host origin when the `src` is derived from agent/tool output.
+ */
+function toSafeWebUrl(src: string): string | undefined {
+  try {
+    const { protocol } = new URL(src, "http://localhost");
+    return protocol === "http:" || protocol === "https:" ? src : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /* -------------------------------------------------------------------------- */
 /*                            WebPreviewNavigation                            */
@@ -85,6 +100,7 @@ export function WebPreviewBody({
 }: WebPreviewBodyProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const safeSrc = useMemo(() => toSafeWebUrl(src), [src]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -117,7 +133,7 @@ export function WebPreviewBody({
         </div>
       ) : null}
       <iframe
-        src={src}
+        src={safeSrc}
         title={title}
         aria-labelledby={labelledBy}
         className="bg-background h-full w-full border-0"
@@ -177,6 +193,7 @@ export function WebPreview({
 }: WebPreviewProps) {
   const labelId = useId();
   const label = title ?? src;
+  const safeHref = useMemo(() => toSafeWebUrl(src), [src]);
 
   return (
     <div
@@ -188,16 +205,18 @@ export function WebPreview({
       <WebPreviewNavigation
         actions={
           <>
-            <a
-              href={src}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-muted-foreground hover:bg-accent-muted hover:text-foreground rounded-sm p-1 transition-colors"
-              title="Open in new tab"
-              aria-label="Open in new tab"
-            >
-              <ExternalLinkIcon className="h-3.5 w-3.5" aria-hidden="true" />
-            </a>
+            {safeHref ? (
+              <a
+                href={safeHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:bg-accent-muted hover:text-foreground rounded-sm p-1 transition-colors"
+                title="Open in new tab"
+                aria-label="Open in new tab"
+              >
+                <ExternalLinkIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              </a>
+            ) : null}
             {onClose ? (
               <button
                 type="button"

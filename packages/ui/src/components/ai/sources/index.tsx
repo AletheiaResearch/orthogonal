@@ -170,7 +170,10 @@ function SourcesContent({ className, children, ...props }: SourcesContentProps) 
   );
 }
 
-export interface SourceProps extends Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "href"> {
+export interface SourceProps extends Omit<
+  React.AnchorHTMLAttributes<HTMLAnchorElement>,
+  "href" | "target" | "rel"
+> {
   /** The external URL the source points to. Opened in a new, isolated tab. */
   href: string;
   /** Display label for the source. Falls back to the href when omitted. */
@@ -178,16 +181,27 @@ export interface SourceProps extends Omit<React.AnchorHTMLAttributes<HTMLAnchorE
 }
 
 function Source({ href, title, className, children, ...props }: SourceProps) {
+  // Only allow http(s) sources; reject schemes like `javascript:` since hrefs
+  // may originate from untrusted agent/tool output.
+  const safeHref = React.useMemo(() => {
+    try {
+      const protocol = new URL(href).protocol;
+      return protocol === "http:" || protocol === "https:" ? href : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [href]);
+
   return (
     <a
-      href={href}
+      {...props}
+      href={safeHref}
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
         "text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring group flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2",
         className
       )}
-      {...props}
     >
       {children ?? (
         <>
