@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Cormorant, Geist, Geist_Mono } from "next/font/google";
 
 import "./globals.css";
 
@@ -13,11 +13,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Editorial display face for the hero line. Swap to e.g. Cormorant (also a
-// high-contrast serif) by changing this import + the --font-display var.
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-instrument",
-  weight: "400",
+// Editorial display face for the hero line — high-contrast serif. Swap fonts
+// by changing this import + the --font-display var (e.g. licensed Sagittaire
+// via next/font/local).
+const cormorant = Cormorant({
+  variable: "--font-cormorant",
+  weight: "600",
   subsets: ["latin"],
 });
 
@@ -40,7 +41,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} dark h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${cormorant.variable} dark h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-[#101010] text-[#EDEBE6]">{children}</body>
     </html>
