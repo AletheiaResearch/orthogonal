@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useId, type ReactNode } from "react";
 
-import { CheckIcon } from "./icons";
+import { CheckIcon } from "../primitives/icons";
 
 export interface ComboboxOption<T = string> {
   value: T;

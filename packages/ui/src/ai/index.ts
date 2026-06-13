@@ -16,6 +16,6 @@ export * from "./tool-group";
 export * from "./web-preview";
 
 // AI-Elements-style aliases of generic Tier-1 components (single implementation, friendlier names).
-export { SafeMarkdown as Response } from "../safe-markdown";
-export { MediaLightbox as Lightbox } from "../media-lightbox";
-export { ScreenshotArtifactCard as Image } from "../screenshot-artifact-card";
+export { SafeMarkdown as Response } from "../components/content/safe-markdown";
+export { MediaLightbox as Lightbox } from "../components/content/media-lightbox";
+export { ScreenshotArtifactCard as Image } from "../components/content/screenshot-artifact-card";

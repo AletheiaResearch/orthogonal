@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { cn } from "./lib/utils";
+import { cn } from "../../lib/utils";
 
 interface ScreenshotArtifactCardProps {
   /** Identifier passed back through {@link onOpen} when the card is activated. */

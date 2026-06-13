@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { ChevronDownIcon } from "./icons";
+import { ChevronDownIcon } from "../primitives/icons";
 
 interface CollapsibleSectionProps {
   title: string;

@@ -3,8 +3,8 @@
 import * as SelectPrimitive from "@radix-ui/react-select";
 import * as React from "react";
 
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "./icons";
-import { cn } from "./lib/utils";
+import { cn } from "../../lib/utils";
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "../primitives/icons";
 
 const Select = SelectPrimitive.Root;
 

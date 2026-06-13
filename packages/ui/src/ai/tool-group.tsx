@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { ChevronRightIcon } from "../icons";
+import { ChevronRightIcon } from "../components/primitives/icons";
 import { cn } from "../lib/utils";
 
 export interface ToolGroupProps {

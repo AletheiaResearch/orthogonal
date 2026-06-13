@@ -2,9 +2,14 @@
 
 import * as React from "react";
 
-import { Button } from "../button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../components/overlay/tooltip";
+import { Button } from "../components/primitives/button";
 import { cn } from "../lib/utils";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../tooltip";
 
 export interface ActionsProps extends React.HTMLAttributes<HTMLDivElement> {
   /** The `Action` buttons (or any nodes) to render in the row. */

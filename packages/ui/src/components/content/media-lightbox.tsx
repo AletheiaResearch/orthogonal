@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../overlay/dialog";
 
 interface MediaLightboxProps {
   /** The resolved media URL to display, or null when nothing is selected. */

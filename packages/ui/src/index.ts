@@ -1,37 +1,37 @@
 // @orthogonal/ui — Tier-1 barrel (generic primitives + composites).
-// Generated from the extraction manifest. Stories are intentionally NOT exported here so that
+// Components live under ./components/<group>/. Stories are intentionally NOT exported here so
 // consumers (orto) never pull @storybook/* into their build graph.
 
 export { cn } from "./lib/utils";
 
-export * from "./alert-dialog";
-export * from "./app-icon";
-export * from "./badge";
-export * from "./button";
-export * from "./checkbox";
-export * from "./collapsible-section";
-export * from "./combobox";
-export * from "./command";
-export * from "./dialog";
-export * from "./dropdown-menu";
-export * from "./error-banner";
-export * from "./form-controls";
-export * from "./icons";
-export * from "./input";
-export * from "./label";
-export * from "./media-lightbox";
-export * from "./popover";
-export * from "./safe-markdown";
-export * from "./screenshot-artifact-card";
-export * from "./scroll-area";
-export * from "./select";
-export * from "./separator";
-export * from "./sheet";
-export * from "./sonner";
-export * from "./switch";
-export * from "./syntax-highlight-theme";
-export * from "./tabs";
-export * from "./textarea";
-export * from "./toggle";
-export * from "./toggle-group";
-export * from "./tooltip";
+export * from "./components/content/collapsible-section";
+export * from "./components/content/media-lightbox";
+export * from "./components/content/safe-markdown";
+export * from "./components/content/screenshot-artifact-card";
+export * from "./components/content/syntax-highlight-theme";
+export * from "./components/feedback/error-banner";
+export * from "./components/feedback/sonner";
+export * from "./components/form/form-controls";
+export * from "./components/form/select";
+export * from "./components/form/tabs";
+export * from "./components/form/toggle-group";
+export * from "./components/overlay/alert-dialog";
+export * from "./components/overlay/combobox";
+export * from "./components/overlay/command";
+export * from "./components/overlay/dialog";
+export * from "./components/overlay/dropdown-menu";
+export * from "./components/overlay/popover";
+export * from "./components/overlay/sheet";
+export * from "./components/overlay/tooltip";
+export * from "./components/primitives/app-icon";
+export * from "./components/primitives/badge";
+export * from "./components/primitives/button";
+export * from "./components/primitives/checkbox";
+export * from "./components/primitives/icons";
+export * from "./components/primitives/input";
+export * from "./components/primitives/label";
+export * from "./components/primitives/scroll-area";
+export * from "./components/primitives/separator";
+export * from "./components/primitives/switch";
+export * from "./components/primitives/textarea";
+export * from "./components/primitives/toggle";

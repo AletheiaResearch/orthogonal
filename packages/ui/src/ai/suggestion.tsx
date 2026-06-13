@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { Button } from "../button";
+import { Button } from "../components/primitives/button";
 import { cn } from "../lib/utils";
 
 interface SuggestionsProps extends React.HTMLAttributes<HTMLDivElement> {

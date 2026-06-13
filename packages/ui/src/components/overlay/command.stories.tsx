@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import * as React from "react";
 
-import { Button } from "./button";
+import { Button } from "../primitives/button";
 import {
   Command,
   CommandDialog,

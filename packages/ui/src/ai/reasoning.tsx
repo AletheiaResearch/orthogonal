@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { ChevronDownIcon, SparkleIcon } from "../icons";
+import { ChevronDownIcon, SparkleIcon } from "../components/primitives/icons";
 import { cn } from "../lib/utils";
 
 interface ReasoningContextValue {

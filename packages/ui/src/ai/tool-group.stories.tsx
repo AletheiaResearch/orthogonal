@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
-import { BoltIcon, FileIcon, TerminalIcon } from "../icons";
+import { BoltIcon, FileIcon, TerminalIcon } from "../components/primitives/icons";
 import { ToolGroup } from "./tool-group";
 
 /**
