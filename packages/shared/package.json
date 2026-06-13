@@ -15,7 +15,8 @@
     "build": "vite build && tsc --emitDeclarationOnly",
     "dev": "vite build --watch",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@octokit/webhooks-types": "catalog:",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@orthogonal/tooling-configs": "workspace:*",
+    "@vitest/coverage-v8": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
