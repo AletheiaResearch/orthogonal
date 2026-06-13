@@ -114,6 +114,18 @@ export const Composer = React.forwardRef<HTMLTextAreaElement, ComposerProps>(
       [onCommand]
     );
 
+    // Composer owns the textarea value internally (no controlled `value`/`onChange`
+    // is exposed), so it must clear itself after a send — otherwise the sent text
+    // lingers and can be submitted again. `PromptInput` only invokes this for
+    // non-empty submissions, so this never fires on an empty Enter.
+    const handleSubmit = React.useCallback(
+      (text: string) => {
+        onSubmit(text);
+        setValue("");
+      },
+      [onSubmit]
+    );
+
     const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (!open) return;
       // While the popover is open, intercept navigation keys before the
@@ -153,13 +165,18 @@ export const Composer = React.forwardRef<HTMLTextAreaElement, ComposerProps>(
           onActiveIndexChange={setActiveIndex}
           className="absolute bottom-full left-0 z-10 mb-1"
         />
-        <PromptInput onSubmit={onSubmit} className={className}>
+        <PromptInput onSubmit={handleSubmit} className={className}>
           <PromptInputTextarea
             ref={ref}
             value={value}
             onChange={setValue}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
+            // While streaming, the action button is Stop (not submit); disable the
+            // Enter-to-submit shortcut so it can't bypass that and start a second
+            // request. Popover navigation still works: `handleKeyDown` intercepts
+            // Enter (preventing default) before this shortcut would ever run.
+            onSubmitShortcut={status !== "streaming"}
             aria-expanded={open}
             aria-haspopup="listbox"
           />
