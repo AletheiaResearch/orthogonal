@@ -73,7 +73,7 @@ describe("Reasoning", () => {
 
   it("shows the completed label with the duration once streaming ends", () => {
     const { rerender } = render(
-      <Reasoning isStreaming duration={7}>
+      <Reasoning isStreaming durationMs={7000}>
         <ReasoningTrigger />
         <ReasoningContent>chain of thought</ReasoningContent>
       </Reasoning>
@@ -82,7 +82,7 @@ describe("Reasoning", () => {
     expect(screen.getByText("Thinking…")).toBeInTheDocument();
 
     rerender(
-      <Reasoning isStreaming={false} duration={7}>
+      <Reasoning isStreaming={false} durationMs={7000}>
         <ReasoningTrigger />
         <ReasoningContent>chain of thought</ReasoningContent>
       </Reasoning>

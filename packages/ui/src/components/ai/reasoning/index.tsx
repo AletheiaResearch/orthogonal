@@ -12,8 +12,8 @@ interface ReasoningContextValue {
   setIsOpen: (next: boolean) => void;
   /** Whether reasoning tokens are still streaming in. */
   isStreaming: boolean;
-  /** How long the model spent thinking, in seconds. */
-  duration: number;
+  /** How long the model spent thinking, in milliseconds. */
+  durationMs: number;
 }
 
 const ReasoningContext = React.createContext<ReasoningContextValue | null>(null);
@@ -38,8 +38,8 @@ export interface ReasoningProps extends Omit<React.HTMLAttributes<HTMLDivElement
   open?: boolean;
   /** Called whenever an open/close is requested, with the next open state. */
   onOpenChange?: (open: boolean) => void;
-  /** Seconds the model spent thinking — surfaced in the default completed label. */
-  duration?: number;
+  /** Milliseconds the model spent thinking — surfaced in the default completed label. */
+  durationMs?: number;
   children?: React.ReactNode;
 }
 
@@ -54,13 +54,17 @@ export function Reasoning({
   defaultOpen = false,
   open,
   onOpenChange,
-  duration = 0,
+  durationMs = 0,
   className,
   children,
   ...props
 }: ReasoningProps) {
   const isControlled = open !== undefined;
-  const [internalOpen, setInternalOpen] = React.useState(defaultOpen);
+  // When uncontrolled and mounting mid-stream, start open so live reasoning is
+  // visible immediately — the streaming effect only handles later transitions.
+  const [internalOpen, setInternalOpen] = React.useState(
+    defaultOpen || (!isControlled && isStreaming)
+  );
 
   const isOpen = isControlled ? open : internalOpen;
 
@@ -91,8 +95,8 @@ export function Reasoning({
   }, [isStreaming, isControlled]);
 
   const contextValue = React.useMemo<ReasoningContextValue>(
-    () => ({ isOpen, setIsOpen, isStreaming, duration }),
-    [isOpen, setIsOpen, isStreaming, duration]
+    () => ({ isOpen, setIsOpen, isStreaming, durationMs }),
+    [isOpen, setIsOpen, isStreaming, durationMs]
   );
 
   return (
@@ -112,7 +116,7 @@ export function Reasoning({
 export interface ReasoningTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   /**
    * Custom trigger label. Defaults to `Thinking…` while streaming, otherwise
-   * `Thought for Ns` using the `duration` from the parent `Reasoning`.
+   * `Thought for Ns` derived from the `durationMs` of the parent `Reasoning`.
    */
   children?: React.ReactNode;
 }
@@ -128,9 +132,10 @@ export function ReasoningTrigger({
   onClick,
   ...props
 }: ReasoningTriggerProps) {
-  const { isOpen, setIsOpen, isStreaming, duration } = useReasoning("ReasoningTrigger");
+  const { isOpen, setIsOpen, isStreaming, durationMs } = useReasoning("ReasoningTrigger");
 
-  const label = children ?? (isStreaming ? "Thinking…" : `Thought for ${duration}s`);
+  const label =
+    children ?? (isStreaming ? "Thinking…" : `Thought for ${Math.round(durationMs / 1000)}s`);
 
   return (
     <button

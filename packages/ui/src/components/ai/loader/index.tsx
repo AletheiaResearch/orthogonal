@@ -18,6 +18,9 @@ import { cn } from "../../../lib/utils";
 
 const SHIMMER_KEYFRAMES_ID = "orthogonal-ui-text-shimmer-keyframes";
 
+/** Duration of one full shimmer sweep, in milliseconds. */
+const SHIMMER_DURATION_MS = 2000;
+
 /**
  * Static keyframes for the shimmer sweep. Injected via a `<style>` element so the effect works
  * without touching the shared Tailwind config. Each instance emits the same block; the content is
@@ -83,7 +86,7 @@ export function TextShimmer({ children, className, style, ...props }: TextShimme
           backgroundImage:
             "linear-gradient(90deg, var(--muted-foreground) 0%, var(--muted-foreground) 35%, var(--foreground) 50%, var(--muted-foreground) 65%, var(--muted-foreground) 100%)",
           backgroundSize: "200% 100%",
-          animation: `${SHIMMER_KEYFRAMES_ID} 2s linear infinite`,
+          animation: `${SHIMMER_KEYFRAMES_ID} ${SHIMMER_DURATION_MS}ms linear infinite`,
           ...style,
         }}
         {...props}

@@ -47,9 +47,9 @@ const meta = {
       description: "Called with the requested next open state on every toggle.",
       control: false,
     },
-    duration: {
+    durationMs: {
       description:
-        "Seconds the model spent thinking, shown in the default completed label (`Thought for Ns`).",
+        "Milliseconds the model spent thinking, shown in the default completed label (`Thought for Ns`).",
       control: { type: "number" },
     },
     children: {
@@ -60,7 +60,7 @@ const meta = {
   args: {
     isStreaming: false,
     defaultOpen: false,
-    duration: 4,
+    durationMs: 4000,
   },
 } satisfies Meta<typeof Reasoning>;
 
@@ -129,7 +129,7 @@ export const Completed: Story = {
   args: {
     isStreaming: false,
     defaultOpen: true,
-    duration: 12,
+    durationMs: 12000,
   },
   render: (args) => (
     <div className="max-w-md">
@@ -143,7 +143,7 @@ export const Completed: Story = {
     docs: {
       description: {
         story:
-          "Finished thinking, expanded, with the `Thought for 12s` summary derived from the `duration` prop.",
+          "Finished thinking, expanded, with the `Thought for 12s` summary derived from the `durationMs` prop.",
       },
     },
   },
@@ -181,7 +181,7 @@ export const CustomTrigger: Story = {
 export const LongContent: Story = {
   args: {
     defaultOpen: true,
-    duration: 31,
+    durationMs: 31000,
   },
   render: (args) => (
     <div className="max-w-md">
