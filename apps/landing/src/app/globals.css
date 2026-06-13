@@ -129,3 +129,15 @@
     @apply font-sans;
   }
 }
+
+::selection {
+  background-color: #ff5c00;
+  color: #101010;
+}
+
+/* Iso logomark — orange route draws itself in on load. */
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}

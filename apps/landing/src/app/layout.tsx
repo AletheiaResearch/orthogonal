@@ -22,7 +22,12 @@ const cormorant = Cormorant({
   subsets: ["latin"],
 });
 
+const baseUrl = process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : "http://localhost:3000";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(baseUrl),
   title: "Orto — Background coding agents",
   description:
     "Hand Orto a task and it opens a pull request — autonomous coding agents working your repo in parallel. Private beta, coming soon.",
