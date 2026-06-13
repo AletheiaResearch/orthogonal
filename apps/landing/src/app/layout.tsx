@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 
 import "./globals.css";
 
@@ -13,12 +14,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Editorial display face for the hero line. Swap to e.g. Cormorant (also a
-// high-contrast serif) by changing this import + the --font-display var.
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-instrument",
+// Sagittaire Display (Blaze Type) — editorial display face for the hero line.
+// NOTE: trial build; replace with licensed web fonts before production use.
+const sagittaire = localFont({
+  src: "./fonts/Sgtt-Display-Trial-Regular.otf",
+  variable: "--font-sagittaire",
   weight: "400",
-  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -40,7 +42,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} dark h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${sagittaire.variable} dark h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-[#101010] text-[#EDEBE6]">{children}</body>
     </html>
