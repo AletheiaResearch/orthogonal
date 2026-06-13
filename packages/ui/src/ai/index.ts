@@ -3,10 +3,12 @@
 
 export * from "./actions";
 export * from "./code-block";
+export * from "./composer";
 export * from "./conversation";
 export * from "./loader";
 export * from "./message";
 export * from "./prompt-input";
+export * from "./slash-command-popover";
 export * from "./reasoning";
 export * from "./sources";
 export * from "./suggestion";
