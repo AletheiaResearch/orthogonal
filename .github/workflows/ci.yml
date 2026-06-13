@@ -10,6 +10,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Base for `turbo run --affected`: the PR base on pull_request, the previous commit on push.
+  TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+
 jobs:
   # Detect which areas changed so language-specific jobs only run when relevant. A single
   # required "CI Success" gate (below) avoids the skipped-required-check deadlock that plain
@@ -40,6 +44,7 @@ jobs:
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
+              - 'turbo.json'
               - 'tsconfig*.json'
               - 'oxlint*'
               - '.github/actions/**'
@@ -58,13 +63,17 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0 # turbo --affected needs history
       - uses: ./.github/actions/pnpm-setup
+        with:
+          build-shared: "false" # turbo's ^build handles it
       - name: Format check
         run: pnpm fmt:check
       - name: Lint
         run: pnpm lint
-      - name: TypeCheck
-        run: pnpm run typecheck
+      - name: TypeCheck (affected)
+        run: pnpm exec turbo run typecheck --affected
 
   test:
     name: Test (TypeScript)
@@ -75,22 +84,12 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
-          fetch-depth: 0 # needed for affected-package detection
+          fetch-depth: 0
       - uses: ./.github/actions/pnpm-setup
-      - name: Run unit tests (affected since base)
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE="origin/${{ github.base_ref }}"
-          else
-            BASE="${{ github.event.before }}"
-          fi
-          if [ -n "$BASE" ] && git rev-parse --verify --quiet "${BASE}^{commit}" >/dev/null 2>&1; then
-            echo "Testing packages affected since $BASE"
-            pnpm --filter "...[$BASE]" run test
-          else
-            echo "No usable base ref; running all tests"
-            pnpm -r run test
-          fi
+        with:
+          build-shared: "false"
+      - name: Unit tests (affected)
+        run: pnpm exec turbo run test --affected
 
   test-integration:
     name: Test (control-plane integration)
@@ -100,11 +99,15 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
       - uses: ./.github/actions/pnpm-setup
+        with:
+          build-shared: "false"
       - name: Install workerd runtime dependency
         run: sudo apt-get update && sudo apt-get install -y libc++1
-      - name: Run control-plane integration tests
-        run: pnpm --filter @open-inspect/control-plane run test:integration
+      - name: Integration tests (affected)
+        run: pnpm exec turbo run test:integration --affected
 
   build:
     name: Build (TypeScript)
@@ -115,22 +118,12 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
-          fetch-depth: 0 # needed for affected-package detection
+          fetch-depth: 0
       - uses: ./.github/actions/pnpm-setup
-      - name: Build (affected since base)
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE="origin/${{ github.base_ref }}"
-          else
-            BASE="${{ github.event.before }}"
-          fi
-          if [ -n "$BASE" ] && git rev-parse --verify --quiet "${BASE}^{commit}" >/dev/null 2>&1; then
-            echo "Building packages affected since $BASE"
-            pnpm --filter "...[$BASE]" run build
-          else
-            echo "No usable base ref; building all"
-            pnpm -r run build
-          fi
+        with:
+          build-shared: "false"
+      - name: Build (affected)
+        run: pnpm exec turbo run build --affected
 
   python-sandbox-runtime:
     name: Python (sandbox-runtime)
