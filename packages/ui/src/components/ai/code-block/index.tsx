@@ -108,7 +108,7 @@ export function CodeBlock({
 
 export interface CodeBlockCopyButtonProps extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
-  "onCopy" | "onError"
+  "onCopy" | "onError" | "type"
 > {
   /** Called with the copied text after a successful clipboard write. */
   onCopy?: (code: string) => void;
@@ -168,6 +168,7 @@ export function CodeBlockCopyButton({
 
   return (
     <button
+      {...props}
       type="button"
       onClick={(event) => {
         onClick?.(event);
@@ -182,7 +183,6 @@ export function CodeBlockCopyButton({
         copied && "text-success hover:text-success",
         className
       )}
-      {...props}
     >
       {children ?? <Icon aria-hidden="true" className="h-3.5 w-3.5" />}
     </button>

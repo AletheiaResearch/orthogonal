@@ -278,13 +278,17 @@ export interface PromptInputEffortProps extends Omit<
  * click. Renders nothing when `efforts` is empty.
  */
 export const PromptInputEffort = React.forwardRef<HTMLButtonElement, PromptInputEffortProps>(
-  ({ className, efforts, value, onSelect, disabled, ...props }, ref) => {
+  ({ className, efforts, value, onSelect, disabled, onClick, ...props }, ref) => {
     if (efforts.length === 0) return null;
 
     const currentIndex = value ? efforts.indexOf(value) : -1;
     const label = value ?? efforts[0] ?? "default";
 
-    const handleCycle = () => {
+    const handleCycle = (event: React.MouseEvent<HTMLButtonElement>) => {
+      // Run any consumer-provided handler first; bail on the cycle if it
+      // prevents the default so analytics/extra behaviour can opt out.
+      onClick?.(event);
+      if (event.defaultPrevented) return;
       // -1 (unknown/none selected) wraps to index 0.
       const nextIndex = (currentIndex + 1) % efforts.length;
       onSelect(efforts[nextIndex]);
@@ -315,10 +319,14 @@ PromptInputEffort.displayName = "PromptInputEffort";
 /*  PromptInputSubmit                                                         */
 /* -------------------------------------------------------------------------- */
 
-export interface PromptInputSubmitProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export interface PromptInputSubmitProps extends Omit<
+  React.ButtonHTMLAttributes<HTMLButtonElement>,
+  "type"
+> {
   /**
    * `"ready"` shows a send arrow and submits the form on click. `"streaming"`
    * shows a stop square — wire `onClick` to your cancel handler in that state.
+   * The button `type` is derived from `status` and cannot be overridden.
    */
   status?: "ready" | "streaming";
 }
@@ -335,6 +343,7 @@ export const PromptInputSubmit = React.forwardRef<HTMLButtonElement, PromptInput
     return (
       <button
         ref={ref}
+        {...props}
         type={isStreaming ? "button" : "submit"}
         disabled={disabled}
         aria-label={isStreaming ? "Stop" : "Send"}
@@ -343,7 +352,6 @@ export const PromptInputSubmit = React.forwardRef<HTMLButtonElement, PromptInput
           "bg-accent text-accent-foreground hover:bg-accent/90 ml-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition disabled:cursor-not-allowed disabled:opacity-30",
           className
         )}
-        {...props}
       >
         {children ??
           (isStreaming ? (

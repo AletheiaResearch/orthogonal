@@ -178,26 +178,32 @@ const ConversationScrollButton = React.forwardRef<HTMLButtonElement, Conversatio
 
     if (isAtBottom) return null;
 
+    // The button is the last flow child of the scrollable viewport, so a sticky
+    // wrapper keeps it pinned to the visible scrollport bottom rather than the
+    // scrolled content. The full-width wrapper is click-through; only the button
+    // itself captures pointer events.
     return (
-      <button
-        ref={ref}
-        type="button"
-        aria-label={label}
-        onClick={(event) => {
-          scrollToBottom("smooth");
-          onClick?.(event);
-        }}
-        className={cn(
-          "absolute bottom-4 left-1/2 z-10 flex h-9 w-9 -translate-x-1/2 items-center justify-center",
-          "border-border bg-background text-muted-foreground rounded-full border shadow-md",
-          "hover:bg-accent hover:text-accent-foreground transition-colors",
-          "focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-          className
-        )}
-        {...props}
-      >
-        <ArrowDownIcon className="h-4 w-4" aria-hidden="true" />
-      </button>
+      <div className="pointer-events-none sticky bottom-4 z-10 flex justify-center">
+        <button
+          ref={ref}
+          type="button"
+          aria-label={label}
+          onClick={(event) => {
+            scrollToBottom("smooth");
+            onClick?.(event);
+          }}
+          className={cn(
+            "pointer-events-auto flex h-9 w-9 items-center justify-center",
+            "border-border bg-background text-muted-foreground rounded-full border shadow-md",
+            "hover:bg-accent hover:text-accent-foreground transition-colors",
+            "focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+            className
+          )}
+          {...props}
+        >
+          <ArrowDownIcon className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
     );
   }
 );
