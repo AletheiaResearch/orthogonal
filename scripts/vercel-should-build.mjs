@@ -13,7 +13,7 @@
  * It builds when the target package OR any of its transitive workspace dependencies changed, or a
  * global build input changed (lockfile, workspace manifest, turbo.json, root package.json/tsconfig).
  * It skips when every changed file is either build-irrelevant (docs, .github, markdown, terraform,
- * editor/lint config) or belongs to an unrelated workspace package.
+ * editor/lint/coverage config) or belongs to an unrelated workspace package.
  *
  * Bias: fail SAFE toward BUILDING. Any ambiguity (no comparison base, unknown file, parse error)
  * builds rather than risk skipping a deploy that should have shipped.
@@ -24,8 +24,15 @@ import { dirname, join } from "node:path";
 
 const BUILD = 1;
 const SKIP = 0;
+
+/** @param {string} msg */
 const log = (msg) => console.log(`[vercel-should-build] ${msg}`);
-/** @param {0|1} code @param {string} reason */
+
+/**
+ * @param {0 | 1} code
+ * @param {string} reason
+ * @returns {never}
+ */
 const decide = (code, reason) => {
   log(`${code === BUILD ? "BUILD" : "SKIP"}: ${reason}`);
   process.exit(code);
@@ -35,6 +42,10 @@ const target = process.argv[2];
 if (!target) decide(BUILD, "no target package argument provided");
 
 // --- Locate the repo root (nearest ancestor containing pnpm-workspace.yaml) ---
+/**
+ * @param {string} start
+ * @returns {string | null}
+ */
 function findRepoRoot(start) {
   let dir = start;
   for (;;) {
@@ -44,13 +55,22 @@ function findRepoRoot(start) {
     dir = up;
   }
 }
-const repoRoot = findRepoRoot(process.cwd());
-if (!repoRoot) decide(BUILD, "could not locate repo root (pnpm-workspace.yaml)");
+const repoRootResult = findRepoRoot(process.cwd());
+if (!repoRootResult) decide(BUILD, "could not locate repo root (pnpm-workspace.yaml)");
+const repoRoot = repoRootResult; // narrowed to string; aliased so nested closures keep the type
 
+/**
+ * @param {string} args
+ * @returns {string}
+ */
 const git = (args) =>
   execSync(`git ${args}`, { cwd: repoRoot, stdio: ["ignore", "pipe", "ignore"] })
     .toString()
     .trim();
+/**
+ * @param {string} args
+ * @returns {boolean}
+ */
 const gitOk = (args) => {
   try {
     git(args);
@@ -59,6 +79,10 @@ const gitOk = (args) => {
     return false;
   }
 };
+/**
+ * @param {string} sha
+ * @returns {boolean}
+ */
 const shaExists = (sha) => Boolean(sha) && gitOk(`cat-file -e ${sha}^{commit}`);
 
 // --- Determine the comparison base ---
@@ -72,6 +96,7 @@ if (!shaExists(base)) {
 }
 if (!shaExists(base)) decide(BUILD, "no usable comparison base (first commit or shallow clone)");
 
+/** @type {string[]} */
 let changed;
 try {
   changed = git(`diff --name-only ${base} ${head}`).split("\n").filter(Boolean);
@@ -81,8 +106,10 @@ try {
 if (changed.length === 0) decide(BUILD, "no file changes between base and HEAD (e.g. redeploy)");
 
 // --- Load the workspace package graph ---
+/** @typedef {{ dir: string, deps: Record<string, string>, internal: string[] }} Pkg */
+/** @returns {Record<string, Pkg>} */
 function loadWorkspace() {
-  /** @type {Record<string, {dir: string, deps: Record<string,string>, internal: string[]}>} */
+  /** @type {Record<string, Pkg>} */
   const pkgs = {};
   for (const root of ["packages", "apps"]) {
     const rootPath = join(repoRoot, root);
@@ -109,12 +136,17 @@ const pkgs = loadWorkspace();
 if (!pkgs[target]) decide(BUILD, `target "${target}" not found in workspace`);
 
 // Transitive closure: the target plus every workspace package it (transitively) depends on.
+/**
+ * @param {string} name
+ * @returns {Set<string>}
+ */
 function dependencyClosure(name) {
+  /** @type {Set<string>} */
   const seen = new Set();
   const stack = [name];
   while (stack.length) {
     const current = stack.pop();
-    if (seen.has(current) || !pkgs[current]) continue;
+    if (current === undefined || seen.has(current) || !pkgs[current]) continue;
     seen.add(current);
     stack.push(...pkgs[current].internal);
   }
@@ -141,6 +173,7 @@ const IGNORE = [
   /^CODEOWNERS$/,
   /^\.?oxlint.*/i,
   /^\.prettier.*/i,
+  /^\.?codecov\.ya?ml$/i,
 ];
 // Root files that can change build output for ANY project -> always build.
 const GLOBAL_BUILD_INPUTS = new Set([
@@ -152,7 +185,12 @@ const GLOBAL_BUILD_INPUTS = new Set([
   "tsconfig.base.json",
   ".npmrc",
 ]);
+/**
+ * @param {string} file
+ * @returns {string | null}
+ */
 const ownerOf = (file) => {
+  /** @type {string | null} */
   let owner = null;
   let longest = -1;
   for (const [name, info] of Object.entries(pkgs)) {
@@ -165,6 +203,7 @@ const ownerOf = (file) => {
   return owner;
 };
 
+/** @type {string[]} */
 const unrelated = [];
 for (const file of changed) {
   if (IGNORE.some((re) => re.test(file))) continue;
