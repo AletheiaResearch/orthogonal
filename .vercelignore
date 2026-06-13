@@ -14,3 +14,7 @@
 !packages/**
 !apps
 !apps/**
+
+# The Ignored Build Step (apps/*/vercel.ts) shells out to this.
+!scripts
+!scripts/**
