@@ -6,31 +6,24 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
-      - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: "22"
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build shared package
-        run: pnpm --filter @open-inspect/shared build
-
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: ./.github/actions/pnpm-setup
+      # Run coverage for ALL packages (not affected-filtered) so every upload is a complete report —
+      # uploading packages one-at-a-time is what causes partial/carryforward problems in Codecov.
       - name: Run coverage
-        run: pnpm -r run test:coverage || true
-
+        run: pnpm -r run test:coverage
+      # Single upload: codecov-action auto-discovers every lcov report and merges them server-side.
+      # Per-package breakdown comes from the path-based components in codecov.yml, not separate uploads.
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
         with:
