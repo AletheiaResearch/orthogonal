@@ -70,7 +70,7 @@ export default function Home() {
         <span className="font-mono text-xs tracking-wide text-[#EDEBE6]/55">
           Private beta · Coming soon
         </span>
-        <span className="font-mono text-xs text-[#EDEBE6]/30">© 2026</span>
+        <span className="font-mono text-xs text-[#EDEBE6]/30">© {new Date().getFullYear()}</span>
       </footer>
     </main>
   );
