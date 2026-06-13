@@ -156,6 +156,7 @@ export const WithDisabledTab: Story = {
  * coordinate with other UI or be driven programmatically.
  */
 export const Controlled: Story = {
+  args: { defaultValue: undefined },
   parameters: {
     docs: {
       description: {

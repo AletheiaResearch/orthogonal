@@ -72,6 +72,8 @@ type Story = StoryObj<typeof Toaster>;
 const triggerButtonClass =
   "rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium hover:bg-muted";
 
+const PROMISE_TOAST_DELAY_MS = 1500;
+
 /**
  * The default toaster. Click the button to fire a plain notification; the host
  * itself renders nothing until a toast is dispatched.
@@ -202,7 +204,7 @@ export const PromiseToast: Story = {
         type="button"
         className={triggerButtonClass}
         onClick={() =>
-          toast.promise(new Promise((resolve) => setTimeout(resolve, 1500)), {
+          toast.promise(new Promise((resolve) => setTimeout(resolve, PROMISE_TOAST_DELAY_MS)), {
             loading: "Saving changes...",
             success: "Changes saved",
             error: "Could not save changes",

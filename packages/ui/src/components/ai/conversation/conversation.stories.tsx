@@ -166,6 +166,7 @@ export const Streaming: Story = {
   },
   render: (args) => {
     const Demo = () => {
+      const STREAM_INTERVAL_MS = 350;
       const words =
         "Streaming responses arrive token by token, and this container keeps the newest text in view so you never lose the thread as the model thinks out loud and continues generating its answer.".split(
           " "
@@ -176,7 +177,7 @@ export const Streaming: Story = {
       useEffect(() => {
         intervalRef.current = setInterval(() => {
           setCount((c) => (c >= words.length ? 1 : c + 1));
-        }, 350);
+        }, STREAM_INTERVAL_MS);
         return () => {
           if (intervalRef.current) clearInterval(intervalRef.current);
         };

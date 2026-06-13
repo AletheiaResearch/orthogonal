@@ -201,7 +201,9 @@ export const WithAnchor: Story = {
       <PopoverAnchor asChild>
         <div className="bg-muted mx-auto w-fit rounded-md px-6 py-3 text-sm">Anchored element</div>
       </PopoverAnchor>
-      <PopoverTrigger className="sr-only">Open</PopoverTrigger>
+      <PopoverTrigger className="border-border mt-3 rounded-md border px-3 py-1.5 text-sm">
+        Reopen popover
+      </PopoverTrigger>
       <PopoverContent>
         <p className="text-sm">This popover is positioned by the anchor above.</p>
       </PopoverContent>
