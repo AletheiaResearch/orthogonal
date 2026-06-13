@@ -82,9 +82,10 @@
   --radius: 0.25rem;
 }
 
-/* Dark mode via system preference (no-JS fallback) */
+/* Dark mode via system preference (no-JS fallback). Gated on :not(.light) so an explicit
+   light selection (next-themes adds class="light") always wins over system dark preference. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not(.light) {
     --background: #1a1a1a;
     --foreground: #f8f8f6;
 
