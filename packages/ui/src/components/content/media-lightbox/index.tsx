@@ -50,7 +50,7 @@ export function MediaLightbox({
             </div>
           ) : (
             <>
-              {!hasError && src && isVideo ? (
+              {!hasError && isVideo ? (
                 <video
                   src={src}
                   aria-label={`${caption} video`}
@@ -63,7 +63,7 @@ export function MediaLightbox({
                     setIsLoaded(false);
                   }}
                 />
-              ) : !hasError && src ? (
+              ) : !hasError ? (
                 <img
                   src={src}
                   alt={caption}

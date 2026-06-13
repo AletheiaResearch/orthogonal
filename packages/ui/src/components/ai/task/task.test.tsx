@@ -174,9 +174,12 @@ describe("Task", () => {
 
   it("throws if a sub-component renders outside of a Task", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(() => render(<TaskTrigger title="orphan" />)).toThrow(
-      /must be rendered inside a <Task>/
-    );
-    spy.mockRestore();
+    try {
+      expect(() => render(<TaskTrigger title="orphan" />)).toThrow(
+        /must be rendered inside a <Task>/
+      );
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

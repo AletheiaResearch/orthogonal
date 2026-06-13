@@ -69,7 +69,7 @@ export function SyntaxHighlightTheme({ preferences, themeRegistry }: SyntaxHighl
     // Pick the user's preferred theme for that scheme, falling back to first registry entry
     const themeId = activeScheme === "dark" ? preferredDarkTheme : preferredLightTheme;
     const fallbackThemes = activeScheme === "dark" ? darkThemes : lightThemes;
-    const themeDef = themeRegistry.find((t) => t.id === themeId) ?? fallbackThemes[0];
+    const themeDef = fallbackThemes.find((t) => t.id === themeId) ?? fallbackThemes[0];
     if (!themeDef) return;
     const href = themeDef.cssPath;
 
