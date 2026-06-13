@@ -66,7 +66,7 @@ export function WebPreviewNavigation({ children, actions, className }: WebPrevie
 /* -------------------------------------------------------------------------- */
 
 interface WebPreviewBodyProps {
-  /** Resolved URL to load in the iframe. */
+  /** Resolved URL to load in the iframe. Only `http(s)` loads; unsafe schemes render a blank frame. */
   src: string;
   /** Accessible title for the iframe. */
   title?: string;
@@ -154,7 +154,10 @@ export function WebPreviewBody({
 /* -------------------------------------------------------------------------- */
 
 interface WebPreviewProps {
-  /** Resolved URL to embed. Pass a fully-formed src — this primitive is protocol-agnostic. */
+  /**
+   * Resolved URL to embed. Only `http(s)` URLs are loaded; other schemes (`javascript:`, `data:`)
+   * are sanitized to nothing and render a blank frame, so surface load failures via `errorNode`.
+   */
   src: string;
   /** Label shown in the toolbar and used as the iframe's accessible title. Defaults to the src. */
   title?: string;
