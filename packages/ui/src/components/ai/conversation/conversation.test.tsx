@@ -149,23 +149,26 @@ describe("Conversation", () => {
     const user = userEvent.setup();
     const scrollToSpy = vi.spyOn(Element.prototype, "scrollTo").mockImplementation(() => {});
 
-    render(
-      <Conversation>
-        <ConversationContent>content</ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
-    );
+    try {
+      render(
+        <Conversation>
+          <ConversationContent>content</ConversationContent>
+          <ConversationScrollButton />
+        </Conversation>
+      );
 
-    const log = screen.getByRole("log");
-    setScrollMetrics(log, { scrollTop: 0, scrollHeight: 1000, clientHeight: 300 });
-    fireEvent.scroll(log);
+      const log = screen.getByRole("log");
+      setScrollMetrics(log, { scrollTop: 0, scrollHeight: 1000, clientHeight: 300 });
+      fireEvent.scroll(log);
 
-    const button = screen.getByRole("button", { name: "Scroll to bottom" });
-    await user.click(button);
+      const button = screen.getByRole("button", { name: "Scroll to bottom" });
+      await user.click(button);
 
-    expect(scrollToSpy).toHaveBeenCalledWith({ top: 1000, behavior: "smooth" });
-    expect(screen.queryByRole("button", { name: "Scroll to bottom" })).not.toBeInTheDocument();
-    scrollToSpy.mockRestore();
+      expect(scrollToSpy).toHaveBeenCalledWith({ top: 1000, behavior: "smooth" });
+      expect(screen.queryByRole("button", { name: "Scroll to bottom" })).not.toBeInTheDocument();
+    } finally {
+      scrollToSpy.mockRestore();
+    }
   });
 
   it("invokes a user-supplied onClick alongside the scroll behavior", async () => {

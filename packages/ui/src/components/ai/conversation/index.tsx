@@ -99,7 +99,10 @@ const Conversation = React.forwardRef<HTMLDivElement, ConversationProps>(
       const el = viewportRef.current;
       if (!el) return;
 
-      // Establish the initial pinned state on mount.
+      // Stick to the bottom on mount so the latest content is in view even when
+      // the initial history already overflows the viewport (scrollTop is 0
+      // before this jump). The instant scroll keeps pinnedRef/isAtBottom in sync.
+      el.scrollTo({ top: el.scrollHeight });
       setIsAtBottom(computeIsAtBottom(el));
 
       if (typeof ResizeObserver === "undefined") return;
