@@ -11,6 +11,11 @@ on:
 permissions:
   contents: read
 
+# Prevent overlapping Chromatic runs (e.g. repeated manual dispatches) from wasting snapshots.
+concurrency:
+  group: chromatic-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   chromatic:
     name: Chromatic
