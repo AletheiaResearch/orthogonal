@@ -69,6 +69,9 @@ catalogs:
     '@radix-ui/react-tooltip':
       specifier: 1.2.8
       version: 1.2.8
+    '@storybook/addon-a11y':
+      specifier: 10.4.2
+      version: 10.4.2
     '@storybook/addon-docs':
       specifier: 10.4.2
       version: 10.4.2
@@ -497,6 +500,9 @@ importers:
       '@orthogonal/tooling-configs':
         specifier: workspace:*
         version: link:../../packages/tooling-configs
+      '@storybook/addon-a11y':
+        specifier: 'catalog:'
+        version: 10.4.2(storybook@10.4.2(@testing-library/dom@10.4.1)(@types/react@19.2.8)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))
       '@storybook/addon-docs':
         specifier: 'catalog:'
         version: 10.4.2(@types/react-dom@19.2.3(@types/react@19.2.8))(@types/react@19.2.8)(esbuild@0.27.3)(storybook@10.4.2(@testing-library/dom@10.4.1)(@types/react@19.2.8)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(vite@8.0.16(@types/node@22.19.7)(esbuild@0.27.3)(jiti@1.21.7)(terser@5.16.9)(yaml@2.9.0))
@@ -3780,6 +3786,11 @@ packages:
   '@standard-schema/utils@0.3.0':
     resolution: {integrity: sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==}
 
+  '@storybook/addon-a11y@10.4.2':
+    resolution: {integrity: sha512-9Bm41peswHVPXm8iDBEA/sCXx+MUQV8Q10yFgNC2zTbtxKamMDb8HZCPIRDxvjBQ5v13eaXA2yZGTwQ+D8S6+g==}
+    peerDependencies:
+      storybook: ^10.4.2
+
   '@storybook/addon-docs@10.4.2':
     resolution: {integrity: sha512-CtW1O4xSKZPNtpWgpfp4yB/x4pj/of+3MvlEDfErSlr3Hp3QmEa2pCLaecR08H5LJqJFlt1PtG0UrIynTvgW9w==}
     peerDependencies:
@@ -4317,6 +4328,10 @@ packages:
 
   aws4fetch@1.0.20:
     resolution: {integrity: sha512-/djoAN709iY65ETD6LKCtyyEI04XIBP5xVvfmNxsEP0uJB5tyaGBztSryRr4HqMStr9R06PisQE7m9zDTXKu6g==}
+
+  axe-core@4.12.0:
+    resolution: {integrity: sha512-FTavr/7Ba0IptwGOPxnQvdyW2tAsdLBMTBXz7rKH6xJ2skpyxpBxyHkDdBs4lf69yRqYpkqCdfhnwS8YULGOmg==}
+    engines: {node: '>=4'}
 
   bail@2.0.2:
     resolution: {integrity: sha512-0xO6mYd7JB2YesxDKplafRpsiOzPt9V02ddPCLbY1xYGPOX24NTyN50qnUxgCPcSoYMhKpAuBTjQoRZCAkUDRw==}
@@ -9870,6 +9885,12 @@ snapshots:
 
   '@standard-schema/utils@0.3.0': {}
 
+  '@storybook/addon-a11y@10.4.2(storybook@10.4.2(@testing-library/dom@10.4.1)(@types/react@19.2.8)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))':
+    dependencies:
+      '@storybook/global': 5.0.0
+      axe-core: 4.12.0
+      storybook: 10.4.2(@testing-library/dom@10.4.1)(@types/react@19.2.8)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+
   '@storybook/addon-docs@10.4.2(@types/react-dom@19.2.3(@types/react@19.2.8))(@types/react@19.2.8)(esbuild@0.27.3)(storybook@10.4.2(@testing-library/dom@10.4.1)(@types/react@19.2.8)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(vite@8.0.16(@types/node@22.19.7)(esbuild@0.27.3)(jiti@1.21.7)(terser@5.16.9)(yaml@2.9.0))':
     dependencies:
       '@mdx-js/react': 3.1.1(@types/react@19.2.8)(react@19.2.7)
@@ -10475,6 +10496,8 @@ snapshots:
       postcss-value-parser: 4.2.0
 
   aws4fetch@1.0.20: {}
+
+  axe-core@4.12.0: {}
 
   bail@2.0.2: {}
 

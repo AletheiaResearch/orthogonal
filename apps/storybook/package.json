@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@orthogonal/tooling-configs": "workspace:*",
+    "@storybook/addon-a11y": "catalog:",
     "@storybook/addon-docs": "catalog:",
     "@storybook/react-vite": "catalog:",
     "@tailwindcss/typography": "catalog:",

@@ -26,6 +26,9 @@ const preview: Preview = {
   parameters: {
     controls: { matchers: { color: /(background|color)$/i, date: /Date$/i } },
     backgrounds: { disable: true },
+    // Show the copy-paste source/code panel in the canvas (built into addon-docs; replaces the
+    // removed addon-storysource).
+    docs: { codePanel: true },
   },
   globalTypes: {
     theme: {
