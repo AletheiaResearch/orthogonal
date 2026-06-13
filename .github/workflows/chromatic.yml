@@ -7,6 +7,10 @@ on:
   # On-demand run (e.g. to establish/refresh the visual baseline).
   workflow_dispatch:
 
+# Least-privilege default token: this workflow only checks out code and uploads to Chromatic.
+permissions:
+  contents: read
+
 jobs:
   chromatic:
     name: Chromatic

@@ -57,6 +57,7 @@ jobs:
               - 'turbo.json'
               - 'tsconfig*.json'
               - 'oxlint*'
+              - 'scripts/**'
               - '.github/actions/**'
               - '.github/workflows/ci.yml'
             python:
