@@ -1,10 +1,38 @@
 name: Coverage
 
+# Coverage is an informational Codecov check (not a required status), so a workflow-level paths
+# filter is safe here — skipping on non-TS changes won't deadlock a required check.
 on:
   push:
     branches: [main]
+    paths:
+      - "packages/shared/**"
+      - "packages/control-plane/**"
+      - "packages/web/**"
+      - "packages/ui/**"
+      - "packages/slack-bot/**"
+      - "packages/github-bot/**"
+      - "packages/linear-bot/**"
+      - "apps/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/coverage.yml"
   pull_request:
     branches: [main]
+    paths:
+      - "packages/shared/**"
+      - "packages/control-plane/**"
+      - "packages/web/**"
+      - "packages/ui/**"
+      - "packages/slack-bot/**"
+      - "packages/github-bot/**"
+      - "packages/linear-bot/**"
+      - "apps/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/coverage.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

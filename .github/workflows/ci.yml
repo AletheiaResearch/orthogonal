@@ -11,8 +11,49 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Detect which areas changed so language-specific jobs only run when relevant. A single
+  # required "CI Success" gate (below) avoids the skipped-required-check deadlock that plain
+  # workflow-level `paths:` filters cause.
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      ts: ${{ steps.filter.outputs.ts }}
+      python: ${{ steps.filter.outputs.python }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
+        id: filter
+        with:
+          filters: |
+            ts:
+              - 'packages/shared/**'
+              - 'packages/control-plane/**'
+              - 'packages/web/**'
+              - 'packages/ui/**'
+              - 'packages/slack-bot/**'
+              - 'packages/github-bot/**'
+              - 'packages/linear-bot/**'
+              - 'packages/tooling-configs/**'
+              - 'apps/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'tsconfig*.json'
+              - 'oxlint*'
+              - '.github/actions/**'
+              - '.github/workflows/ci.yml'
+            python:
+              - 'packages/modal-infra/**'
+              - 'packages/sandbox-runtime/**'
+              - '.github/actions/**'
+              - '.github/workflows/ci.yml'
+
   static:
     name: Lint, Format & TypeCheck (TypeScript)
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -27,6 +68,8 @@ jobs:
 
   test:
     name: Test (TypeScript)
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -51,6 +94,8 @@ jobs:
 
   test-integration:
     name: Test (control-plane integration)
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -63,6 +108,8 @@ jobs:
 
   build:
     name: Build (TypeScript)
+    needs: changes
+    if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -87,6 +134,8 @@ jobs:
 
   python-sandbox-runtime:
     name: Python (sandbox-runtime)
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 8
     defaults:
@@ -109,6 +158,8 @@ jobs:
 
   python-modal-infra:
     name: Python (modal-infra)
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 8
     defaults:
@@ -130,3 +181,32 @@ jobs:
         continue-on-error: true # types still being added
       - name: Tests
         run: pytest tests/ -v
+
+  # Single required status check. Set branch protection to require ONLY "CI Success" — it passes
+  # when every job succeeded or was skipped, and fails if any failed/was cancelled. This is what
+  # lets the path-filtered jobs skip without deadlocking a required check.
+  ci-success:
+    name: CI Success
+    if: ${{ always() }}
+    needs:
+      - changes
+      - static
+      - test
+      - test-integration
+      - build
+      - python-sandbox-runtime
+      - python-modal-infra
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify required jobs
+        run: |
+          results="${{ join(needs.*.result, ' ') }}"
+          echo "Job results: $results"
+          for r in $results; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+              echo "::error::A required CI job did not succeed (result: $r)."
+              exit 1
+            fi
+          done
+          echo "All required jobs passed or were skipped."
