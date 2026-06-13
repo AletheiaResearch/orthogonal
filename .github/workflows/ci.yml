@@ -66,8 +66,8 @@ jobs:
         with:
           fetch-depth: 0 # turbo --affected needs history
       - uses: ./.github/actions/pnpm-setup
-        with:
-          build-shared: "false" # turbo's ^build handles it
+        # build-shared defaults true: type-aware oxlint (`pnpm lint`) needs @open-inspect/shared's
+        # dist/, and lint runs before `turbo run typecheck` would build it.
       - name: Format check
         run: pnpm fmt:check
       - name: Lint
