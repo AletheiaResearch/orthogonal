@@ -181,6 +181,10 @@ endpoints = {
 Create `terraform/environments/production/terraform.tfvars` with all collected values. Set:
 
 ```hcl
+# web_app_url is REQUIRED. You won't have the real apps/orto URL until Phase 11,
+# so use a placeholder now, then update it and re-apply in Phase 11.
+web_app_url = "https://<your-orto-app>.vercel.app"
+
 enable_durable_object_bindings = false
 enable_service_bindings        = false
 ```
@@ -274,8 +278,13 @@ The web app (`apps/orto`) deploys via its own dashboard-managed Vercel project â
 Guide the user to set up the Vercel Git integration following
 [apps/orto/README.md](../../../apps/orto/README.md): create a Vercel project from the repo, set the
 **Root Directory** to `apps/orto`, configure the monorepo install/build commands, and set the
-environment variables. Once deployed, note the project's URL and confirm the GitHub App's OAuth
-callback URL (`{your-web-app-url}/api/auth/callback/github`) matches it exactly (see Phase 4).
+environment variables. Once deployed, note the project's URL, then:
+
+1. Confirm the GitHub App's OAuth callback URL (`{your-web-app-url}/api/auth/callback/github`)
+   matches it exactly (see Phase 4).
+2. Set `web_app_url` in `terraform.tfvars` to this real URL (replacing the Phase 7 placeholder) and
+   run `terraform apply` again so the control-plane/slack-bot/linear-bot workers pick up the real
+   `WEB_APP_URL` (their "View Session" / PR deep-links are built from it).
 
 ## Phase 12: Verification
 
