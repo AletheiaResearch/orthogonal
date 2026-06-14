@@ -6,9 +6,13 @@ export const contentType = "image/png";
 
 const HEADLINE = "Build on every axis at once.";
 
-// Fetch a TTF from Google Fonts (old UA forces ttf over woff2, which Satori
-// can't read). Subsetted to the glyphs we render. Returns null on any failure
-// so the build falls back to the default font instead of breaking.
+// Fetch a Google Font in a Satori-parseable format. The old UA makes Google
+// serve ttf/woff (not woff2). We still pick the src by its declared format and
+// only accept ttf/otf/woff — so an eot/woff2 response falls back to the default
+// font instead of being handed to Satori, which would fail to parse it.
+// Returns null on any failure so the build never breaks.
+const SATORI_FONT_FORMAT = /\b(truetype|opentype|woff)\b/i;
+
 async function loadCormorant(): Promise<ArrayBuffer | null> {
   try {
     const text = `${HEADLINE} ORTO Private beta · Coming soon`;
@@ -16,9 +20,11 @@ async function loadCormorant(): Promise<ArrayBuffer | null> {
     const css = await fetch(cssUrl, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1)" },
     }).then((r) => r.text());
-    const url = css.match(/src:\s*url\((.+?)\)\s*format/)?.[1];
-    if (!url) return null;
-    return await fetch(url).then((r) => r.arrayBuffer());
+    const src = [
+      ...css.matchAll(/url\((https?:\/\/[^)]+)\)\s*format\(["']?([^"')]+)["']?\)/g),
+    ].find((m) => SATORI_FONT_FORMAT.test(m[2]));
+    if (!src) return null;
+    return await fetch(src[1]).then((r) => r.arrayBuffer());
   } catch {
     return null;
   }
