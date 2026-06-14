@@ -22,18 +22,20 @@ const cormorant = Cormorant({
   subsets: ["latin"],
 });
 
-const baseUrl = process.env.VERCEL_URL
+const baseUrl = process.env.VERCEL_ENV === "production"
+  ? "https://www.orto.sh"
+  : process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
   : "http://localhost:3000";
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
-  title: "Orto — Background coding agents",
+  title: "Orto",
   description:
-    "Hand Orto a task and it opens a pull request — autonomous coding agents working your repo in parallel. Private beta, coming soon.",
+    "Build on every axis at once.",
   openGraph: {
-    title: "Orto — Background coding agents",
-    description: "Task in, pull request out. Private beta, coming soon.",
+    title: "Orto",
+    description: "Build on every axis at once.",
     type: "website",
   },
 };
