@@ -30,6 +30,11 @@ output "control_plane_url" {
   value       = module.control_plane_worker.worker_url
 }
 
+output "ws_url" {
+  description = "Control plane WebSocket URL (set as NEXT_PUBLIC_WS_URL in the apps/orto web app)"
+  value       = local.ws_url
+}
+
 output "control_plane_worker_name" {
   description = "Control plane worker name"
   value       = module.control_plane_worker.worker_name

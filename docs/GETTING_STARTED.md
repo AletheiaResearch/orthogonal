@@ -274,8 +274,8 @@ echo "internal_callback_secret: $(openssl rand -base64 32)"
 # Modal API secret (use hex for this one)
 echo "modal_api_secret: $(openssl rand -hex 32)"
 
-# NextAuth secret (for the apps/orto web app — set in its Vercel project env, not terraform.tfvars)
-echo "nextauth_secret: $(openssl rand -base64 32)"
+# NextAuth secret — set as NEXTAUTH_SECRET in the apps/orto Vercel project env (not terraform.tfvars)
+echo "NEXTAUTH_SECRET: $(openssl rand -base64 32)"
 
 # GitHub webhook secret (only if enabling GitHub bot)
 echo "github_webhook_secret: $(openssl rand -hex 32)"
@@ -546,7 +546,23 @@ For day-to-day workflows, see [GitHub Integration](./integrations/GITHUB.md).
 The web app (`apps/orto`) deploys via its own dashboard-managed Vercel project — it is **not**
 created or deployed by Terraform. Follow the deployment instructions in
 [apps/orto/README.md](../apps/orto/README.md) to create the Vercel project, set its root directory
-and build commands, and configure its environment variables.
+and build commands, and configure its environment variables (the full set is in
+[apps/orto/.env.example](../apps/orto/.env.example)).
+
+Two of those env vars point at the control plane you just deployed — set them from the Terraform
+outputs. If `CONTROL_PLANE_URL` is missing the app's API throws, and if `NEXT_PUBLIC_WS_URL` is
+missing the client falls back to `localhost`, so the app would sign in but fail to create or stream
+sessions:
+
+```bash
+cd terraform/environments/production
+terraform output control_plane_url   # → set as CONTROL_PLANE_URL
+terraform output ws_url              # → set as NEXT_PUBLIC_WS_URL (wss://...)
+```
+
+Also set `NEXTAUTH_SECRET` (from Step 5), `NEXTAUTH_URL` (the orto URL), the GitHub OAuth
+credentials, and your `ALLOWED_USERS` / `ALLOWED_EMAIL_DOMAINS` access control — all listed in
+`.env.example`.
 
 Once deployed, note the project's URL, then:
 

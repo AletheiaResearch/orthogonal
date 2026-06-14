@@ -160,7 +160,7 @@ Guide user:
 echo "token_encryption_key: $(openssl rand -base64 32)"
 echo "repo_secrets_encryption_key: $(openssl rand -base64 32)"
 echo "internal_callback_secret: $(openssl rand -base64 32)"
-echo "nextauth_secret: $(openssl rand -base64 32)"  # For the apps/orto Vercel env, NOT terraform.tfvars
+echo "NEXTAUTH_SECRET: $(openssl rand -base64 32)"  # Set as NEXTAUTH_SECRET in the apps/orto Vercel env, NOT terraform.tfvars
 echo "modal_api_secret: $(openssl rand -hex 32)"
 echo "github_webhook_secret: $(openssl rand -hex 32)"  # Only if GitHub bot enabled
 ```
@@ -278,7 +278,12 @@ The web app (`apps/orto`) deploys via its own dashboard-managed Vercel project �
 Guide the user to set up the Vercel Git integration following
 [apps/orto/README.md](../../../apps/orto/README.md): create a Vercel project from the repo, set the
 **Root Directory** to `apps/orto`, configure the monorepo install/build commands, and set the
-environment variables. Once deployed, note the project's URL, then:
+environment variables (full list in `apps/orto/.env.example`). Critically, wire the app to the
+control plane from the Terraform outputs — `terraform output control_plane_url` →
+`CONTROL_PLANE_URL` and `terraform output ws_url` → `NEXT_PUBLIC_WS_URL`; without these the app
+signs in but can't create or stream sessions. Also set `NEXTAUTH_SECRET` (Phase 6), `NEXTAUTH_URL`
+(the orto URL), GitHub OAuth creds, and `ALLOWED_USERS` / `ALLOWED_EMAIL_DOMAINS`. Once deployed,
+note the project's URL, then:
 
 1. Confirm the GitHub App's OAuth callback URL (`{your-web-app-url}/api/auth/callback/github`)
    matches it exactly (see Phase 4).
