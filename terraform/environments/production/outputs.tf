@@ -26,8 +26,8 @@ output "d1_database_id" {
 
 # Cloudflare Workers
 output "control_plane_url" {
-  description = "Control plane worker URL"
-  value       = module.control_plane_worker.worker_url
+  description = "Control plane worker URL (set as CONTROL_PLANE_URL in the apps/orto web app)"
+  value       = local.control_plane_url
 }
 
 output "ws_url" {
