@@ -7,7 +7,9 @@ import config from "./payload.config";
  * Dev-only seed: a few categories, an author, and two published posts (one
  * featured) so /blog and live preview have content. Run with:
  *   pnpm --filter @orthogonal/landing seed
- * Idempotent: skips if any posts already exist. Requires a reachable database.
+ * Idempotent: skips entirely if any posts already exist, and reuses existing
+ * categories by slug so partial reruns don't hit unique constraints. Refuses to
+ * run in production/Vercel. Requires a reachable database.
  */
 
 const paragraph = (text: string): NonNullable<Post["content"]> => ({
@@ -37,6 +39,11 @@ const paragraph = (text: string): NonNullable<Post["content"]> => ({
 const ctx = { context: { disableRevalidate: true } };
 
 const seed = async () => {
+  if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+    console.error("Refusing to seed in a production/Vercel environment. Skipping.");
+    process.exit(0);
+  }
+
   const payload = await getPayload({ config });
 
   const { totalDocs: postCount } = await payload.count({ collection: "posts" });
@@ -60,16 +67,24 @@ const seed = async () => {
     payload.logger.info("Created admin user: admin@orto.sh / changeme123 (change this!)");
   }
 
-  const writing = await payload.create({
-    collection: "categories",
-    data: { title: "Writing", slug: "writing", description: "Essays and notes." },
-    ...ctx,
-  });
-  const news = await payload.create({
-    collection: "categories",
-    data: { title: "News", slug: "news", description: "Product and company news." },
-    ...ctx,
-  });
+  // Look up by slug and reuse so reruns after posts are deleted don't hit the
+  // unique slug constraint.
+  const ensureCategory = async (title: string, slug: string, description: string) => {
+    const existing = await payload.find({
+      collection: "categories",
+      where: { slug: { equals: slug } },
+      limit: 1,
+    });
+    if (existing.docs[0]) return existing.docs[0];
+    return payload.create({
+      collection: "categories",
+      data: { title, slug, description },
+      ...ctx,
+    });
+  };
+
+  const writing = await ensureCategory("Writing", "writing", "Essays and notes.");
+  const news = await ensureCategory("News", "news", "Product and company news.");
 
   const author = await payload.create({
     collection: "authors",

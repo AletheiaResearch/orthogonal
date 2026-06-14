@@ -73,7 +73,7 @@ and multiple-root-layout behavior before writing those files.
 
 ## 4. File / route structure
 
-```
+```text
 apps/landing/
   next.config.ts                 ← wrap: export default withPayload(nextConfig)
   package.json                   ← next 16.2.0 → 16.2.7 + payload deps
@@ -214,14 +214,26 @@ for `robots.ts`, `sitemap.ts`, and `generateMetadata`.
 
 ## 8. Environment & data layer
 
-- **Runtime DB:** pooled Neon endpoint (Vercel-provided, e.g. `POSTGRES_URL` / `DATABASE_URL`).
-- **Migrations:** `payload migrate` needs a **direct (non-pooled)** connection
-  (`POSTGRES_URL_NON_POOLING`) — PgBouncer transaction pooling breaks DDL/prepared statements. Run
-  migrations in the Vercel build step against the direct URL; serve traffic via the pooled URL.
-  (Exact Vercel/Neon env var names confirmed against the integration at implementation time.)
-- `PAYLOAD_SECRET` (required), `NEXT_PUBLIC_SITE_URL` (for live-preview URL + canonical),
-  `SITE_INDEXABLE` (default `false`). Add all to `apps/landing/.env.example` and Vercel project
-  settings.
+The Neon integration injects vars under a **`CHRONICLES`** prefix (the project name on Vercel). The
+as-built contract (see `apps/landing/.env.example`):
+
+- **Runtime DB:** pooled Neon endpoint via `CHRONICLES_POSTGRES_URL` — used by the app at runtime.
+- **Migrations:** `payload migrate` needs a **direct (non-pooled)** connection via
+  `CHRONICLES_POSTGRES_URL_NON_POOLING` — PgBouncer transaction pooling breaks DDL/prepared
+  statements. Run migrations in the Vercel build step against the direct URL; serve traffic via the
+  pooled URL.
+- `PAYLOAD_SECRET` (required, Payload encryption secret).
+- `PREVIEW_SECRET` (required, shared secret guarding the `/preview` live-preview route).
+- `NEXT_PUBLIC_SITE_URL` (canonical base URL — for live-preview URL + canonical + OG).
+- `SITE_INDEXABLE` (default `false`).
+- **Media storage (Cloudflare R2 via `@payloadcms/storage-s3`):** `R2_BUCKET` (unset → falls back to
+  local disk storage), `R2_ENDPOINT` (S3 API endpoint, uploads only), `R2_ACCESS_KEY_ID`,
+  `R2_SECRET_ACCESS_KEY`. The public file URL is the bucket's custom domain
+  (`https://chronicles.orto.sh/...`), set in `generateFileURL`/`Media.upload`, **not** an env var —
+  region is hardcoded `"auto"` (R2 ignores real regions).
+
+Add all to `apps/landing/.env.example` and Vercel project settings.
+
 - Scripts: `generate:types` (`PAYLOAD_CONFIG_PATH=src/payload.config.ts payload generate:types`),
   `generate:importmap` after adding custom admin components, and a build-time `payload migrate`.
 

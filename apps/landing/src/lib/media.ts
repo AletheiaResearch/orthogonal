@@ -23,7 +23,8 @@ export function absoluteMediaUrl(
 ): string | undefined {
   const rel = mediaUrl(image, size);
   if (!rel) return undefined;
-  return rel.startsWith("http") ? rel : `${getServerSideURL()}${rel}`;
+  if (rel.startsWith("http")) return rel;
+  return `${getServerSideURL().replace(/\/+$/, "")}/${rel.replace(/^\/+/, "")}`;
 }
 
 /** Alt text for a populated Media relationship (empty string when unpopulated). */

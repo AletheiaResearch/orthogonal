@@ -16,7 +16,10 @@ export async function GET(req: Request): Promise<Response> {
   if (previewSecret !== process.env.PREVIEW_SECRET) {
     return new Response("You are not allowed to preview this page", { status: 403 });
   }
-  if (!path?.startsWith("/")) {
+  // Only allow genuinely-internal paths. `startsWith("/")` alone permits
+  // protocol-relative ("//attacker.example") and backslash ("/\\host") URLs
+  // that redirect() would send off-site, so reject those explicitly.
+  if (!path || !path.startsWith("/") || path.startsWith("//") || path.startsWith("/\\")) {
     return new Response("This endpoint can only be used for relative previews", { status: 400 });
   }
 

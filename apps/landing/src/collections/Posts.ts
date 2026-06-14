@@ -1,6 +1,4 @@
 import { lexicalEditor } from "@payloadcms/richtext-lexical";
-import { revalidatePath } from "next/cache";
-import { after } from "next/server";
 import type {
   CollectionAfterChangeHook,
   CollectionAfterDeleteHook,
@@ -9,26 +7,30 @@ import type {
 } from "payload";
 
 import { formatSlugHook, validateSlug } from "../fields/slug";
+import { deferRevalidate } from "../lib/revalidate";
+import type { Post } from "../payload-types";
 
-// Schedules revalidation to run *after* the response so it never executes during
-// the admin's RSC render (Next 16 throws if revalidatePath runs during render).
-// after() throws when called outside a request scope, so writes that bypass the
-// disableRevalidate guard (e.g. migrations/jobs) are caught here instead of crashing.
-const deferRevalidate = (payload: PayloadRequest["payload"], paths: Set<string>) => {
-  if (paths.size === 0) return;
-  try {
-    after(() => {
-      for (const path of paths) {
-        payload.logger.info(`Revalidating path: ${path}`);
-        revalidatePath(path);
-      }
-    });
-  } catch {
-    payload.logger.warn("Skipping post revalidation: called outside a request scope");
-  }
+// A post's category field is `(number | Category)[]` — populated objects when the
+// hook ran at depth, bare IDs otherwise. Normalise to IDs either way.
+const toCategoryIds = (categories: Post["categories"]): number[] =>
+  (categories ?? []).map((category) => (typeof category === "object" ? category.id : category));
+
+// Resolve category IDs to their `/blog/category/<slug>` archive paths.
+const categoryArchivePaths = async (
+  payload: PayloadRequest["payload"],
+  ids: Set<number>
+): Promise<string[]> => {
+  if (ids.size === 0) return [];
+  const { docs } = await payload.find({
+    collection: "categories",
+    where: { id: { in: [...ids] } },
+    depth: 0,
+    limit: 0,
+  });
+  return docs.map((category) => `/blog/category/${category.slug}`);
 };
 
-const revalidatePost: CollectionAfterChangeHook = ({
+const revalidatePost: CollectionAfterChangeHook = async ({
   doc,
   previousDoc,
   req: { payload, context },
@@ -36,11 +38,15 @@ const revalidatePost: CollectionAfterChangeHook = ({
   if (context?.disableRevalidate) return doc;
 
   const paths = new Set<string>();
+  const categoryIds = new Set<number>();
 
   // New state: revalidate the current path only when the post is published and
   // has a slug. A slugless autosaved draft therefore revalidates nothing.
   const isPublished = doc?._status === "published" && Boolean(doc?.slug);
-  if (isPublished) paths.add(`/blog/${doc.slug}`);
+  if (isPublished) {
+    paths.add(`/blog/${doc.slug}`);
+    for (const id of toCategoryIds(doc.categories)) categoryIds.add(id);
+  }
 
   // Old state: revalidate the previous path on unpublish (was published, now
   // not) or on a slug change (slug moved while published).
@@ -48,25 +54,39 @@ const revalidatePost: CollectionAfterChangeHook = ({
   if (wasPublished && (!isPublished || previousDoc.slug !== doc.slug)) {
     paths.add(`/blog/${previousDoc.slug}`);
   }
+  // Previous categories also need revalidating when the post was published, so a
+  // post moving out of a category refreshes the archive it left behind.
+  if (wasPublished) {
+    for (const id of toCategoryIds(previousDoc.categories)) categoryIds.add(id);
+  }
 
-  if (paths.size > 0) {
+  if (paths.size > 0 || categoryIds.size > 0) {
     paths.add("/blog");
     paths.add("/sitemap.xml");
+    for (const path of await categoryArchivePaths(payload, categoryIds)) paths.add(path);
   }
 
   deferRevalidate(payload, paths);
   return doc;
 };
 
-const revalidatePostDelete: CollectionAfterDeleteHook = ({ doc, req: { payload, context } }) => {
+const revalidatePostDelete: CollectionAfterDeleteHook = async ({
+  doc,
+  req: { payload, context },
+}) => {
   if (context?.disableRevalidate) return doc;
 
   const paths = new Set<string>();
-  if (doc?._status === "published" && doc?.slug) paths.add(`/blog/${doc.slug}`);
+  const categoryIds = new Set<number>();
+  if (doc?._status === "published" && doc?.slug) {
+    paths.add(`/blog/${doc.slug}`);
+    for (const id of toCategoryIds(doc.categories)) categoryIds.add(id);
+  }
 
-  if (paths.size > 0) {
+  if (paths.size > 0 || categoryIds.size > 0) {
     paths.add("/blog");
     paths.add("/sitemap.xml");
+    for (const path of await categoryArchivePaths(payload, categoryIds)) paths.add(path);
   }
 
   deferRevalidate(payload, paths);
@@ -93,7 +113,7 @@ export const Posts: CollectionConfig = {
   versions: {
     drafts: {
       autosave: {
-        interval: 375,
+        interval: 800,
       },
     },
   },

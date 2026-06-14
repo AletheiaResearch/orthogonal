@@ -15,9 +15,18 @@ import { Media } from "./collections/Media";
 import { Posts } from "./collections/Posts";
 import { Users } from "./collections/Users";
 import { getServerSideURL } from "./lib/base-url";
+import { R2_PUBLIC_BASE } from "./lib/r2";
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
+
+// `payload migrate` runs DDL, which PgBouncer transaction pooling rejects, so
+// point migrations at the direct (non-pooled) endpoint and keep the pooled URL
+// for the app at runtime.
+const isMigrating = process.argv.some((arg) => arg === "migrate" || arg.endsWith(":migrate"));
+const databaseURL = isMigrating
+  ? (process.env.CHRONICLES_POSTGRES_URL_NON_POOLING ?? process.env.CHRONICLES_POSTGRES_URL)
+  : process.env.CHRONICLES_POSTGRES_URL;
 
 const generateTitle: GenerateTitle = ({ doc }) =>
   doc?.title ? `${doc.title} — Orthogonal` : "Orthogonal";
@@ -31,7 +40,7 @@ export default buildConfig({
   editor: lexicalEditor({}),
   db: vercelPostgresAdapter({
     pool: {
-      connectionString: process.env.CHRONICLES_POSTGRES_URL,
+      connectionString: databaseURL,
     },
     push: false, // never auto-sync schema; rely on `payload migrate`
   }),
@@ -49,7 +58,7 @@ export default buildConfig({
       // multiple hostnames, so a relative URL is the only reliable choice.
       // Routes through /preview to enable draft mode before rendering the post.
       url: ({ data }) =>
-        `/preview?path=${encodeURIComponent(`/blog/${data.slug ?? ""}`)}&previewSecret=${process.env.PREVIEW_SECRET ?? ""}`,
+        `/preview?path=${encodeURIComponent(`/blog/${data.slug ?? ""}`)}&previewSecret=${encodeURIComponent(process.env.PREVIEW_SECRET ?? "")}`,
       collections: ["posts"],
       breakpoints: [
         { label: "Mobile", name: "mobile", width: 375, height: 667 },
@@ -73,6 +82,13 @@ export default buildConfig({
     }),
     s3Storage({
       enabled: Boolean(process.env.R2_BUCKET),
+      // Upload large files (hero/OG images) straight to R2 via a short-lived
+      // presigned PUT URL minted server-side — bypasses Vercel's 4.5 MB request
+      // body limit. R2 credentials never reach the browser; the access guard
+      // restricts who may request a presigned URL to authenticated admin users.
+      clientUploads: {
+        access: ({ req }) => Boolean(req.user),
+      },
       collections: {
         media: {
           // Serve straight from R2 via the public custom domain — no Payload
@@ -80,10 +96,10 @@ export default buildConfig({
           disablePayloadAccessControl: true,
           // Applied to the original AND every image size variant (thumbnail/
           // card/og). `filename` is already the resized variant filename, so
-          // each size resolves to its own https://chronicles.orto.sh/... URL.
+          // each size resolves to its own R2_PUBLIC_BASE/... URL.
           generateFileURL: ({ filename, prefix }) => {
             const key = prefix ? `${prefix}/${filename}` : filename;
-            return `https://chronicles.orto.sh/${key}`;
+            return `${R2_PUBLIC_BASE}/${key}`;
           },
         },
       },

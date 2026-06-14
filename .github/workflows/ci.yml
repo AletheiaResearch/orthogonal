@@ -146,7 +146,8 @@ jobs:
     # (turbo strict mode filters them out unless a package declares them), so this is inert for them.
     services:
       postgres:
-        image: postgres:17-alpine
+        # Pinned by digest for reproducible builds (tag kept for readability)
+        image: postgres:17-alpine@sha256:979c4379dd698aba0b890599a6104e082035f98ef31d9b9291ec22f2b13059ca
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres

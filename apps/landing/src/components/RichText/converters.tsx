@@ -10,7 +10,8 @@ const internalDocToHref = ({ linkNode }: { linkNode: SerializedLinkNode }): stri
   const doc = linkNode.fields.doc;
   const value = doc?.value;
   if (!doc || typeof value !== "object" || value === null) return "/";
-  const slug = (value as { slug?: string }).slug ?? "";
+  const slug = (value as { slug?: string }).slug;
+  if (!slug) return "#";
   switch (doc.relationTo) {
     case "posts":
       return `/blog/${slug}`;

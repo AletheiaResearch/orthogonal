@@ -16,7 +16,8 @@ export async function getPublishedPosts(opts?: {
       ...(opts?.categorySlug ? { "categories.slug": { equals: opts.categorySlug } } : {}),
     },
     depth: 2, // populate heroImage, categories, authors + author avatars
-    sort: "-publishedAt",
+    // publishedAt is optional; -createdAt breaks ties (incl. NULL publishedAt) for stable ordering.
+    sort: ["-publishedAt", "-createdAt"],
     limit: opts?.limit ?? 0, // 0 = no limit
   });
   return docs;

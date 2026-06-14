@@ -1,5 +1,7 @@
 import type { CollectionConfig } from "payload";
 
+import { R2_PUBLIC_BASE } from "../lib/r2";
+
 export const Media: CollectionConfig = {
   slug: "media",
   access: {
@@ -7,14 +9,17 @@ export const Media: CollectionConfig = {
   },
   upload: {
     mimeTypes: ["image/*"],
-    // Serve admin previews from R2 too — the Payload /api/media proxy route is
-    // disabled (disablePayloadAccessControl), so a size-name here would 404.
-    // Build the URL from the thumbnail's stored filename.
+    // When R2 is enabled the Payload /api/media proxy route is disabled
+    // (disablePayloadAccessControl), so a size-name here would 404 — build the
+    // public R2 URL from the thumbnail's stored filename instead. When R2_BUCKET
+    // is unset, media lives on local disk; return null so Payload falls back to
+    // its default /api/media/file/... thumbnail rather than a dead R2 URL.
     adminThumbnail: ({ doc }) => {
+      if (!process.env.R2_BUCKET) return null;
       const sizes = doc?.sizes as { thumbnail?: { filename?: string | null } } | undefined;
       const filename =
         sizes?.thumbnail?.filename ?? (typeof doc?.filename === "string" ? doc.filename : null);
-      return filename ? `https://chronicles.orto.sh/${filename}` : null;
+      return filename ? `${R2_PUBLIC_BASE}/${filename}` : null;
     },
     imageSizes: [
       { name: "thumbnail", width: 400, height: 300, position: "centre" },
