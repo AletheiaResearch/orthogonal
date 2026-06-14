@@ -33,6 +33,7 @@ jobs:
     outputs:
       ts: ${{ steps.filter.outputs.ts }}
       python: ${{ steps.filter.outputs.python }}
+      landing: ${{ steps.filter.outputs.landing }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -64,6 +65,16 @@ jobs:
               - 'packages/modal-infra/**'
               - 'packages/sandbox-runtime/**'
               - '.github/actions/**'
+              - '.github/workflows/ci.yml'
+            # Landing's `next build` prerenders /blog from Payload, so its build job needs the
+            # DB schema migrated. Gate the migrate step on changes that can affect that build.
+            landing:
+              - 'apps/landing/**'
+              - 'packages/tooling-configs/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'turbo.json'
               - '.github/workflows/ci.yml'
 
   static:
@@ -129,6 +140,29 @@ jobs:
     if: needs.changes.outputs.ts == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # @orthogonal/landing's `next build` prerenders /blog from Payload, so it needs a reachable
+    # Postgres + a Payload secret at build time. Other packages' build tasks don't read these vars
+    # (turbo strict mode filters them out unless a package declares them), so this is inert for them.
+    services:
+      postgres:
+        # Pinned by digest for reproducible builds (tag kept for readability)
+        image: postgres:17-alpine@sha256:979c4379dd698aba0b890599a6104e082035f98ef31d9b9291ec22f2b13059ca
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: chronicles
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      CHRONICLES_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/chronicles
+      CHRONICLES_POSTGRES_URL_NON_POOLING: postgresql://postgres:postgres@localhost:5432/chronicles
+      # Build-time only: Payload refuses to initialize without a secret. Not a real credential.
+      PAYLOAD_SECRET: ci-build-secret-not-used-at-runtime
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -137,6 +171,9 @@ jobs:
       - uses: ./.github/actions/pnpm-setup
         with:
           build-shared: "false"
+      - name: Apply landing DB migrations
+        if: needs.changes.outputs.landing == 'true'
+        run: pnpm --filter @orthogonal/landing run payload migrate
       - name: Build (affected)
         run: pnpm exec turbo run build --affected
 

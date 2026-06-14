@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Cormorant, Geist, Geist_Mono } from "next/font/google";
 
-import "./globals.css";
+import { getServerSideURL } from "@/lib/base-url";
+
+import "../globals.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,15 +24,8 @@ const cormorant = Cormorant({
   subsets: ["latin"],
 });
 
-const baseUrl =
-  process.env.VERCEL_ENV === "production"
-    ? "https://www.orto.sh"
-    : process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000";
-
 export const metadata: Metadata = {
-  metadataBase: new URL(baseUrl),
+  metadataBase: new URL(getServerSideURL()),
   title: "Orto",
   description: "Build on every axis at once.",
   openGraph: {
