@@ -42,7 +42,7 @@ module "linear_bot_worker" {
 
   plain_text_bindings = [
     { name = "CONTROL_PLANE_URL", value = local.control_plane_url },
-    { name = "WEB_APP_URL", value = local.web_app_url },
+    { name = "WEB_APP_URL", value = var.web_app_url },
     { name = "DEPLOYMENT_NAME", value = var.deployment_name },
     { name = "APP_NAME", value = var.app_name },
     { name = "DEFAULT_MODEL", value = "claude-sonnet-4-6" },

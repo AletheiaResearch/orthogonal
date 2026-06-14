@@ -67,18 +67,8 @@ output "github_bot_worker_name" {
 
 # Web App
 output "web_app_url" {
-  description = "Web app URL"
-  value       = var.web_platform == "vercel" ? module.web_app[0].production_url : local.web_app_url
-}
-
-output "web_app_platform" {
-  description = "Web app deployment platform"
-  value       = var.web_platform
-}
-
-output "web_app_project_id" {
-  description = "Vercel project ID (null when using Cloudflare)"
-  value       = var.web_platform == "vercel" ? module.web_app[0].project_id : null
+  description = "Web app URL (apps/orto, deployed on its own Vercel dashboard project)"
+  value       = var.web_app_url
 }
 
 # Modal
@@ -107,7 +97,7 @@ output "verification_commands" {
     curl ${module.modal_app.api_health_url}
 
     # 3. Verify web app deployment
-    curl ${local.web_app_url}
+    curl ${var.web_app_url}
 
     # 4. Test authenticated endpoint (should return 401)
     curl ${module.control_plane_worker.worker_url}/sessions

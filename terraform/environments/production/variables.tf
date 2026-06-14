@@ -24,19 +24,6 @@ variable "cloudflare_worker_subdomain" {
   type        = string
 }
 
-variable "vercel_api_token" {
-  description = "Vercel API token (required only when web_platform = 'vercel'). Do NOT set to empty string — the Vercel provider validates this on init even when no Vercel resources are created. Leave unset to use the built-in dummy token for Cloudflare-only deployments."
-  type        = string
-  sensitive   = true
-  default     = "000000000000000000000000"
-}
-
-variable "vercel_team_id" {
-  description = "Vercel team ID (required only when web_platform = 'vercel'). Leave unset when using Cloudflare."
-  type        = string
-  default     = "unused"
-}
-
 variable "modal_token_id" {
   description = "Modal API token ID"
   type        = string
@@ -291,29 +278,22 @@ variable "modal_api_secret" {
   }
 }
 
-variable "nextauth_secret" {
-  description = "NextAuth.js secret (generate with: openssl rand -base64 32)"
-  type        = string
-  sensitive   = true
-}
-
 # =============================================================================
 # Configuration
 # =============================================================================
 
-variable "web_platform" {
-  description = "Platform for the web app deployment: 'vercel' or 'cloudflare' (OpenNext)"
+variable "web_app_url" {
+  description = "Production URL of the apps/orto web app (e.g. https://my-orto-app.vercel.app). orto self-deploys on its own Vercel dashboard project — it is NOT managed by Terraform. This URL is consumed as WEB_APP_URL by the control-plane, slack-bot, and linear-bot workers."
   type        = string
-  default     = "vercel"
 
   validation {
-    condition     = contains(["vercel", "cloudflare"], var.web_platform)
-    error_message = "web_platform must be 'vercel' or 'cloudflare'."
+    condition     = length(trimspace(var.web_app_url)) > 0
+    error_message = "web_app_url must be set to the apps/orto production URL."
   }
 }
 
 variable "deployment_name" {
-  description = "Unique deployment name used in URLs and resource names. Use something unique like your GitHub username or company name (e.g., 'acme', 'johndoe'). This will create URLs like: open-inspect-{deployment_name}.vercel.app"
+  description = "Unique deployment name used in URLs and resource names. Use something unique like your GitHub username or company name (e.g., 'acme', 'johndoe')."
   type        = string
 }
 
@@ -321,18 +301,6 @@ variable "app_name" {
   description = "Display name shown in the web UI tab title, sign-in page, bot messages (Slack, Linear), PR body footer, and outbound HTTP User-Agent headers."
   type        = string
   default     = "Open-Inspect"
-}
-
-variable "app_short_name" {
-  description = "Short brand label shown only in the web sidebar header. Defaults to 'Inspect' to keep the sidebar visually compact."
-  type        = string
-  default     = "Inspect"
-}
-
-variable "app_icon_url" {
-  description = "Optional URL (absolute or root-relative) to a custom logo image for the command menu and browser favicon. Leave empty to use the built-in favicon and default in-app icon."
-  type        = string
-  default     = ""
 }
 
 variable "enable_durable_object_bindings" {
@@ -385,26 +353,4 @@ variable "r2_media_bucket_name" {
   description = "Override the R2 media bucket name. Leave empty to use the default 'open-inspect-media-<deployment_name>'. Set this when the bucket must be pre-created out-of-band (e.g. when the Terraform credentials cannot create R2 buckets)."
   type        = string
   default     = ""
-}
-
-# =============================================================================
-# Access Control
-# =============================================================================
-
-variable "allowed_users" {
-  description = "Comma-separated list of GitHub usernames allowed to sign in. Leave empty only when allowed_email_domains is set or unsafe_allow_all_users is true."
-  type        = string
-  default     = ""
-}
-
-variable "allowed_email_domains" {
-  description = "Comma-separated list of email domains allowed to sign in (e.g., 'example.com,corp.io'). Leave empty only when allowed_users is set or unsafe_allow_all_users is true."
-  type        = string
-  default     = ""
-}
-
-variable "unsafe_allow_all_users" {
-  description = "Bypass Terraform's access-control safety check and allow any authenticated GitHub user to sign in when both allowlists are empty. Set to true only for intentionally open deployments."
-  type        = bool
-  default     = false
 }

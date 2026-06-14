@@ -10,8 +10,10 @@ The infrastructure spans multiple cloud providers:
 | Provider       | Resources                                            | Terraform Support                |
 | -------------- | ---------------------------------------------------- | -------------------------------- |
 | **Cloudflare** | Workers, KV Namespaces, Durable Objects, D1 Database | Native provider                  |
-| **Vercel**     | Next.js web app (optional)                           | Native provider                  |
 | **Modal**      | Sandbox infrastructure                               | CLI wrapper (no provider exists) |
+
+The web app (`apps/orto`) is **not** managed by Terraform — it self-deploys on its own Vercel
+dashboard project. Terraform only consumes its production URL via the `web_app_url` variable.
 
 ## Directory Structure
 
@@ -22,7 +24,6 @@ terraform/
 ├── modules/                      # Reusable Terraform modules
 │   ├── cloudflare-kv/           # KV namespace management
 │   ├── cloudflare-worker/       # Worker deployment with bindings (KV, DO, D1)
-│   ├── vercel-project/          # Vercel project + environment vars
 │   └── modal-app/               # Modal CLI wrapper
 │       └── scripts/             # Deployment scripts
 ├── environments/
@@ -32,9 +33,7 @@ terraform/
 │       ├── kv.tf                # Cloudflare KV namespaces
 │       ├── d1.tf                # D1 database + migrations
 │       ├── workers-*.tf         # Worker builds/deployments per service
-│       ├── web-*.tf             # Web app resources (Vercel/OpenNext)
 │       ├── modal.tf             # Modal infrastructure
-│       ├── checks.tf            # Terraform check blocks
 │       ├── moved.tf             # State move declarations
 │       ├── variables.tf         # Input variables
 │       ├── outputs.tf           # Output values
@@ -76,21 +75,18 @@ brew install node@22
 
 3. **Note your Account ID** (found in dashboard URL)
 
-### 3. Vercel Setup
-
-1. **Create API Token** at [Vercel Account Settings](https://vercel.com/account/tokens)
-2. **Note your Team ID** (found in team settings URL)
-
-### 4. Modal Setup
+### 3. Modal Setup
 
 1. **Sign up** at [Modal](https://modal.com)
 2. **Create API Token** at Modal Settings
 
-### 5. GitHub Apps
+### 4. GitHub Apps
 
 1. **OAuth App** - For user authentication
    - Create at: https://github.com/settings/developers
-   - Callback URL: `https://<your-vercel-app>.vercel.app/api/auth/callback/github`
+   - Callback URL: `${web_app_url}/api/auth/callback/github` — use the production URL of your
+     `apps/orto` deployment (the web app self-deploys on its own Vercel dashboard project; it is not
+     managed by Terraform)
 
 2. **GitHub App** - For repository access in sandboxes
    - Create at: https://github.com/settings/apps
@@ -99,7 +95,7 @@ brew install node@22
      openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in key.pem -out key-pkcs8.pem
      ```
 
-### 6. Slack App
+### 5. Slack App
 
 Create at [Slack API](https://api.slack.com/apps) and note:
 
@@ -204,38 +200,6 @@ module "my_worker" {
 
 **Outputs:** `worker_name`, `worker_id`, `version_id`, `deployment_id`, `worker_url`
 
-### vercel-project
-
-Creates a Vercel project with environment variables.
-
-```hcl
-module "web_app" {
-  source = "../../modules/vercel-project"
-
-  project_name = "my-app"
-  team_id      = var.vercel_team_id
-  framework    = "nextjs"
-
-  git_repository = {
-    type = "github"
-    repo = "owner/repo"
-  }
-
-  root_directory = "packages/web"
-
-  environment_variables = [
-    {
-      key       = "API_URL"
-      value     = "https://api.example.com"
-      targets   = ["production", "preview"]
-      sensitive = false
-    }
-  ]
-}
-```
-
-**Outputs:** `project_id`, `project_name`, `production_url`
-
 ### modal-app
 
 Deploys a Modal app via CLI wrapper.
@@ -320,8 +284,9 @@ curl https://open-inspect-control-plane-prod.<subdomain>.workers.dev/health
 MODAL_WORKSPACE_SLUG="<workspace>" # or "<workspace>-<modal_environment_web_suffix>"
 curl https://${MODAL_WORKSPACE_SLUG}--open-inspect-api-health.modal.run
 
-# 3. Verify Vercel deployment (replace with your Vercel app URL)
-curl https://<your-vercel-app>.vercel.app
+# 3. Verify web app deployment (apps/orto, deployed on its own Vercel dashboard project)
+# Use the value you set for web_app_url, or run: terraform output web_app_url
+curl https://<your-orto-app>.vercel.app
 
 # 4. Test authenticated endpoint (should return 401)
 curl https://open-inspect-control-plane-prod.<subdomain>.workers.dev/sessions
