@@ -96,7 +96,7 @@ output "verification_commands" {
   value       = <<-EOF
 
     # 1. Health check control plane
-    curl ${module.control_plane_worker.worker_url}/health
+    curl ${local.control_plane_url}/health
 
     # 2. Health check sandbox backend
     curl ${module.modal_app.api_health_url}
@@ -105,7 +105,7 @@ output "verification_commands" {
     curl ${var.web_app_url}
 
     # 4. Test authenticated endpoint (should return 401)
-    curl ${module.control_plane_worker.worker_url}/sessions
+    curl ${local.control_plane_url}/sessions
 
   EOF
 }
