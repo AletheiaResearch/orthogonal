@@ -23,7 +23,11 @@ function Mark({ className }: { className?: string }) {
         strokeWidth={10}
         strokeLinejoin="miter"
         pathLength={1}
-        style={{ strokeDasharray: 1, strokeDashoffset: 1, animation: "draw 1.6s ease-out 0.2s forwards" }}
+        style={{
+          strokeDasharray: 1,
+          strokeDashoffset: 1,
+          animation: "draw 1.6s ease-out 0.2s forwards",
+        }}
       />
     </svg>
   );
@@ -108,7 +112,9 @@ export default function Home() {
 
       <footer className="flex items-center justify-between text-xs tracking-wide">
         <span className="font-sans text-[#EDEBE6]/55">Private beta · Coming soon</span>
-        <span className="font-sans tabular-nums text-[#EDEBE6]/30">© {new Date().getFullYear()}</span>
+        <span className="font-sans text-[#EDEBE6]/30 tabular-nums">
+          © {new Date().getFullYear()}
+        </span>
       </footer>
     </main>
   );

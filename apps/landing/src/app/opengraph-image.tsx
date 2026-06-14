@@ -31,40 +31,38 @@ export default async function Image() {
     : undefined;
 
   return new ImageResponse(
-    (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        backgroundColor: "#101010",
+        color: "#edebe6",
+        padding: "72px 80px",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", fontSize: 26, letterSpacing: "0.34em" }}>
+        <div style={{ width: 15, height: 15, backgroundColor: "#ff5c00", marginRight: 18 }} />
+        ORTO
+      </div>
       <div
         style={{
-          width: "100%",
-          height: "100%",
           display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          backgroundColor: "#101010",
-          color: "#edebe6",
-          padding: "72px 80px",
+          fontFamily: "Cormorant",
+          fontSize: 98,
+          lineHeight: 1.04,
+          maxWidth: 940,
+          letterSpacing: "-0.01em",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", fontSize: 26, letterSpacing: "0.34em" }}>
-          <div style={{ width: 15, height: 15, backgroundColor: "#ff5c00", marginRight: 18 }} />
-          ORTO
-        </div>
-        <div
-          style={{
-            display: "flex",
-            fontFamily: "Cormorant",
-            fontSize: 98,
-            lineHeight: 1.04,
-            maxWidth: 940,
-            letterSpacing: "-0.01em",
-          }}
-        >
-          {HEADLINE}
-        </div>
-        <div style={{ display: "flex", fontSize: 24, color: "rgba(237,235,230,0.55)" }}>
-          Private beta · Coming soon
-        </div>
+        {HEADLINE}
       </div>
-    ),
-    { ...size, ...(fonts ? { fonts } : {}) },
+      <div style={{ display: "flex", fontSize: 24, color: "rgba(237,235,230,0.55)" }}>
+        Private beta · Coming soon
+      </div>
+    </div>,
+    { ...size, ...(fonts ? { fonts } : {}) }
   );
 }
