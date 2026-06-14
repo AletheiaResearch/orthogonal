@@ -18,9 +18,6 @@ component_management:
     - component_id: control-plane
       name: control-plane
       paths: ["packages/control-plane/**"]
-    - component_id: web
-      name: web
-      paths: ["packages/web/**"]
     - component_id: ui
       name: ui
       paths: ["packages/ui/**"]

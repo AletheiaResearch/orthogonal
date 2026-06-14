@@ -42,15 +42,6 @@
       }
     },
     {
-      "files": ["packages/web/**/*.{ts,tsx,js,jsx}"],
-      "options": {
-        "sortTailwindcss": {
-          "config": "packages/web/tailwind.config.ts",
-          "functions": ["cn", "clsx", "cva", "tw"]
-        }
-      }
-    },
-    {
       "files": ["apps/landing/**/*.{ts,tsx,js,jsx}"],
       "options": {
         "sortTailwindcss": {
