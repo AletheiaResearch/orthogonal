@@ -10,4 +10,3 @@
 # - d1.tf                        Cloudflare D1 database and migrations
 # - workers-*.tf                 Worker builds and deployments by service
 # - modal.tf                     Modal infrastructure
-# - moved.tf                     State move declarations

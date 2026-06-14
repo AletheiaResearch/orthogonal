@@ -34,7 +34,6 @@ terraform/
 │       ├── d1.tf                # D1 database + migrations
 │       ├── workers-*.tf         # Worker builds/deployments per service
 │       ├── modal.tf             # Modal infrastructure
-│       ├── moved.tf             # State move declarations
 │       ├── variables.tf         # Input variables
 │       ├── outputs.tf           # Output values
 │       ├── backend.tf           # State backend (R2)
