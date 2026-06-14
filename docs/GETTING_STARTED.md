@@ -364,6 +364,12 @@ internal_callback_secret      = "your-generated-value"
 modal_api_secret         = "your-generated-value"
 
 # Configuration
+# Production URL of the apps/orto web app — REQUIRED (consumed as WEB_APP_URL by the
+# control-plane, slack-bot, and linear-bot workers). orto self-deploys on its own
+# Vercel project, not via Terraform, so you may not have the final URL until Step 8:
+# put a placeholder here and backfill it before deploying the web app.
+web_app_url = "https://<your-orto-app>.vercel.app"
+
 # deployment_name is embedded in your Cloudflare Worker URLs (control plane + bots),
 # so keep it unique within your account. Use your GitHub username, company name, or a
 # random string.
