@@ -116,7 +116,6 @@ built for internal use where all employees are trusted and have access to compan
 | Package                                     | Description                                                                       |
 | ------------------------------------------- | --------------------------------------------------------------------------------- |
 | [control-plane](packages/control-plane)     | Cloudflare Workers + Durable Objects                                              |
-| [web](packages/web)                         | Next.js web client                                                                |
 | [orto](apps/orto)                           | Next.js web client (Vercel + PostHog)                                             |
 | [sandbox-runtime](packages/sandbox-runtime) | Shared in-sandbox agent runtime                                                   |
 | [modal-infra](packages/modal-infra)         | Modal sandbox infrastructure                                                      |

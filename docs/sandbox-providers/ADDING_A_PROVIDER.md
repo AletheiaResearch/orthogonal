@@ -101,17 +101,18 @@ If supported:
 - [ ] Document new variables in `terraform.tfvars.example` and `terraform/README.md`
 - [ ] Keep Modal module unconditional **or** make both conditional — pick one ops model
 
-**Do not confuse** Vercel sandbox variables (`vercel_sandbox_*`, removed) with Vercel web hosting
-(`vercel_api_token`, `web_platform`).
+**Do not confuse** Vercel sandbox variables (`vercel_sandbox_*`, removed) with the `apps/orto` web
+app, which deploys via its own dashboard-managed Vercel project (not Terraform).
 
 ## 7. Web app (if feature-gated)
 
 Only needed when the new provider lacks repo images:
 
-- [ ] Restore `packages/web/src/lib/sandbox-provider.ts` with `supportsRepoImages()`
-- [ ] Gate `packages/web/src/app/api/repo-images/*` routes
+- [ ] Restore `apps/orto/src/lib/sandbox-provider.ts` with `supportsRepoImages()`
+- [ ] Gate `apps/orto/src/app/api/repo-images/*` routes
 - [ ] Gate settings nav / images settings components
-- [ ] Add `NEXT_PUBLIC_SANDBOX_PROVIDER` to web Terraform outputs if client-side gating is required
+- [ ] Add `NEXT_PUBLIC_SANDBOX_PROVIDER` to the `apps/orto` Vercel project env if client-side gating
+      is required
 
 After migration, repo images UI is always on — no gating exists today.
 

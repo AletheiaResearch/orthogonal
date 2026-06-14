@@ -19,7 +19,7 @@ Use TodoWrite to create a checklist tracking these phases:
 
 1. Initial setup questions
 2. Repository setup
-3. Credential collection (Cloudflare, Vercel, Modal, Anthropic)
+3. Credential collection (Cloudflare, Modal, Anthropic)
 4. GitHub App creation
 5. Slack App creation (if enabled)
 6. Security secrets generation
@@ -27,7 +27,7 @@ Use TodoWrite to create a checklist tracking these phases:
 8. Terraform deployment (two phases)
 9. Post-deployment Slack setup (if enabled)
 10. Post-deployment GitHub Bot setup (if enabled)
-11. Web app deployment
+11. Web app deployment (apps/orto via its own Vercel project)
 12. Verification
 
 ## Phase 1: Initial Questions
@@ -43,9 +43,10 @@ Use AskUserQuestion to gather:
 1. **Directory location** - Where to create the project (default: current directory or
    ~/workplace/open-inspect-{suffix})
 2. **GitHub account** - Which account/org hosts the private repo
-3. **Deployment name** - A globally unique identifier for URLs (e.g., their GitHub username, company
-   name, or the random suffix generated above). Explain this creates URLs like
-   `open-inspect-{deployment_name}.vercel.app` and must be unique across all Vercel users.
+3. **Deployment name** - An identifier embedded in the Cloudflare Worker URLs (e.g., their GitHub
+   username, company name, or the random suffix generated above). Explain this creates URLs like
+   `open-inspect-control-plane-{deployment_name}.{subdomain}.workers.dev` and should be unique
+   within their Cloudflare account.
 4. **Slack integration** - Yes or No
 5. **GitHub bot integration** - Yes or No (automated PR reviews and comment-triggered actions)
 6. **Prerequisites confirmation** - Confirm they have accounts on Cloudflare, Vercel, Modal,
@@ -95,11 +96,9 @@ wrangler r2 bucket create open-inspect-{name}-tf-state
 Tell user to create R2 API Token at R2 → Overview → Manage R2 API Tokens with "Object Read & Write"
 permission.
 
-### Vercel
-
-- **API Token**: https://vercel.com/account/tokens
-- **Team/Account ID**: Settings → "Your ID" (even personal accounts have one, usually starts with
-  `team_`)
+> **Vercel**: No Vercel API token is collected here. The web app (`apps/orto`) deploys via its own
+> dashboard-managed Vercel project (not Terraform), so the user only needs a Vercel account. The
+> project is set up in Phase 11.
 
 ### Modal
 
@@ -123,11 +122,12 @@ Guide user through creating a GitHub App (handles both OAuth and repo access):
 
 1. Go to https://github.com/settings/apps → "New GitHub App"
 2. **Name**: `Open-Inspect-{YourName}` (globally unique)
-3. **Homepage URL**: `https://open-inspect-{deployment_name}.vercel.app`
+3. **Homepage URL**: your deployed `apps/orto` Vercel URL (can be set/updated after Phase 11)
 4. **Webhook**: Uncheck "Active"
 5. **Callback URL** (under "Identifying and authorizing users"):
-   `https://open-inspect-{deployment_name}.vercel.app/api/auth/callback/github`
-   - **CRITICAL**: Must match deployed Vercel URL exactly!
+   `{your-web-app-url}/api/auth/callback/github`
+   - **CRITICAL**: Must match the deployed `apps/orto` Vercel URL exactly! If the URL isn't known
+     yet, update the callback URL after deploying the web app in Phase 11.
 6. **Repository permissions**: Contents (Read & Write), Issues (Read & Write), Pull requests (Read &
    Write), Metadata (Read-only)
 7. Create app, note **App ID**
@@ -160,7 +160,7 @@ Guide user:
 echo "token_encryption_key: $(openssl rand -base64 32)"
 echo "repo_secrets_encryption_key: $(openssl rand -base64 32)"
 echo "internal_callback_secret: $(openssl rand -base64 32)"
-echo "nextauth_secret: $(openssl rand -base64 32)"
+echo "nextauth_secret: $(openssl rand -base64 32)"  # For the apps/orto Vercel env, NOT terraform.tfvars
 echo "modal_api_secret: $(openssl rand -hex 32)"
 echo "github_webhook_secret: $(openssl rand -hex 32)"  # Only if GitHub bot enabled
 ```
@@ -270,18 +270,22 @@ terraform.tfvars.
 
 ## Phase 11: Web App Deployment
 
-```bash
-npx vercel link --project open-inspect-{deployment_name}
-npx vercel --prod
-```
+The web app (`apps/orto`) deploys via its own dashboard-managed Vercel project — **not** Terraform.
+Guide the user to set up the Vercel Git integration following
+[apps/orto/README.md](../../../apps/orto/README.md): create a Vercel project from the repo, set the
+**Root Directory** to `apps/orto`, configure the monorepo install/build commands, and set the
+environment variables. Once deployed, note the project's URL and confirm the GitHub App's OAuth
+callback URL (`{your-web-app-url}/api/auth/callback/github`) matches it exactly (see Phase 4).
 
 ## Phase 12: Verification
 
 ```bash
 curl https://open-inspect-control-plane-{deployment_name}.{subdomain}.workers.dev/health
 curl https://{workspace}--open-inspect-api-health.modal.run
-curl -I https://open-inspect-{deployment_name}.vercel.app
 ```
+
+For the web app, open the deployed `apps/orto` Vercel URL in a browser — it should return the
+sign-in page.
 
 Present deployment summary table. Instruct user to test: visit web app, sign in with GitHub, create
 session, send prompt.
@@ -294,7 +298,8 @@ session, send prompt.
   reinstall if scopes changed
 - **GitHub bot not responding**: Check webhook URL, secret, `enable_github_bot = true`, and
   `github_bot_username` matches the App's bot login
-- **Vercel build fails**: Terraform configures the monorepo build commands automatically
+- **Vercel build fails**: Check the `apps/orto` project's root directory and monorepo install/build
+  commands match [apps/orto/README.md](../../../apps/orto/README.md)
 - **"no such file or directory" for dist/index.js**: Build workers before Terraform:
   `pnpm --filter @open-inspect/control-plane --filter @open-inspect/slack-bot --filter @open-inspect/github-bot build`
 - **Worker deployment fails**: Build shared package first:

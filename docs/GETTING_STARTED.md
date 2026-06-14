@@ -15,18 +15,13 @@ This guide walks you through deploying your own instance of Open-Inspect using T
 
 Open-Inspect uses Terraform to automate deployment across multiple cloud providers:
 
-| Provider                               | Purpose                                     | What Terraform Creates                                            |
-| -------------------------------------- | ------------------------------------------- | ----------------------------------------------------------------- |
-| **Cloudflare**                         | Control plane, session state                | Workers, KV namespaces, Durable Objects, D1 Database              |
-| **Vercel** _or_ **Cloudflare Workers** | Web application                             | Project + env vars (Vercel) _or_ Worker via OpenNext (Cloudflare) |
-| **Modal**                              | Sandbox execution infrastructure (required) | Modal app deployment via Terraform                                |
+| Provider       | Purpose                                     | What Terraform Creates                               |
+| -------------- | ------------------------------------------- | ---------------------------------------------------- |
+| **Cloudflare** | Control plane, session state                | Workers, KV namespaces, Durable Objects, D1 Database |
+| **Modal**      | Sandbox execution infrastructure (required) | Modal app deployment via Terraform                   |
 
-> **Web platform choice**: Set `web_platform` in your `terraform.tfvars` to `"vercel"` (default) or
-> `"cloudflare"`. The Cloudflare option deploys the Next.js app as a Cloudflare Worker using
-> [OpenNext](https://opennext.js.org/cloudflare), so you don't need a Vercel account.
->
-> The repo also contains `apps/orto`, a standalone Vercel-only copy of the web client (with PostHog
-> analytics) that is deployed manually and not managed by Terraform — see
+> **Web app**: The web client is `apps/orto` (Next.js, with PostHog analytics). It deploys via its
+> own dashboard-managed Vercel project and is **not** managed by Terraform — see
 > [apps/orto/README.md](../apps/orto/README.md).
 
 **Your job**: Create accounts, gather credentials, and configure one file (`terraform.tfvars`).
@@ -40,15 +35,15 @@ Open-Inspect uses Terraform to automate deployment across multiple cloud provide
 
 Create accounts on these services before continuing:
 
-| Service                                          | Purpose                                                        |
-| ------------------------------------------------ | -------------------------------------------------------------- |
-| [Cloudflare](https://dash.cloudflare.com)        | Control plane hosting (+ web app if using Cloudflare platform) |
-| [Vercel](https://vercel.com) _(optional)_        | Web application hosting (only if `web_platform = "vercel"`)    |
-| [Modal](https://modal.com)                       | Sandbox infrastructure (required)                              |
-| [GitHub](https://github.com/settings/developers) | OAuth + repository access                                      |
-| [Anthropic](https://console.anthropic.com)       | Claude API                                                     |
-| [Slack](https://api.slack.com/apps) _(optional)_ | Slack bot integration                                          |
-| GitHub App Webhooks _(optional)_                 | GitHub bot (PR reviews)                                        |
+| Service                                          | Purpose                           |
+| ------------------------------------------------ | --------------------------------- |
+| [Cloudflare](https://dash.cloudflare.com)        | Control plane hosting             |
+| [Vercel](https://vercel.com)                     | Web app hosting (`apps/orto`)     |
+| [Modal](https://modal.com)                       | Sandbox infrastructure (required) |
+| [GitHub](https://github.com/settings/developers) | OAuth + repository access         |
+| [Anthropic](https://console.anthropic.com)       | Claude API                        |
+| [Slack](https://api.slack.com/apps) _(optional)_ | Slack bot integration             |
+| GitHub App Webhooks _(optional)_                 | GitHub bot (PR reviews)           |
 
 ### Required Tools
 
@@ -134,19 +129,12 @@ Create an R2 API Token:
 2. Create token with **Object Read & Write** permission
 3. Note the **Access Key ID** and **Secret Access Key**
 
-### Vercel (only if `web_platform = "vercel"`)
+### Vercel
 
-> Skip this section if you're deploying the web app to Cloudflare Workers. **Important**: Do not set
-> `vercel_api_token` or `vercel_team_id` to empty strings in your `terraform.tfvars` — leave them
-> unset so the dummy defaults are used. The Vercel Terraform provider validates the token on init
-> even when no Vercel resources are created.
-
-1. Go to [Vercel Account Settings → Tokens](https://vercel.com/account/tokens)
-2. Create a new token with full access
-3. **Note your Team/Account ID**:
-   - Go to **Settings** (Account Settings or Team Settings)
-   - Look for **"Your ID"** or find it in the URL: `vercel.com/{YOUR_TEAM_ID}/...`
-   - Even personal accounts have an ID (usually starts with `team_`)
+The web app (`apps/orto`) deploys via its own dashboard-managed Vercel project, not Terraform — so
+no Vercel API token is needed for the Terraform deploy below. You only need a Vercel account; set
+the project up later (see [Step 8](#step-8-deploy-the-web-app) and
+[apps/orto/README.md](../apps/orto/README.md)).
 
 ### Modal
 
@@ -187,13 +175,12 @@ access.
 4. Configure **Identifying and authorizing users** (OAuth):
    - **Callback URL**: `{your-web-app-url}/api/auth/callback/github`
 
-   Your web app URL depends on `web_platform`:
-   - **Vercel**: `https://open-inspect-{deployment_name}.vercel.app`
-   - **Cloudflare**: `https://open-inspect-web-{deployment_name}.{your-subdomain}.workers.dev`
+   Your web app URL is the domain of your deployed `apps/orto` Vercel project (see
+   [apps/orto/README.md](../apps/orto/README.md)).
 
-   > **Important**: The callback URL must match your deployed web app URL exactly. The
-   > `{deployment_name}` is the unique value you set in `terraform.tfvars` (e.g., your GitHub
-   > username or company name).
+   > **Important**: The callback URL must match your deployed web app URL exactly. If you don't have
+   > the final web app URL yet, you can come back and update the callback URL after deploying the
+   > web app in [Step 8](#step-8-deploy-the-web-app).
 
 5. Set **Repository permissions**:
    - Contents: **Read & Write**
@@ -287,7 +274,7 @@ echo "internal_callback_secret: $(openssl rand -base64 32)"
 # Modal API secret (use hex for this one)
 echo "modal_api_secret: $(openssl rand -hex 32)"
 
-# NextAuth secret
+# NextAuth secret (for the apps/orto web app — set in its Vercel project env, not terraform.tfvars)
 echo "nextauth_secret: $(openssl rand -base64 32)"
 
 # GitHub webhook secret (only if enabling GitHub bot)
@@ -330,13 +317,7 @@ cloudflare_api_token        = "your-cloudflare-api-token"
 cloudflare_account_id       = "your-account-id"
 cloudflare_worker_subdomain = "your-subdomain"  # e.g., "twilight-unit-b2cf" (without .workers.dev)
 
-# Web platform: "vercel" (default) or "cloudflare" (OpenNext)
-web_platform                = "vercel"
-
-# Vercel (only required when web_platform = "vercel")
-# If using Cloudflare, do NOT set these — leave them out so the dummy defaults are used.
-vercel_api_token            = "your-vercel-token"
-vercel_team_id              = "team_xxxxx"       # Your Vercel ID (even personal accounts have one)
+# Modal (sandbox execution — required)
 modal_token_id              = "your-modal-token-id"
 modal_token_secret          = "your-modal-token-secret"
 modal_workspace             = "your-modal-workspace"
@@ -381,40 +362,29 @@ token_encryption_key          = "your-generated-value"
 repo_secrets_encryption_key   = "your-generated-value"
 internal_callback_secret      = "your-generated-value"
 modal_api_secret         = "your-generated-value"
-nextauth_secret          = "your-generated-value"
 
 # Configuration
-# IMPORTANT: deployment_name must be globally unique for Vercel URLs
-# Use your GitHub username, company name, or a random string
+# deployment_name is embedded in your Cloudflare Worker URLs (control plane + bots),
+# so keep it unique within your account. Use your GitHub username, company name, or a
+# random string.
 deployment_name = "your-unique-name"  # e.g., "acme", "johndoe", "mycompany"
 project_root    = "../../../"
 
-# Branding (optional — defaults shown)
-# Display name shown in the web UI tab title, sign-in page, landing hero, bot
-# messages (Slack/Linear), PR body footer, and outbound HTTP User-Agent.
+# Branding (optional). app_name is the display name used in bot messages
+# (Slack/Linear), the PR body footer, and the outbound HTTP User-Agent. The web
+# UI's own branding (name, short label, logo/favicon) is set in the apps/orto
+# Vercel project env — see "Customizing the App Name and Icon" below.
 # app_name = "Open-Inspect"
-# Short brand label shown only in the sidebar header.
-# app_short_name = "Inspect"
-# Optional URL (absolute or root-relative) to a custom logo/favicon override.
-# Leave empty to keep the built-in favicon and default in-app icon.
-# app_icon_url = ""
 
 # Initial deployment: set both to false (see Step 7)
 enable_durable_object_bindings = false
 enable_service_bindings        = false
-
-# Access Control (set at least one allowlist for production)
-allowed_users         = "your-github-username"  # Comma-separated GitHub usernames, or empty
-allowed_email_domains = ""                      # Comma-separated domains (e.g., "example.com,corp.io")
-
-# Explicitly opt into open access only if you want any authenticated GitHub user
-# to be able to sign in when both allowlists are empty.
-unsafe_allow_all_users = false
 ```
 
-> **Note**: Review `allowed_users` and `allowed_email_domains` carefully - these control who can
-> sign in. Terraform now fails if both are empty unless you explicitly set
-> `unsafe_allow_all_users = true`.
+> **Note**: Access control (`ALLOWED_USERS`, `ALLOWED_EMAIL_DOMAINS`, `UNSAFE_ALLOW_ALL_USERS`), the
+> NextAuth secret, and the web UI branding live in the `apps/orto` Vercel project's environment
+> variables (see [apps/orto/.env.example](../apps/orto/.env.example)), not in `terraform.tfvars`.
+> Sign-in is denied when both allowlists are empty unless `UNSAFE_ALLOW_ALL_USERS=true`.
 
 ---
 
@@ -566,41 +536,13 @@ For day-to-day workflows, see [GitHub Integration](./integrations/GITHUB.md).
 
 ## Step 8: Deploy the Web App
 
-### If using Cloudflare (`web_platform = "cloudflare"`)
+The web app (`apps/orto`) deploys via its own dashboard-managed Vercel project — it is **not**
+created or deployed by Terraform. Follow the deployment instructions in
+[apps/orto/README.md](../apps/orto/README.md) to create the Vercel project, set its root directory
+and build commands, and configure its environment variables.
 
-Terraform handles the full build and deploy automatically — the web app is built with OpenNext and
-deployed as a Cloudflare Worker during `terraform apply`. No manual step needed.
-
-### If using Vercel (`web_platform = "vercel"`)
-
-Terraform creates the Vercel project and configures environment variables, but does **not** deploy
-the code. You have two options:
-
-#### Option A: Deploy via CLI (Recommended for First Deploy)
-
-```bash
-# From the repository root (replace {deployment_name} with your value from terraform.tfvars)
-npx vercel link --project open-inspect-{deployment_name}
-npx vercel --prod
-```
-
-> **Note**: The Vercel project is configured with custom build commands for the monorepo structure.
-> Terraform sets these automatically:
->
-> - Install:
->   `cd ../.. && corepack enable && pnpm install && pnpm --filter @open-inspect/shared build`
-> - Build: `next build`
-
-#### Option B: Link Git Repository (For Automatic Deployments)
-
-1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
-2. Find the `open-inspect-{deployment_name}` project
-3. Go to **Settings → Git**
-4. Click **"Connect Git Repository"** and select your fork
-5. Vercel will automatically deploy on push to main
-
-> **Note**: If you link Git, ensure the build settings match those configured by Terraform (Settings
-> → General → Build & Development Settings).
+Once deployed, note the project's URL and make sure your GitHub App's OAuth callback URL
+(`{your-web-app-url}/api/auth/callback/github`) matches it exactly (see Step 3).
 
 ---
 
@@ -624,13 +566,10 @@ curl https://open-inspect-control-plane-{deployment_name}.YOUR-SUBDOMAIN.workers
 # Manual form: https://<workspace>[-<modal_environment_web_suffix>]--open-inspect-api-health.modal.run
 MODAL_WORKSPACE_SLUG="YOUR-WORKSPACE" # or "YOUR-WORKSPACE-YOUR-MODAL-WEB-SUFFIX"
 curl https://${MODAL_WORKSPACE_SLUG}--open-inspect-api-health.modal.run
-
-# 3. Web app (should return 200)
-# Vercel:
-curl -I https://open-inspect-{deployment_name}.vercel.app
-# Cloudflare:
-curl -I https://open-inspect-web-{deployment_name}.YOUR-SUBDOMAIN.workers.dev
 ```
+
+For the web app, open your deployed `apps/orto` Vercel URL in a browser — it should return the
+sign-in page.
 
 ### Test the Full Flow
 
@@ -679,11 +618,9 @@ terraform init -backend-config=backend.tfvars
 ### GitHub OAuth "redirect_uri is not associated with this application"
 
 The callback URL in your GitHub App settings doesn't match your deployed URL. Update the callback
-URL to match your web app URL:
+URL to match your deployed `apps/orto` Vercel URL exactly:
 
-- **Vercel**: `https://open-inspect-{deployment_name}.vercel.app/api/auth/callback/github`
-- **Cloudflare**:
-  `https://open-inspect-web-{deployment_name}.YOUR-SUBDOMAIN.workers.dev/api/auth/callback/github`
+`{your-web-app-url}/api/auth/callback/github`
 
 ### Modal deployment fails
 
@@ -756,15 +693,6 @@ If the bot doesn't see the original message when tagged in a thread reply:
 
 See [Secrets Management](SECRETS.md) for more on global and repository secrets.
 
-### Vercel provider error when using `web_platform = "cloudflare"`
-
-The Vercel Terraform provider validates its API token on initialization, even when no Vercel
-resources are created. If you set `vercel_api_token = ""` in your `terraform.tfvars`, the provider
-will reject it. **Fix**: Remove the `vercel_api_token` and `vercel_team_id` lines from your
-`terraform.tfvars` entirely — the built-in defaults (`"unused"`) satisfy the provider's non-empty
-validation. This is a known Terraform limitation (providers validate credentials on init regardless
-of whether any resources use them).
-
 ### Durable Objects / Service Binding errors
 
 This occurs on first deployment. Follow the two-phase deployment process:
@@ -790,34 +718,31 @@ This occurs on first deployment. Follow the two-phase deployment process:
 Open-Inspect can be whitelabeled by overriding the brand name and logo. Both values are optional and
 default to the built-in `Open-Inspect` brand.
 
-Add these to your `terraform.tfvars`:
+Branding lives in two places.
+
+**1. Bot / control-plane branding — `terraform.tfvars`.** `app_name` is read by the workers and used
+in Slack App Home settings, Linear OAuth/completion messages, the PR body footer
+(`Created with [<app_name>](<session-url>)`), and outbound HTTP User-Agent headers:
 
 ```hcl
-# Display name shown in:
-#   - Web tab title, sign-in page, landing hero
-#   - Slack App Home settings page
-#   - Linear OAuth success page and completion comments
-#   - PR body footer ("Created with [<app_name>](<session-url>)")
-#   - Outbound HTTP User-Agent headers (GitHub, GitLab API)
 app_name = "Acme Bot"
-
-# Optional short label for the sidebar header. Set this when app_name is too
-# wide for the sidebar.
-app_short_name = "Acme"
-
-# Optional URL to a custom logo image (SVG/PNG). When set, replaces the icon in
-# the command menu and favicon. Leave empty to keep the built-in favicon.
-# Use an absolute URL or a root-relative path served from packages/web/public/.
-app_icon_url = "/branding/acme-logo.svg"   # or "https://cdn.example.com/logo.svg"
 ```
 
-After changing any of these values, run `terraform apply` and (for Vercel) redeploy the web app so
-the new build picks up the `NEXT_PUBLIC_APP_NAME`, `NEXT_PUBLIC_APP_SHORT_NAME`, and
-`NEXT_PUBLIC_APP_ICON_URL` env vars (Cloudflare's web deploy is rebuilt automatically by Terraform).
+Run `terraform apply` after changing it; the bot/control-plane workers read `APP_NAME` at request
+time and pick up the new value immediately.
 
-> **Note**: `NEXT_PUBLIC_*` vars are inlined into the client bundle at build time, so changes
-> require a fresh web build. The bot/control-plane workers read `APP_NAME` at request time, so they
-> pick up the new value immediately after `terraform apply`.
+**2. Web UI branding — `apps/orto` Vercel env.** The name, short label, and logo/favicon shown in
+the web UI are `NEXT_PUBLIC_*` env vars on the `apps/orto` Vercel project, inlined into the client
+bundle at build time:
+
+| Env var                      | Purpose                                                                |
+| ---------------------------- | ---------------------------------------------------------------------- |
+| `NEXT_PUBLIC_APP_NAME`       | Web tab title, sign-in page, landing hero                              |
+| `NEXT_PUBLIC_APP_SHORT_NAME` | Short label for the sidebar header                                     |
+| `NEXT_PUBLIC_APP_ICON_URL`   | Custom logo/favicon (absolute URL or a path under `apps/orto/public/`) |
+
+Set these in the Vercel project (see [apps/orto/.env.example](../apps/orto/.env.example)) and
+redeploy `apps/orto` so the fresh build picks them up.
 
 ---
 
