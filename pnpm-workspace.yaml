@@ -9,6 +9,13 @@ trustLockfile: false
 trustPolicy: no-downgrade
 trustPolicyIgnoreAfter: 525600
 
+# Targeted no-downgrade exceptions: legitimate packages whose specific pinned
+# release shipped without provenance/trusted-publisher evidence (CI attestation
+# gaps, not compromises). Each is an audited, explicit allowance. Pulled in by
+# PayloadCMS 3.85.0, which pins these exact versions.
+trustPolicyExclude:
+  - "pino@9.14.0"
+
 overrides:
   minimatch: ^10.2.4
   undici: ^7.24.0
@@ -96,6 +103,7 @@ catalog:
   wrangler: 4.30.0
 
 allowBuilds:
+  bufferutil: false
   core-js: false
   esbuild: true
   msw: true

@@ -60,6 +60,9 @@ coverage/
 .cache/
 .turbo/
 
+# Superpowers brainstorm scratch
+.superpowers/
+
 # Private keys
 *.pem
 
