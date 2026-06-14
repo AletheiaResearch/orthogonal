@@ -366,8 +366,9 @@ modal_api_secret         = "your-generated-value"
 # Configuration
 # Production URL of the apps/orto web app — REQUIRED (consumed as WEB_APP_URL by the
 # control-plane, slack-bot, and linear-bot workers). orto self-deploys on its own
-# Vercel project, not via Terraform, so you may not have the final URL until Step 8:
-# put a placeholder here and backfill it before deploying the web app.
+# Vercel project, not via Terraform, so you won't have the final URL until Step 8.
+# Use a placeholder for the first apply; in Step 8 you'll set the real URL and run
+# `terraform apply` again to propagate it to the workers.
 web_app_url = "https://<your-orto-app>.vercel.app"
 
 # deployment_name is embedded in your Cloudflare Worker URLs (control plane + bots),
@@ -547,8 +548,14 @@ created or deployed by Terraform. Follow the deployment instructions in
 [apps/orto/README.md](../apps/orto/README.md) to create the Vercel project, set its root directory
 and build commands, and configure its environment variables.
 
-Once deployed, note the project's URL and make sure your GitHub App's OAuth callback URL
-(`{your-web-app-url}/api/auth/callback/github`) matches it exactly (see Step 3).
+Once deployed, note the project's URL, then:
+
+1. Make sure your GitHub App's OAuth callback URL (`{your-web-app-url}/api/auth/callback/github`)
+   matches it exactly (see Step 3).
+2. Set `web_app_url` in `terraform.tfvars` to this real URL (replacing the Step 6 placeholder) and
+   run `terraform apply` again. This propagates the URL to the control-plane, slack-bot, and
+   linear-bot workers (`WEB_APP_URL`), which build "View Session" / PR deep-links from it — without
+   the re-apply they keep the placeholder and those links break.
 
 ---
 
