@@ -3,7 +3,7 @@
   "extends": ["//"],
   "tasks": {
     "build": {
-      "env": ["NEXT_PUBLIC_*", "SITE_INDEXABLE"],
+      "env": ["NEXT_PUBLIC_*", "SITE_INDEXABLE", "R2_PUBLIC_URL"],
       "passThroughEnv": [
         "PAYLOAD_SECRET",
         "PREVIEW_SECRET",

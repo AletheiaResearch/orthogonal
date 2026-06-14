@@ -228,9 +228,10 @@ as-built contract (see `apps/landing/.env.example`):
 - `SITE_INDEXABLE` (default `false`).
 - **Media storage (Cloudflare R2 via `@payloadcms/storage-s3`):** `R2_BUCKET` (unset → falls back to
   local disk storage), `R2_ENDPOINT` (S3 API endpoint, uploads only), `R2_ACCESS_KEY_ID`,
-  `R2_SECRET_ACCESS_KEY`. The public file URL is the bucket's custom domain
-  (`https://chronicles.orto.sh/...`), set in `generateFileURL`/`Media.upload`, **not** an env var —
-  region is hardcoded `"auto"` (R2 ignores real regions).
+  `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_URL` (optional). The public file URL is the bucket's custom
+  domain, configured via the optional `R2_PUBLIC_URL` env var (defaulting to
+  `https://chronicles.orto.sh`) and applied in `generateFileURL`/`Media.upload` — region is
+  hardcoded `"auto"` (R2 ignores real regions).
 
 Add all to `apps/landing/.env.example` and Vercel project settings.
 

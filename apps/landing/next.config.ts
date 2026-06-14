@@ -7,12 +7,17 @@ import type { NextConfig } from "next";
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 
+// Media is served from the R2 public domain (R2_PUBLIC_URL, default below). Derive
+// the next/image allow-list host from it so a custom domain doesn't break <Image>.
+// Mirrors lib/r2.ts; declared in turbo.json `env` so it's available under strict mode.
+const r2Host = new URL(process.env.R2_PUBLIC_URL?.trim() || "https://chronicles.orto.sh").hostname;
+
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "chronicles.orto.sh",
+        hostname: r2Host,
         pathname: "/**",
       },
     ],

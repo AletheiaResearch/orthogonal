@@ -3,5 +3,5 @@
  * R2_PUBLIC_URL to the bucket's public custom domain; falls back to the
  * canonical Orthogonal chronicles domain when unset.
  */
-export const R2_PUBLIC_BASE =
-  process.env.R2_PUBLIC_URL?.replace(/\/$/, "") ?? "https://chronicles.orto.sh";
+const r2PublicUrl = process.env.R2_PUBLIC_URL?.trim();
+export const R2_PUBLIC_BASE = (r2PublicUrl || "https://chronicles.orto.sh").replace(/\/+$/, "");
