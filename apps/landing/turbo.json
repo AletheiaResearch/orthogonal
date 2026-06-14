@@ -1,0 +1,19 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "env": ["NEXT_PUBLIC_*", "SITE_INDEXABLE"],
+      "passThroughEnv": [
+        "PAYLOAD_SECRET",
+        "PREVIEW_SECRET",
+        "CHRONICLES_POSTGRES_URL",
+        "CHRONICLES_POSTGRES_URL_NON_POOLING",
+        "R2_BUCKET",
+        "R2_ENDPOINT",
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY"
+      ]
+    }
+  }
+}

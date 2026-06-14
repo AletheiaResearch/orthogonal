@@ -2,33 +2,53 @@
   "name": "@orthogonal/landing",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "oxlint",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
+    "generate:types": "cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
+    "generate:importmap": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap",
+    "seed": "cross-env NODE_OPTIONS=--no-deprecation payload run src/seed.ts",
+    "ci": "payload migrate && payload generate:importmap && next build"
   },
   "dependencies": {
     "@base-ui/react": "catalog:",
+    "@payloadcms/db-vercel-postgres": "3.85.0",
+    "@payloadcms/live-preview-react": "3.85.0",
+    "@payloadcms/next": "3.85.0",
+    "@payloadcms/plugin-seo": "3.85.0",
+    "@payloadcms/richtext-lexical": "3.85.0",
+    "@payloadcms/storage-s3": "3.85.0",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
+    "graphql": "^16.11.0",
     "lucide-react": "catalog:",
-    "next": "16.2.0",
+    "next": "16.2.7",
+    "payload": "3.85.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "shadcn": "catalog:",
+    "sharp": "0.34.4",
     "tailwind-merge": "catalog:",
     "tw-animate-css": "catalog:"
   },
   "devDependencies": {
     "@orthogonal/tooling-configs": "workspace:*",
     "@tailwindcss/postcss": "catalog:",
+    "@tailwindcss/typography": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vercel/config": "catalog:",
+    "cross-env": "7.0.3",
     "tailwindcss": "catalog:tailwind4",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }
