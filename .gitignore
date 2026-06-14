@@ -60,8 +60,9 @@ coverage/
 .cache/
 .turbo/
 
-# Superpowers brainstorm scratch
+# Superpowers brainstorm scratch + skill artifacts (specs/plans) — local-only, not tracked
 .superpowers/
+superpowers/
 
 # Private keys
 *.pem

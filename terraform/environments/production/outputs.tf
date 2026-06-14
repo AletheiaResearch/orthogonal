@@ -26,8 +26,13 @@ output "d1_database_id" {
 
 # Cloudflare Workers
 output "control_plane_url" {
-  description = "Control plane worker URL"
-  value       = module.control_plane_worker.worker_url
+  description = "Control plane worker URL (set as CONTROL_PLANE_URL in the apps/orto web app)"
+  value       = local.control_plane_url
+}
+
+output "ws_url" {
+  description = "Control plane WebSocket URL (set as NEXT_PUBLIC_WS_URL in the apps/orto web app)"
+  value       = local.ws_url
 }
 
 output "control_plane_worker_name" {
@@ -67,18 +72,8 @@ output "github_bot_worker_name" {
 
 # Web App
 output "web_app_url" {
-  description = "Web app URL"
-  value       = var.web_platform == "vercel" ? module.web_app[0].production_url : local.web_app_url
-}
-
-output "web_app_platform" {
-  description = "Web app deployment platform"
-  value       = var.web_platform
-}
-
-output "web_app_project_id" {
-  description = "Vercel project ID (null when using Cloudflare)"
-  value       = var.web_platform == "vercel" ? module.web_app[0].project_id : null
+  description = "Web app URL (apps/orto, deployed on its own Vercel dashboard project)"
+  value       = var.web_app_url
 }
 
 # Modal
@@ -101,16 +96,16 @@ output "verification_commands" {
   value       = <<-EOF
 
     # 1. Health check control plane
-    curl ${module.control_plane_worker.worker_url}/health
+    curl ${local.control_plane_url}/health
 
     # 2. Health check sandbox backend
     curl ${module.modal_app.api_health_url}
 
     # 3. Verify web app deployment
-    curl ${local.web_app_url}
+    curl ${var.web_app_url}
 
     # 4. Test authenticated endpoint (should return 401)
-    curl ${module.control_plane_worker.worker_url}/sessions
+    curl ${local.control_plane_url}/sessions
 
   EOF
 }

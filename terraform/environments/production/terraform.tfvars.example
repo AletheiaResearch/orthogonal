@@ -33,18 +33,6 @@ cloudflare_account_id = ""
 # This is the subdomain used for workers.dev URLs (e.g., "myaccount" in "worker.myaccount.workers.dev")
 cloudflare_worker_subdomain = ""
 
-# Vercel API token
-# Only required when web_platform = "vercel"
-# Create at: https://vercel.com/account/tokens
-# NOTE: Due to a Terraform provider limitation, the Vercel provider validates this
-# token even when web_platform = "cloudflare". If you're not using Vercel, leave
-# these commented out to use the built-in dummy defaults.
-# vercel_api_token = ""
-
-# Vercel team/account ID (found in Account Settings -> "Your ID")
-# Even personal accounts have an ID (usually starts with "team_")
-# vercel_team_id = ""  # e.g., "team_xxxxxxxxxxxxxxxxxxxx"
-
 # Modal API token
 # Create at: https://modal.com/settings
 modal_token_id = ""
@@ -174,23 +162,19 @@ internal_callback_secret = ""
 # Generate with: openssl rand -hex 32
 modal_api_secret = ""
 
-# NextAuth.js secret
-nextauth_secret = ""
-
 # =============================================================================
 # Configuration
 # =============================================================================
 
-# Platform for the web app deployment
-# - "vercel": deploy the Next.js app to Vercel (requires vercel_api_token + vercel_team_id)
-# - "cloudflare": deploy the web app to Cloudflare Workers via OpenNext (no Vercel credentials needed)
-web_platform = "vercel"
+# Production URL of the apps/orto web app.
+# orto self-deploys on its own Vercel dashboard project — it is NOT managed by
+# Terraform. This URL is consumed as WEB_APP_URL by the control-plane, slack-bot,
+# and linear-bot workers.
+web_app_url = "https://<your-orto-app>.vercel.app"
 
-# Unique deployment name (used in resource names and URLs)
-# IMPORTANT: This must be globally unique for Vercel URLs.
+# Unique deployment name (used in resource names).
 # Use something unique like your GitHub username, company name, or a random suffix.
 # Example: "acme", "johndoe", "mycompany-prod"
-# The web app URL will be: https://open-inspect-{deployment_name}.vercel.app
 deployment_name = ""
 
 # Path to project root (relative to this directory)
@@ -199,18 +183,6 @@ project_root = "../../../"
 # Display name shown in the web UI, bot messages (Slack, Linear), and PR body footers.
 # Also used as the outbound HTTP User-Agent header. Defaults to "Open-Inspect".
 # app_name = "Open-Inspect"
-
-# Short brand label shown only in the sidebar header.
-# Defaults to "Inspect". Set this when app_name is too wide for the sidebar
-# (e.g. app_name = "Acme Coding Agent", app_short_name = "Acme").
-# app_short_name = "Inspect"
-
-# Optional URL (absolute or root-relative path) to a custom logo image for the
-# command menu and browser favicon. Leave empty to use the built-in favicon
-# and default in-app icon.
-# Example: "/branding/acme-logo.svg" (file under packages/web/public/) or
-#          "https://cdn.example.com/logo.svg".
-# app_icon_url = ""
 
 # Override the R2 media bucket name (optional)
 # Defaults to "open-inspect-media-<deployment_name>" when left empty.
@@ -264,19 +236,3 @@ enable_service_bindings = false
 # control_plane_migration_tag = "v1"
 # control_plane_migration_old_tag = null
 # control_plane_new_sqlite_classes = []
-
-# =============================================================================
-# Access Control
-# =============================================================================
-# Comma-separated list of GitHub usernames allowed to sign in
-# Set at least one access-control allowlist unless you intentionally opt into
-# open access with unsafe_allow_all_users = true.
-allowed_users = ""
-
-# Comma-separated list of email domains allowed to sign in
-# Example: "example.com,corp.io"
-allowed_email_domains = ""
-
-# Explicitly bypass the Terraform access-control safety check and allow any
-# authenticated GitHub user to sign in when both allowlists are empty.
-unsafe_allow_all_users = false

@@ -138,7 +138,7 @@ fi
 # ---------------------------------------------------------------------------
 printf '\n'
 info "Setup complete! You can now:"
-info "  pnpm --filter @open-inspect/web dev           # Start web dev server"
+info "  pnpm --filter @orthogonal/orto dev           # Start web dev server"
 info "  pnpm --filter @open-inspect/control-plane test  # Run control-plane tests"
 info "  pnpm run lint                                  # Lint all packages"
 info "  pnpm run typecheck                             # Type-check all packages"

@@ -9,10 +9,6 @@ remains required for all sandbox execution, repo image builds, and session files
 This folder documents what changed and what survived, so a future backend (for example Cloudflare
 Sandboxes) can be added without rediscovering the migration by hand.
 
-> **Not covered here:** Vercel **web hosting** (`web_platform = "vercel"`,
-> `terraform/modules/vercel-project/`). That is unrelated to Vercel Sandbox execution, which was
-> removed.
-
 ## Documents
 
 | Document                                       | Purpose                                                    |

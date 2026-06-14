@@ -1,7 +1,7 @@
 # Orto — Orthogonal Web Client
 
-Next.js web application for interacting with coding sessions. Vercel-only copy of `packages/web`
-with PostHog analytics.
+The canonical Orthogonal web application for interacting with coding sessions. Built with Next.js,
+deployed on Vercel, with PostHog analytics.
 
 ## Features
 
@@ -164,8 +164,7 @@ paths are no-ops.
 
 ## Deployment (Vercel)
 
-This app is deployed via a dashboard-managed Vercel project — it is **not** managed by Terraform
-(unlike `packages/web`).
+This app is deployed via a dashboard-managed Vercel project — it is **not** managed by Terraform.
 
 1. Create a Vercel project from this repository.
 2. **Root Directory**: `apps/orto`

@@ -8,8 +8,8 @@ Next.js (React), Terraform.
 
 Three tiers connected by WebSockets:
 
-1. **Web Client** (Next.js on Vercel or Cloudflare Workers via OpenNext) — UI with GitHub OAuth,
-   session dashboard, real-time streaming
+1. **Web Client** (`apps/orto`, Next.js on Vercel) — UI with GitHub OAuth, session dashboard,
+   real-time streaming
 2. **Control Plane** (Cloudflare Workers + Durable Objects) — session lifecycle, WebSocket hub,
    GitHub/auth integration. Each session is a Durable Object with SQLite storage. Uses D1 for
    session index, repo metadata, and encrypted repo secrets.
@@ -28,7 +28,7 @@ events back through the same WebSocket chain.
 ### Package Dependency Graph
 
 ```
-@open-inspect/shared  ←  control-plane, web, slack-bot, github-bot, linear-bot
+@open-inspect/shared  ←  control-plane, orto, slack-bot, github-bot, linear-bot
 ```
 
 **Build `@open-inspect/shared` first** whenever you change shared types. Other packages import from
@@ -36,16 +36,15 @@ it at build time.
 
 ## Package Overview
 
-| Package         | Lang / Framework                   | Purpose                                                     |
-| --------------- | ---------------------------------- | ----------------------------------------------------------- |
-| `shared`        | TypeScript                         | Shared types, auth utilities, model definitions             |
-| `control-plane` | TypeScript / CF Workers + DO       | Session management, WebSocket streaming, GitHub integration |
-| `web`           | TypeScript / Next.js 16 + React 19 | User-facing dashboard, OAuth, real-time UI                  |
-| `orto` (apps)   | TypeScript / Next.js 16 + React 19 | Vercel-only copy of `web` with PostHog analytics            |
-| `slack-bot`     | TypeScript / CF Workers + Hono     | Slack event handler, session creation                       |
-| `github-bot`    | TypeScript / CF Workers + Hono     | PR review and @mention webhook handler                      |
-| `linear-bot`    | TypeScript / CF Workers + Hono     | Linear agent webhook handler                                |
-| `modal-infra`   | Python 3.12 / Modal + FastAPI      | Sandbox lifecycle, WebSocket bridge to control plane        |
+| Package         | Lang / Framework                   | Purpose                                                                            |
+| --------------- | ---------------------------------- | ---------------------------------------------------------------------------------- |
+| `shared`        | TypeScript                         | Shared types, auth utilities, model definitions                                    |
+| `control-plane` | TypeScript / CF Workers + DO       | Session management, WebSocket streaming, GitHub integration                        |
+| `orto` (apps)   | TypeScript / Next.js 16 + React 19 | User-facing dashboard, OAuth, real-time UI; Vercel-deployed with PostHog analytics |
+| `slack-bot`     | TypeScript / CF Workers + Hono     | Slack event handler, session creation                                              |
+| `github-bot`    | TypeScript / CF Workers + Hono     | PR review and @mention webhook handler                                             |
+| `linear-bot`    | TypeScript / CF Workers + Hono     | Linear agent webhook handler                                                       |
+| `modal-infra`   | Python 3.12 / Modal + FastAPI      | Sandbox lifecycle, WebSocket bridge to control plane                               |
 
 ## Common Commands
 
@@ -65,7 +64,6 @@ pnpm run typecheck                               # tsc across all TS packages
 # Tests — TypeScript (Vitest)
 pnpm --filter @open-inspect/control-plane test   # unit tests (node env)
 pnpm --filter @open-inspect/control-plane run test:integration  # integration (workerd/Miniflare + real D1)
-pnpm --filter @open-inspect/web test
 pnpm --filter @orthogonal/orto test
 pnpm --filter @open-inspect/github-bot test
 pnpm --filter @open-inspect/slack-bot test
@@ -87,7 +85,7 @@ All TypeScript packages use **Vitest**; Python uses **pytest** + pytest-asyncio.
 - **control-plane unit**: co-located as `src/**/*.test.ts` — run in Node environment
 - **control-plane integration**: separate `test/integration/*.test.ts` — run in workerd via
   `@cloudflare/vitest-pool-workers` with real D1 bindings
-- **web, slack-bot, linear-bot**: co-located `src/**/*.test.ts`
+- **orto, slack-bot, linear-bot**: co-located `src/**/*.test.ts`
 - **github-bot**: separate `test/*.test.ts`
 - **modal-infra**: `tests/test_*.py`
 
@@ -136,20 +134,16 @@ under 72 characters. Use the PR body for details, not the commit message.
 - **Modal deployment**: never deploy `src/app.py` directly — use `modal deploy deploy.py` or
   `modal deploy -m src`. The `app.py` file doesn't import function modules.
 - **Modal image rebuild**: update `CACHE_BUSTER` in `src/images/base.py` to force a rebuild.
-- **Web platform choice**: set `web_platform = "cloudflare"` in Terraform variables to deploy the
-  web app to Cloudflare Workers via OpenNext instead of Vercel. When using Cloudflare, Vercel
-  credentials are not required (dummy defaults are used). `NEXT_PUBLIC_WS_URL` must be available at
-  build time since Next.js inlines `NEXT_PUBLIC_*` vars into the client bundle.
+- **Web deployment**: the web app (`apps/orto`) deploys via its own Vercel dashboard project, not
+  Terraform — see [apps/orto/README.md](apps/orto/README.md).
 
 ## CI/CD
 
 Pushing to `main` auto-deploys changed services:
 
-- **Terraform** → control plane + D1 migrations + web app if `web_platform = "cloudflare"`
-  (triggers: `terraform/`, `packages/*/`)
-- **Vercel** → web app when `web_platform = "vercel"` (triggers: `packages/web/`,
-  `packages/shared/`). `apps/orto` deploys through its own dashboard-managed Vercel project (not
-  Terraform).
+- **Terraform** → control plane + D1 migrations + bots only (triggers: `terraform/`, `packages/*/`)
+- **Vercel** → web app (`apps/orto`) auto-deploys via its own dashboard-managed Vercel Git
+  integration on push (not Terraform)
 - **Modal** → data plane (triggers: `packages/modal-infra/`, deployed via Terraform apply)
 
 CI runs lint, typecheck, and tests for all TypeScript and Python packages on every push and PR.

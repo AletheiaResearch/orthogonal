@@ -46,7 +46,6 @@ jobs:
             ts:
               - 'packages/shared/**'
               - 'packages/control-plane/**'
-              - 'packages/web/**'
               - 'packages/ui/**'
               - 'packages/slack-bot/**'
               - 'packages/github-bot/**'

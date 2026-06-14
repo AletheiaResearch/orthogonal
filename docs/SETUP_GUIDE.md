@@ -66,12 +66,12 @@ development.
 ### 1. Create local env file
 
 ```bash
-cp packages/web/.env.example packages/web/.env.local
+cp apps/orto/.env.example apps/orto/.env.local
 ```
 
 ### 2. Fill required variables
 
-Edit `packages/web/.env.local`:
+Edit `apps/orto/.env.local`:
 
 ```bash
 # GitHub App OAuth
@@ -94,7 +94,7 @@ ALLOWED_USERS=
 ALLOWED_EMAIL_DOMAINS=
 
 # Optional whitelabel branding (defaults shown). NEXT_PUBLIC_* vars are
-# inlined into the client bundle at build time — restart `pnpm --filter @open-inspect/web dev`
+# inlined into the client bundle at build time — restart `pnpm --filter @orthogonal/orto dev`
 # after changing them.
 NEXT_PUBLIC_APP_NAME=Open-Inspect
 # Short label for the sidebar header.
@@ -102,7 +102,7 @@ NEXT_PUBLIC_APP_SHORT_NAME=Inspect
 NEXT_PUBLIC_APP_ICON_URL=
 ```
 
-Do not commit `packages/web/.env.local`.
+Do not commit `apps/orto/.env.local`.
 
 Generate a secret value:
 
@@ -124,7 +124,7 @@ If this does not match exactly, sign-in will fail.
 ### 4. Run the app
 
 ```bash
-pnpm --filter @open-inspect/web dev
+pnpm --filter @orthogonal/orto dev
 ```
 
 Open `http://localhost:3000`.
@@ -168,7 +168,7 @@ pnpm --filter @open-inspect/control-plane test
 pnpm --filter @open-inspect/control-plane run test:integration
 
 # Web
-pnpm --filter @open-inspect/web test
+pnpm --filter @orthogonal/orto test
 
 # Bots
 pnpm --filter @open-inspect/github-bot test
@@ -212,7 +212,7 @@ Your GitHub callback URL does not exactly match the running app URL.
 
 ### Access denied after sign-in
 
-Check `ALLOWED_USERS` and `ALLOWED_EMAIL_DOMAINS` in `packages/web/.env.local`.
+Check `ALLOWED_USERS` and `ALLOWED_EMAIL_DOMAINS` in `apps/orto/.env.local`.
 
 ### Web can load, but session APIs return 401
 
