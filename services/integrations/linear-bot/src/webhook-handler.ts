@@ -42,15 +42,14 @@ const log = createLogger("handler");
 
 /**
  * Parse an `owner/name` repo identifier into its two parts. Returns null unless
- * the string has exactly two non-empty, slash-separated segments — guarding
- * against malformed values like "a", "a/b/c", or "a/" from upstream APIs.
+ * the string is exactly two slash-separated segments of safe repo characters,
+ * rejecting malformed values like "a", "a/b/c", "a/", or ones carrying
+ * whitespace/control characters (" a / b ", "a /b") from upstream APIs.
  */
 export function parseRepositoryFullName(fullName: string): { owner: string; name: string } | null {
-  const segments = fullName.split("/");
-  if (segments.length !== 2) return null;
-  const [owner, name] = segments;
-  if (!owner || !name) return null;
-  return { owner, name };
+  const match = fullName.trim().match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/);
+  if (!match) return null;
+  return { owner: match[1], name: match[2] };
 }
 
 // escapeHtml and buildUntrustedUserContentBlock live in ./prompt-safety (a
@@ -395,7 +394,7 @@ async function handleNewSession(
       if (topSuggestion && parsed) {
         repoOwner = parsed.owner;
         repoName = parsed.name;
-        repoFullName = topSuggestion.repositoryFullName;
+        repoFullName = parsed.owner + "/" + parsed.name;
         classificationReasoning = `Linear suggested ${repoFullName} (confidence: ${Math.round(topSuggestion.confidence * 100)}%)`;
       }
     }

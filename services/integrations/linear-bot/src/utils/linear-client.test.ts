@@ -93,15 +93,21 @@ describe("fetchUser", () => {
 
 // ─── OAuth CSRF state ─────────────────────────────────────────────────────────
 
-function makeKvMockEnv(): { env: Env; store: Map<string, string> } {
+function makeKvMockEnv(): {
+  env: Env;
+  store: Map<string, string>;
+  putCalls: Array<{ key: string; value: string; options?: { expirationTtl?: number } }>;
+} {
   const store = new Map<string, string>();
+  const putCalls: Array<{ key: string; value: string; options?: { expirationTtl?: number } }> = [];
   const env = {
     LINEAR_CLIENT_ID: "client-123",
     WORKER_URL: "https://worker.example",
     LINEAR_KV: {
       get: (key: string) => Promise.resolve(store.has(key) ? store.get(key)! : null),
-      put: (key: string, value: string) => {
+      put: (key: string, value: string, options?: { expirationTtl?: number }) => {
         store.set(key, value);
+        putCalls.push({ key, value, options });
         return Promise.resolve();
       },
       delete: (key: string) => {
@@ -110,7 +116,7 @@ function makeKvMockEnv(): { env: Env; store: Map<string, string> } {
       },
     },
   } as unknown as Env;
-  return { env, store };
+  return { env, store, putCalls };
 }
 
 describe("buildOAuthAuthorizeUrl", () => {
@@ -138,6 +144,15 @@ describe("createOAuthState / consumeOAuthState", () => {
     const { env, store } = makeKvMockEnv();
     const state = await createOAuthState(env);
     expect(store.has(`oauth:state:${state}`)).toBe(true);
+  });
+
+  it("writes the state with a 600s expirationTtl (OAUTH_STATE_TTL_MS / 1000)", async () => {
+    const { env, putCalls } = makeKvMockEnv();
+    const state = await createOAuthState(env);
+    const putCall = putCalls.find((p) => p.key === `oauth:state:${state}`);
+    expect(putCall).toBeDefined();
+    expect(putCall?.options).toBeDefined();
+    expect(putCall?.options?.expirationTtl).toBe(600);
   });
 
   it("rejects a null state (missing query param)", async () => {

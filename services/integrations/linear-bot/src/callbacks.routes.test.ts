@@ -1,7 +1,11 @@
 import { computeHmacHex } from "@open-inspect/shared";
 import { describe, expect, it } from "vitest";
 
-import { callbacksRouter, verifyCallbackSignature } from "./callbacks";
+import {
+  CALLBACK_TIMESTAMP_VALIDITY_MS,
+  callbacksRouter,
+  verifyCallbackSignature,
+} from "./callbacks";
 import type { Env } from "./types";
 
 const SECRET = "test-callback-secret";
@@ -47,7 +51,8 @@ describe("POST /complete timestamp freshness", () => {
   };
 
   it("rejects a correctly-signed but stale callback (replay) with stale_timestamp", async () => {
-    const staleMs = Date.now() - 10 * 60 * 1000; // 10 minutes old
+    // Just past the replay window, so the freshness check (not HMAC) drives the 401.
+    const staleMs = Date.now() - CALLBACK_TIMESTAMP_VALIDITY_MS - 1000;
     const payload = await signCallback({ ...base, timestamp: staleMs });
 
     // Signature is valid: the 401 must come from the freshness check, not HMAC.
@@ -71,7 +76,7 @@ describe("POST /tool_call timestamp freshness", () => {
   };
 
   it("rejects a correctly-signed but stale tool_call callback", async () => {
-    const staleMs = Date.now() - 10 * 60 * 1000;
+    const staleMs = Date.now() - CALLBACK_TIMESTAMP_VALIDITY_MS - 1000;
     const payload = await signCallback({ ...base, timestamp: staleMs });
 
     expect(await verifyCallbackSignature(payload, SECRET)).toBe(true);

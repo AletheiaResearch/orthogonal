@@ -7,6 +7,7 @@
 
 import { resolveAppName, verifyInternalToken } from "@open-inspect/shared";
 import { Hono } from "hono";
+import type { Context } from "hono";
 
 import { callbacksRouter } from "./callbacks";
 import {
@@ -48,6 +49,21 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
 function readStringField(record: Record<string, unknown>, key: string): string | null {
   const value = record[key];
   return typeof value === "string" ? value : null;
+}
+
+/**
+ * Parse a JSON request body, returning a 400 response on malformed JSON instead
+ * of letting the SyntaxError from `c.req.json()` surface as an unhandled 500.
+ * Callers run their type-guard validators on the returned `body`.
+ */
+async function parseJsonBody(
+  c: Context<{ Bindings: Env }>
+): Promise<{ ok: true; body: unknown } | { ok: false; res: Response }> {
+  try {
+    return { ok: true, body: await c.req.json() };
+  } catch {
+    return { ok: false, res: c.json({ error: "Invalid JSON body" }, 400) };
+  }
 }
 
 export function buildOAuthSuccessHtml(appName: string, orgName: string): string {
@@ -213,11 +229,12 @@ app.get("/config/team-repos", async (c) => {
 });
 
 app.put("/config/team-repos", async (c) => {
-  const body = await c.req.json();
-  if (!isValidTeamRepoMapping(body)) {
+  const parsed = await parseJsonBody(c);
+  if (!parsed.ok) return parsed.res;
+  if (!isValidTeamRepoMapping(parsed.body)) {
     return c.json({ error: "Invalid team-repos mapping" }, 400);
   }
-  await c.env.LINEAR_KV.put("config:team-repos", JSON.stringify(body));
+  await c.env.LINEAR_KV.put("config:team-repos", JSON.stringify(parsed.body));
   return c.json({ ok: true });
 });
 
@@ -226,11 +243,12 @@ app.get("/config/triggers", async (c) => {
 });
 
 app.put("/config/triggers", async (c) => {
-  const body = await c.req.json();
-  if (!isValidTriggerConfig(body)) {
+  const parsed = await parseJsonBody(c);
+  if (!parsed.ok) return parsed.res;
+  if (!isValidTriggerConfig(parsed.body)) {
     return c.json({ error: "Invalid trigger config" }, 400);
   }
-  await c.env.LINEAR_KV.put("config:triggers", JSON.stringify(body));
+  await c.env.LINEAR_KV.put("config:triggers", JSON.stringify(parsed.body));
   return c.json({ ok: true });
 });
 
@@ -239,11 +257,12 @@ app.get("/config/project-repos", async (c) => {
 });
 
 app.put("/config/project-repos", async (c) => {
-  const body = await c.req.json();
-  if (!isValidProjectRepoMapping(body)) {
+  const parsed = await parseJsonBody(c);
+  if (!parsed.ok) return parsed.res;
+  if (!isValidProjectRepoMapping(parsed.body)) {
     return c.json({ error: "Invalid project-repos mapping" }, 400);
   }
-  await c.env.LINEAR_KV.put("config:project-repos", JSON.stringify(body));
+  await c.env.LINEAR_KV.put("config:project-repos", JSON.stringify(parsed.body));
   return c.json({ ok: true });
 });
 
@@ -256,7 +275,9 @@ app.get("/config/user-prefs/:userId", async (c) => {
 
 app.put("/config/user-prefs/:userId", async (c) => {
   const userId = c.req.param("userId");
-  const body = (await c.req.json()) as Partial<UserPreferences>;
+  const parsed = await parseJsonBody(c);
+  if (!parsed.ok) return parsed.res;
+  const body = parsed.body as Partial<UserPreferences>;
   const prefs: UserPreferences = {
     userId,
     model: body.model || c.env.DEFAULT_MODEL,

@@ -32,6 +32,34 @@ describe("parseRepositoryFullName", () => {
   it("rejects an empty string", () => {
     expect(parseRepositoryFullName("")).toBeNull();
   });
+
+  it("rejects a single segment with no slash", () => {
+    expect(parseRepositoryFullName("a")).toBeNull();
+  });
+
+  it("rejects three segments", () => {
+    expect(parseRepositoryFullName("a/b/c")).toBeNull();
+  });
+
+  it("rejects a trailing-slash value", () => {
+    expect(parseRepositoryFullName("a/")).toBeNull();
+  });
+
+  it("rejects interior whitespace around segments", () => {
+    expect(parseRepositoryFullName(" a / b ")).toBeNull();
+  });
+
+  it("rejects whitespace inside a segment", () => {
+    expect(parseRepositoryFullName("a /b")).toBeNull();
+  });
+
+  it("accepts a well-formed org/repo", () => {
+    expect(parseRepositoryFullName("org/repo")).toEqual({ owner: "org", name: "repo" });
+  });
+
+  it("trims surrounding whitespace before matching", () => {
+    expect(parseRepositoryFullName("  org/repo  ")).toEqual({ owner: "org", name: "repo" });
+  });
 });
 
 describe("escapeHtml", () => {

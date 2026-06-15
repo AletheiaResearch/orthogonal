@@ -41,6 +41,19 @@ async function put(env: Env, path: string, body: unknown): Promise<Response> {
   return Promise.resolve(app.fetch(req, env, ctx));
 }
 
+// Send a raw (non-stringified) body so we can exercise the malformed-JSON path.
+// The Bearer token is still valid, so the request reaches the route's JSON parse
+// rather than being rejected by the auth middleware.
+async function putRaw(env: Env, path: string, rawBody: string): Promise<Response> {
+  const token = await generateInternalToken(SECRET);
+  const req = new Request(`https://test.local${path}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: rawBody,
+  });
+  return Promise.resolve(app.fetch(req, env, ctx));
+}
+
 describe("PUT /config/* body validation", () => {
   it("stores a valid team-repos mapping", async () => {
     const { env, store } = makeEnv();
@@ -84,5 +97,29 @@ describe("PUT /config/* body validation", () => {
     const { env } = makeEnv();
     const res = await put(env, "/config/triggers", { autoTriggerOnCreate: true });
     expect(res.status).toBe(200);
+  });
+
+  it("rejects malformed JSON on team-repos with 400 and does not persist", async () => {
+    const { env, store } = makeEnv();
+    const res = await putRaw(env, "/config/team-repos", "{ not valid json");
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid JSON body" });
+    expect(store.has("config:team-repos")).toBe(false);
+  });
+
+  it("rejects malformed JSON on triggers with 400 and does not persist", async () => {
+    const { env, store } = makeEnv();
+    const res = await putRaw(env, "/config/triggers", "{ not valid json");
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid JSON body" });
+    expect(store.has("config:triggers")).toBe(false);
+  });
+
+  it("rejects malformed JSON on project-repos with 400 and does not persist", async () => {
+    const { env, store } = makeEnv();
+    const res = await putRaw(env, "/config/project-repos", "{ not valid json");
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid JSON body" });
+    expect(store.has("config:project-repos")).toBe(false);
   });
 });

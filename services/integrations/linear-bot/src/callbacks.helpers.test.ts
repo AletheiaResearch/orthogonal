@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  CALLBACK_TIMESTAMP_VALIDITY_MS,
   formatCompletionComment,
   formatToolAction,
   isFreshTimestamp,
@@ -212,7 +213,7 @@ describe("isValidToolCallPayload", () => {
 
 describe("isFreshTimestamp", () => {
   const now = 1_700_000_000_000;
-  const windowMs = 5 * 60 * 1000;
+  const windowMs = CALLBACK_TIMESTAMP_VALIDITY_MS;
 
   it("accepts the current timestamp", () => {
     expect(isFreshTimestamp(now, now)).toBe(true);

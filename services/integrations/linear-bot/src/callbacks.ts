@@ -22,10 +22,10 @@ const log = createLogger("callback");
 
 /**
  * Validity window for signed callback timestamps. Mirrors the shared internal
- * auth token window (5 minutes). Callbacks are signed with a `timestamp` field,
- * so without this check a captured-and-replayed callback would be valid forever.
+ * auth token window. Callbacks are signed with a `timestamp` field, so without
+ * this check a captured-and-replayed callback would be valid forever.
  */
-const CALLBACK_TIMESTAMP_VALIDITY_MS = 5 * 60 * 1000;
+export const CALLBACK_TIMESTAMP_VALIDITY_MS = 5 * 60 * 1000;
 
 /**
  * Returns true when `timestampMs` is within the replay window of `nowMs`.

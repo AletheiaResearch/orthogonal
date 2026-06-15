@@ -29,12 +29,24 @@ describe("isValidTeamRepoMapping", () => {
     expect(isValidTeamRepoMapping({ "team-1": { owner: "org", name: "repo" } })).toBe(false);
   });
 
+  it("rejects a non-object repo entry", () => {
+    expect(isValidTeamRepoMapping({ "team-1": [42] })).toBe(false);
+  });
+
   it("rejects a repo entry missing owner", () => {
     expect(isValidTeamRepoMapping({ "team-1": [{ name: "repo" }] })).toBe(false);
   });
 
   it("rejects an empty-string owner", () => {
     expect(isValidTeamRepoMapping({ "team-1": [{ owner: "", name: "repo" }] })).toBe(false);
+  });
+
+  it("rejects a whitespace-only owner", () => {
+    expect(isValidTeamRepoMapping({ "team-1": [{ owner: "   ", name: "repo" }] })).toBe(false);
+  });
+
+  it("rejects a whitespace-only name", () => {
+    expect(isValidTeamRepoMapping({ "team-1": [{ owner: "org", name: "  " }] })).toBe(false);
   });
 
   it("rejects a non-string label", () => {
@@ -62,8 +74,17 @@ describe("isValidProjectRepoMapping", () => {
     expect(isValidProjectRepoMapping({ "proj-1": { owner: "org" } })).toBe(false);
   });
 
+  it("rejects a non-object entry", () => {
+    expect(isValidProjectRepoMapping({ "proj-1": 42 })).toBe(false);
+  });
+
   it("rejects empty-string segments", () => {
     expect(isValidProjectRepoMapping({ "proj-1": { owner: "org", name: "" } })).toBe(false);
+  });
+
+  it("rejects whitespace-only segments", () => {
+    expect(isValidProjectRepoMapping({ "proj-1": { owner: "  ", name: "repo" } })).toBe(false);
+    expect(isValidProjectRepoMapping({ "proj-1": { owner: "org", name: "   " } })).toBe(false);
   });
 });
 
@@ -98,5 +119,13 @@ describe("isValidTriggerConfig", () => {
 
   it("rejects a non-string triggerLabel", () => {
     expect(isValidTriggerConfig({ triggerLabel: 123 })).toBe(false);
+  });
+
+  it("rejects a non-string triggerAssignee", () => {
+    expect(isValidTriggerConfig({ triggerAssignee: 123 })).toBe(false);
+  });
+
+  it("rejects a non-string triggerCommand", () => {
+    expect(isValidTriggerConfig({ triggerCommand: 123 })).toBe(false);
   });
 });

@@ -25,7 +25,7 @@ const OAUTH_STATE_KEY_PREFIX = "oauth:state:";
  * TTL for a pending OAuth `state` value. Short window: the user only needs long
  * enough to complete Linear's consent screen.
  */
-const OAUTH_STATE_TTL_SECONDS = 600;
+const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 
 function getOAuthStateKey(state: string): string {
   return `${OAUTH_STATE_KEY_PREFIX}${state}`;
@@ -38,7 +38,8 @@ function getOAuthStateKey(state: string): string {
 export async function createOAuthState(env: Env): Promise<string> {
   const state = crypto.randomUUID();
   await env.LINEAR_KV.put(getOAuthStateKey(state), "1", {
-    expirationTtl: OAUTH_STATE_TTL_SECONDS,
+    // KV expirationTtl is in seconds; convert from the ms-named constant.
+    expirationTtl: Math.floor(OAUTH_STATE_TTL_MS / 1000),
   });
   return state;
 }
@@ -47,6 +48,13 @@ export async function createOAuthState(env: Env): Promise<string> {
  * Validate and single-use-consume an OAuth `state`. Returns true only when the
  * state was previously issued by createOAuthState and not yet consumed. The
  * marker is deleted on a hit so a captured state cannot be replayed.
+ *
+ * KNOWN LIMITATION (deferred): this get-then-delete is non-atomic, so the
+ * single-use guarantee is best-effort/eventually-consistent — two concurrent
+ * callbacks for the same state could both observe the marker before either
+ * delete lands. An atomic single-use store (e.g. a Durable Object) would close
+ * the race, but that is disproportionate for best-effort CSRF state in a
+ * single-tenant install flow, so we keep the KV approach.
  */
 export async function consumeOAuthState(env: Env, state: string | null): Promise<boolean> {
   if (!state) return false;
