@@ -23,13 +23,13 @@ component_management:
       paths: ["packages/ui/**"]
     - component_id: slack-bot
       name: slack-bot
-      paths: ["packages/slack-bot/**"]
+      paths: ["services/integrations/slack-bot/**"]
     - component_id: github-bot
       name: github-bot
-      paths: ["packages/github-bot/**"]
+      paths: ["services/integrations/github-bot/**"]
     - component_id: linear-bot
       name: linear-bot
-      paths: ["packages/linear-bot/**"]
+      paths: ["services/integrations/linear-bot/**"]
     - component_id: orto
       name: orto
       paths: ["apps/orto/**"]
