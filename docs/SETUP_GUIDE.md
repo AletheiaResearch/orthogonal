@@ -32,7 +32,7 @@ Optional (needed for `modal-infra` development):
 
 Optional (needed for full deployment):
 
-- Terraform `1.9+`
+- OpenTofu `1.9+`
 - Wrangler CLI
 
 Quick check:
@@ -148,6 +148,11 @@ These must align with your deployed backend.
 
 Use this for day-to-day engineering work in the monorepo.
 
+> To run local dev servers (web + control plane + bots that support it), use `pnpm dev` from the
+> repo root — Turbo builds `@open-inspect/shared` first, then starts each package's `dev` task. Copy
+> each worker's `.dev.vars.example` to `.dev.vars` for local secrets. Full details:
+> [docs/LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md).
+
 ### JavaScript/TypeScript workflow
 
 ```bash
@@ -199,9 +204,9 @@ For full infrastructure setup, use:
 
 Critical notes before deploy:
 
-- Build workers before running Terraform apply.
+- Build workers before running `tofu apply`.
 - Build `@open-inspect/shared` first.
-- Use two-phase Terraform deploy for DO/service bindings.
+- Use two-phase OpenTofu deploy for DO/service bindings.
 - For Modal deployments, deploy with `modal deploy deploy.py` (not `src/app.py`).
 
 ## Common Issues and Fixes
@@ -229,6 +234,8 @@ configured/deployed.
 
 ## Related Docs
 
+- Local development loop (`pnpm dev`, per-worker `.dev.vars`):
+  [docs/LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md)
 - Architecture and internals: [docs/HOW_IT_WORKS.md](./HOW_IT_WORKS.md)
 - Full production deployment: [docs/GETTING_STARTED.md](./GETTING_STARTED.md)
 - GitHub integration usage: [docs/integrations/GITHUB.md](./integrations/GITHUB.md)

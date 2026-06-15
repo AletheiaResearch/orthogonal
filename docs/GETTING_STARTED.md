@@ -1,9 +1,9 @@
 # Getting Started with Open-Inspect
 
-This guide walks you through deploying your own instance of Open-Inspect using Terraform.
+This guide walks you through deploying your own instance of Open-Inspect using OpenTofu.
 
 > Looking for local development setup (without full infra deployment)? Start with
-> [SETUP_GUIDE.md](./SETUP_GUIDE.md).
+> [SETUP_GUIDE.md](./SETUP_GUIDE.md) or [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md).
 
 > **Important**: This system is designed for **single-tenant deployment only**. All users share the
 > same GitHub App credentials and can access any repository the App is installed on. See the
@@ -13,19 +13,19 @@ This guide walks you through deploying your own instance of Open-Inspect using T
 
 ## Overview
 
-Open-Inspect uses Terraform to automate deployment across multiple cloud providers:
+Open-Inspect uses OpenTofu to automate deployment across multiple cloud providers:
 
-| Provider       | Purpose                                     | What Terraform Creates                               |
+| Provider       | Purpose                                     | What OpenTofu Creates                                |
 | -------------- | ------------------------------------------- | ---------------------------------------------------- |
 | **Cloudflare** | Control plane, session state                | Workers, KV namespaces, Durable Objects, D1 Database |
-| **Modal**      | Sandbox execution infrastructure (required) | Modal app deployment via Terraform                   |
+| **Modal**      | Sandbox execution infrastructure (required) | Modal app deployment via OpenTofu                    |
 
 > **Web app**: The web client is `apps/orto` (Next.js, with PostHog analytics). It deploys via its
-> own dashboard-managed Vercel project and is **not** managed by Terraform — see
+> own dashboard-managed Vercel project and is **not** managed by OpenTofu — see
 > [apps/orto/README.md](../apps/orto/README.md).
 
 **Your job**: Create accounts, gather credentials, and configure one file (`terraform.tfvars`).
-**Terraform's job**: Create all infrastructure and configure services.
+**OpenTofu's job**: Create all infrastructure and configure services.
 
 ---
 
@@ -48,8 +48,8 @@ Create accounts on these services before continuing:
 ### Required Tools
 
 ```bash
-# Terraform (1.9.0+)
-brew install terraform
+# OpenTofu (1.9.0+)
+brew install opentofu
 
 # Node.js (22+)
 brew install node@22
@@ -61,6 +61,11 @@ brew install python@3.12 uv
 corepack enable
 pnpm add -g wrangler
 ```
+
+OpenTofu install docs: https://opentofu.org/docs/intro/install/
+
+> **Just want to run the web UI locally?** You don't need OpenTofu or the full deploy — see
+> [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md) (or [SETUP_GUIDE.md](./SETUP_GUIDE.md) Path A).
 
 ---
 
@@ -76,7 +81,7 @@ cd background-agents
 corepack enable
 pnpm install
 
-# Build the shared package (required before Terraform deployment)
+# Build the shared package (required before OpenTofu deployment)
 pnpm --filter @open-inspect/shared build
 
 # Install Python dependencies for Modal deployment (includes sandbox-runtime)
@@ -110,9 +115,9 @@ cd packages/modal-infra && uv sync --frozen && cd -
    - Click "Continue to summary" and "Update token"
 5. **Enable R2**: Must add payment info, but first 10 GB/month is free
 
-### Cloudflare R2 (Terraform State Backend)
+### Cloudflare R2 (OpenTofu State Backend)
 
-Terraform needs a place to store its state. We use Cloudflare R2.
+OpenTofu needs a place to store its state. We use Cloudflare R2.
 
 ```bash
 # Login to Cloudflare
@@ -131,9 +136,9 @@ Create an R2 API Token:
 
 ### Vercel
 
-The web app (`apps/orto`) deploys via its own dashboard-managed Vercel project, not Terraform — so
-no Vercel API token is needed for the Terraform deploy below. You only need a Vercel account; set
-the project up later (see [Step 8](#step-8-deploy-the-web-app) and
+The web app (`apps/orto`) deploys via its own dashboard-managed Vercel project, not OpenTofu — so no
+Vercel API token is needed for the OpenTofu deploy below. You only need a Vercel account; set the
+project up later (see [Step 8](#step-8-deploy-the-web-app) and
 [apps/orto/README.md](../apps/orto/README.md)).
 
 ### Modal
@@ -253,7 +258,7 @@ Skip this step if you don't need Slack integration.
 ### Event Subscriptions (Configure After Deployment)
 
 Event Subscriptions require the Slack bot worker to be deployed first for URL verification. You'll
-configure this in **Step 7b** after running Terraform.
+configure this in **Step 7b** after running OpenTofu.
 
 ---
 
@@ -285,7 +290,7 @@ Save these values somewhere secure—you'll need them in the next step.
 
 ---
 
-## Step 6: Configure Terraform
+## Step 6: Configure OpenTofu
 
 ```bash
 cd terraform/environments/production
@@ -366,9 +371,9 @@ modal_api_secret         = "your-generated-value"
 # Configuration
 # Production URL of the apps/orto web app — REQUIRED (consumed as WEB_APP_URL by the
 # control-plane, slack-bot, and linear-bot workers). orto self-deploys on its own
-# Vercel project, not via Terraform, so you won't have the final URL until Step 8.
+# Vercel project, not via OpenTofu, so you won't have the final URL until Step 8.
 # Use a placeholder for the first apply; in Step 8 you'll set the real URL and run
-# `terraform apply` again to propagate it to the workers.
+# `tofu apply` again to propagate it to the workers.
 web_app_url = "https://<your-orto-app>.vercel.app"
 
 # deployment_name is embedded in your Cloudflare Worker URLs (control plane + bots),
@@ -395,7 +400,7 @@ enable_service_bindings        = false
 
 ---
 
-## Step 7: Deploy with Terraform
+## Step 7: Deploy with OpenTofu
 
 Deployment requires **two phases** due to Cloudflare's Durable Object and service binding
 requirements.
@@ -409,7 +414,7 @@ enable_durable_object_bindings = false
 enable_service_bindings        = false
 ```
 
-**Important**: Build the workers before running Terraform (Terraform references the built bundles):
+**Important**: Build the workers before running OpenTofu (OpenTofu references the built bundles):
 
 ```bash
 # From the repository root
@@ -421,11 +426,11 @@ Then run:
 ```bash
 cd terraform/environments/production
 
-# Initialize Terraform with backend config
-terraform init -backend-config=backend.tfvars
+# Initialize OpenTofu with backend config
+tofu init -backend-config=backend.tfvars
 
 # Deploy (phase 1 - creates workers without bindings)
-terraform apply
+tofu apply
 ```
 
 ### Phase 2: Enable Bindings
@@ -440,10 +445,10 @@ enable_service_bindings        = true
 Then run:
 
 ```bash
-terraform apply
+tofu apply
 ```
 
-Terraform will update the workers with the required bindings.
+OpenTofu will update the workers with the required bindings.
 
 ---
 
@@ -544,20 +549,20 @@ For day-to-day workflows, see [GitHub Integration](./integrations/GITHUB.md).
 ## Step 8: Deploy the Web App
 
 The web app (`apps/orto`) deploys via its own dashboard-managed Vercel project — it is **not**
-created or deployed by Terraform. Follow the deployment instructions in
+created or deployed by OpenTofu. Follow the deployment instructions in
 [apps/orto/README.md](../apps/orto/README.md) to create the Vercel project, set its root directory
 and build commands, and configure its environment variables (the full set is in
 [apps/orto/.env.example](../apps/orto/.env.example)).
 
-Two of those env vars point at the control plane you just deployed — set them from the Terraform
+Two of those env vars point at the control plane you just deployed — set them from the OpenTofu
 outputs. If `CONTROL_PLANE_URL` is missing the app's API throws, and if `NEXT_PUBLIC_WS_URL` is
 missing the client falls back to `localhost`, so the app would sign in but fail to create or stream
 sessions:
 
 ```bash
 cd terraform/environments/production
-terraform output control_plane_url   # → set as CONTROL_PLANE_URL
-terraform output ws_url              # → set as NEXT_PUBLIC_WS_URL (wss://...)
+tofu output control_plane_url   # → set as CONTROL_PLANE_URL
+tofu output ws_url              # → set as NEXT_PUBLIC_WS_URL (wss://...)
 ```
 
 Also set `NEXTAUTH_SECRET` (from Step 5), `NEXTAUTH_URL` (the orto URL), the GitHub OAuth
@@ -569,9 +574,9 @@ Once deployed, note the project's URL, then:
 1. Make sure your GitHub App's OAuth callback URL (`{your-web-app-url}/api/auth/callback/github`)
    matches it exactly (see Step 3).
 2. Set `web_app_url` in `terraform.tfvars` to this real URL (replacing the Step 6 placeholder) and
-   run `terraform apply` again. This propagates the URL to the control-plane, slack-bot, and
-   linear-bot workers (`WEB_APP_URL`), which build "View Session" / PR deep-links from it — without
-   the re-apply they keep the placeholder and those links break.
+   run `tofu apply` again. This propagates the URL to the control-plane, slack-bot, and linear-bot
+   workers (`WEB_APP_URL`), which build "View Session" / PR deep-links from it — without the
+   re-apply they keep the placeholder and those links break.
 
 ---
 
@@ -580,8 +585,8 @@ Once deployed, note the project's URL, then:
 After deployment completes, verify each component:
 
 ```bash
-# Get the verification commands from Terraform
-terraform output verification_commands
+# Get the verification commands from OpenTofu
+tofu output verification_commands
 ```
 
 Or manually:
@@ -591,7 +596,7 @@ Or manually:
 curl https://open-inspect-control-plane-{deployment_name}.YOUR-SUBDOMAIN.workers.dev/health
 
 # 2. Sandbox backend health check
-# Modal exposes a health endpoint. Prefer the exact URL from terraform output verification_commands.
+# Modal exposes a health endpoint. Prefer the exact URL from tofu output verification_commands.
 # Manual form: https://<workspace>[-<modal_environment_web_suffix>]--open-inspect-api-health.modal.run
 MODAL_WORKSPACE_SLUG="YOUR-WORKSPACE" # or "YOUR-WORKSPACE-YOUR-MODAL-WEB-SUFFIX"
 curl https://${MODAL_WORKSPACE_SLUG}--open-inspect-api-health.modal.run
@@ -620,9 +625,9 @@ git pull upstream main
 # Rebuild shared package if it changed
 pnpm --filter @open-inspect/shared build
 
-# Re-run Terraform (it only changes what's needed)
+# Re-run OpenTofu (it only changes what's needed)
 cd terraform/environments/production
-terraform apply
+tofu apply
 ```
 
 ---
@@ -634,7 +639,7 @@ terraform apply
 Re-run init with backend config:
 
 ```bash
-terraform init -backend-config=backend.tfvars
+tofu init -backend-config=backend.tfvars
 ```
 
 ### GitHub App authentication fails
@@ -676,13 +681,13 @@ This installs all Modal deployment dependencies including `sandbox_runtime` (res
 
 ### Worker deployment fails / "no such file or directory" for dist/index.js
 
-Terraform references the built worker bundles. Build them before running `terraform apply`:
+OpenTofu references the built worker bundles. Build them before running `tofu apply`:
 
 ```bash
 # Build shared package first
 pnpm --filter @open-inspect/shared build
 
-# Build workers (required before Terraform)
+# Build workers (required before OpenTofu)
 pnpm --filter @open-inspect/control-plane --filter @orthogonal/slack-bot --filter @orthogonal/github-bot --filter @orthogonal/linear-bot build
 
 # Verify bundles exist
@@ -728,7 +733,7 @@ See [Secrets Management](SECRETS.md) for more on global and repository secrets.
 This occurs on first deployment. Follow the two-phase deployment process:
 
 1. Deploy with `enable_durable_object_bindings = false` and `enable_service_bindings = false`
-2. After success, set both to `true` and run `terraform apply` again
+2. After success, set both to `true` and run `tofu apply` again
 
 ---
 
@@ -737,7 +742,7 @@ This occurs on first deployment. Follow the two-phase deployment process:
 - **Never commit** `terraform.tfvars` or `backend.tfvars` to source control
 - The `.gitignore` already excludes these files
 - Keep secrets in `terraform.tfvars` / `backend.tfvars`, not hardcoded in source
-- Rotate secrets periodically using `terraform apply` after updating `terraform.tfvars`
+- Rotate secrets periodically using `tofu apply` after updating `terraform.tfvars`
 - Review the [Security Model](../README.md#security-model-single-tenant-only) - this system is
   designed for single-tenant deployment
 
@@ -758,8 +763,8 @@ in Slack App Home settings, Linear OAuth/completion messages, the PR body footer
 app_name = "Acme Bot"
 ```
 
-Run `terraform apply` after changing it; the bot/control-plane workers read `APP_NAME` at request
-time and pick up the new value immediately.
+Run `tofu apply` after changing it; the bot/control-plane workers read `APP_NAME` at request time
+and pick up the new value immediately.
 
 **2. Web UI branding — `apps/orto` Vercel env.** The name, short label, and logo/favicon shown in
 the web UI are `NEXT_PUBLIC_*` env vars on the `apps/orto` Vercel project, inlined into the client
@@ -780,6 +785,6 @@ redeploy `apps/orto` so the fresh build picks them up.
 
 For details on the infrastructure components, see:
 
-- [terraform/README.md](../terraform/README.md) - Terraform module documentation
+- [terraform/README.md](../terraform/README.md) - OpenTofu module documentation
 - [README.md](../README.md) - System architecture overview
 - [OPENAI_MODELS.md](OPENAI_MODELS.md) - Configuring OpenAI Codex models
