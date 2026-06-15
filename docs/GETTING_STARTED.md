@@ -413,7 +413,7 @@ enable_service_bindings        = false
 
 ```bash
 # From the repository root
-pnpm --filter @open-inspect/control-plane --filter @open-inspect/slack-bot --filter @open-inspect/github-bot build
+pnpm --filter @open-inspect/control-plane --filter @orthogonal/slack-bot --filter @orthogonal/github-bot --filter @orthogonal/linear-bot build
 ```
 
 Then run:
@@ -683,12 +683,13 @@ Terraform references the built worker bundles. Build them before running `terraf
 pnpm --filter @open-inspect/shared build
 
 # Build workers (required before Terraform)
-pnpm --filter @open-inspect/control-plane --filter @open-inspect/slack-bot --filter @open-inspect/github-bot build
+pnpm --filter @open-inspect/control-plane --filter @orthogonal/slack-bot --filter @orthogonal/github-bot --filter @orthogonal/linear-bot build
 
 # Verify bundles exist
 ls packages/control-plane/dist/index.js
-ls packages/slack-bot/dist/index.js
-ls packages/github-bot/dist/index.js  # Only if enable_github_bot = true
+ls services/integrations/slack-bot/dist/index.js
+ls services/integrations/github-bot/dist/index.js  # Only if enable_github_bot = true
+ls services/integrations/linear-bot/dist/index.js  # Only if enable_linear_bot = true
 ```
 
 ### Slack bot not responding

@@ -202,7 +202,7 @@ github_bot_username   = "{app-slug}[bot]"
 **Important**: Build the workers before running Terraform (Terraform references the built bundles):
 
 ```bash
-pnpm --filter @open-inspect/control-plane --filter @open-inspect/slack-bot --filter @open-inspect/github-bot build
+pnpm --filter @open-inspect/control-plane --filter @orthogonal/slack-bot --filter @orthogonal/github-bot --filter @orthogonal/linear-bot build
 ```
 
 **Phase 1** (bindings disabled):
@@ -315,7 +315,7 @@ session, send prompt.
 - **Vercel build fails**: Check the `apps/orto` project's root directory and monorepo install/build
   commands match [apps/orto/README.md](../../../apps/orto/README.md)
 - **"no such file or directory" for dist/index.js**: Build workers before Terraform:
-  `pnpm --filter @open-inspect/control-plane --filter @open-inspect/slack-bot --filter @open-inspect/github-bot build`
+  `pnpm --filter @open-inspect/control-plane --filter @orthogonal/slack-bot --filter @orthogonal/github-bot --filter @orthogonal/linear-bot build`
 - **Worker deployment fails**: Build shared package first:
   `pnpm --filter @open-inspect/shared build`
 

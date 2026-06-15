@@ -5,7 +5,7 @@ Linear Agent to start work, then use Linear for progress, results, and follow-up
 
 This guide is for people using the Linear integration day to day. If you are installing the Linear
 OAuth app or deploying the worker, start with the
-[Linear Bot setup guide](../../packages/linear-bot/README.md#setup).
+[Linear Bot setup guide](../../services/integrations/linear-bot/README.md#setup).
 
 ---
 
@@ -94,8 +94,8 @@ If Open-Inspect asks for clarification, reply with `owner/repo`. That answer is 
 resolution attempt.
 
 Admins can map Linear projects or teams to repositories. See
-[Configure Repo Mapping](../../packages/linear-bot/README.md#4-configure-repo-mapping-optional) for
-details.
+[Configure Repo Mapping](../../services/integrations/linear-bot/README.md#4-configure-repo-mapping-optional)
+for details.
 
 If the resolved repo is outside the selected Linear scope, Linear shows an error and no session
 starts.
@@ -167,7 +167,7 @@ Linear user preferences are currently admin/API-managed, not set from a self-ser
 
 Confirm the Linear OAuth app is installed in the workspace and that the app was installed with the
 agent scopes required for mentions and assignment. Setup details live in the
-[Linear Bot setup guide](../../packages/linear-bot/README.md#setup).
+[Linear Bot setup guide](../../services/integrations/linear-bot/README.md#setup).
 
 ### A request does not start
 

@@ -171,9 +171,9 @@ pnpm --filter @open-inspect/control-plane run test:integration
 pnpm --filter @orthogonal/orto test
 
 # Bots
-pnpm --filter @open-inspect/github-bot test
-pnpm --filter @open-inspect/slack-bot test
-pnpm --filter @open-inspect/linear-bot test
+pnpm --filter @orthogonal/github-bot test
+pnpm --filter @orthogonal/slack-bot test
+pnpm --filter @orthogonal/linear-bot test
 ```
 
 ### Python (`modal-infra`) workflow

@@ -1,0 +1,356 @@
+/**
+ * Open-Inspect GitHub Bot Worker
+ *
+ * Cloudflare Worker that handles GitHub webhook events and provides
+ * automated code review and comment-triggered actions via the coding agent.
+ */
+
+import { normalizeGitHubEvent, buildInternalAuthHeaders } from "@open-inspect/shared";
+import { createKvCacheStore, type CacheStore } from "@open-inspect/shared";
+import { Hono } from "hono";
+
+import {
+  handlePullRequestOpened,
+  handleReviewRequested,
+  handleIssueComment,
+  handleReviewComment,
+  type HandlerResult,
+} from "./handlers";
+import type { Logger } from "./logger";
+import { createLogger, parseLogLevel } from "./logger";
+import type {
+  Env,
+  PullRequestOpenedPayload,
+  ReviewRequestedPayload,
+  IssueCommentPayload,
+  ReviewCommentPayload,
+} from "./types";
+import { verifyWebhookSignature } from "./verify";
+
+const app = new Hono<{ Bindings: Env }>();
+const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1_000;
+const DELIVERY_DEDUPE_TTL_MS = ONE_WEEK_MS;
+const DELIVERY_PROCESSING_TTL_MS = 5 * 60 * 1_000;
+const FORWARD_DEDUPE_TTL_MS = ONE_WEEK_MS;
+const DELIVERY_STATUS_PROCESSING = "processing";
+const DELIVERY_STATUS_PROCESSED = "processed";
+const FORWARD_STATUS_FORWARDED = "forwarded";
+
+function getDeliveryDedupeKey(deliveryId: string): string {
+  return `delivery:${deliveryId}`;
+}
+
+function getForwardDedupeKey(deliveryId: string): string {
+  return `forward:${deliveryId}`;
+}
+
+function ttlSecondsFromMs(ttlMs: number): number {
+  return Math.ceil(ttlMs / 1_000);
+}
+
+app.get("/health", (c) => c.json({ status: "healthy", service: "open-inspect-github-bot" }));
+
+app.post("/webhooks/github", async (c) => {
+  const log = createLogger("webhook", {}, parseLogLevel(c.env.LOG_LEVEL));
+  const cacheStore = createKvCacheStore(c.env.GITHUB_KV);
+
+  const rawBody = await c.req.text();
+  const signature = c.req.header("X-Hub-Signature-256") ?? null;
+  const event = c.req.header("X-GitHub-Event");
+  const deliveryId = c.req.header("X-GitHub-Delivery");
+
+  const valid = await verifyWebhookSignature(c.env.GITHUB_WEBHOOK_SECRET, rawBody, signature);
+  if (!valid) {
+    log.warn("webhook.signature_invalid", { delivery_id: deliveryId });
+    return c.json({ error: "invalid signature" }, 401);
+  }
+
+  // Delivery dedupe is a non-atomic read-then-write in eventually-consistent KV, so it
+  // is best-effort only — strict exactly-once would require a Durable Object or a D1
+  // unique constraint. A racing redelivery can slip past the read before the marker is
+  // written; the README documents this guarantee.
+  let dedupeKey: string | null = null;
+  let legacyDuplicate = false;
+  if (deliveryId) {
+    dedupeKey = getDeliveryDedupeKey(deliveryId);
+    const existing = await cacheStore.get(dedupeKey);
+    if (existing) {
+      legacyDuplicate = true;
+      log.info("webhook.duplicate_delivery", {
+        delivery_id: deliveryId,
+        event_type: event,
+        dedupe_status: existing,
+      });
+    } else {
+      await cacheStore.put(dedupeKey, DELIVERY_STATUS_PROCESSING, {
+        expirationTtl: ttlSecondsFromMs(DELIVERY_PROCESSING_TTL_MS),
+      });
+    }
+  } else {
+    log.warn("webhook.delivery_id_missing", { event_type: event });
+  }
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = JSON.parse(rawBody);
+  } catch (err) {
+    // Parse failure cannot succeed on a byte-identical redelivery, but a corrected
+    // redelivery (same delivery id, fixed body) must not be blocked by the in-flight
+    // "processing" marker we just wrote. Only clear the marker if we wrote it here.
+    if (dedupeKey && !legacyDuplicate) {
+      try {
+        await cacheStore.delete(dedupeKey);
+      } catch (deleteErr) {
+        log.warn("webhook.dedupe_clear_failed", {
+          delivery_id: deliveryId,
+          error: deleteErr instanceof Error ? deleteErr : new Error(String(deleteErr)),
+        });
+      }
+    }
+    log.warn("webhook.invalid_payload", {
+      delivery_id: deliveryId,
+      event_type: event,
+      error: err instanceof Error ? err : new Error(String(err)),
+    });
+    return c.json({ error: "invalid payload" }, 400);
+  }
+
+  const traceId = crypto.randomUUID();
+
+  const repository = payload.repository as
+    | { owner?: { login?: string }; name?: string }
+    | undefined;
+  log.info("webhook.received", {
+    event_type: event,
+    delivery_id: deliveryId,
+    trace_id: traceId,
+    repo: repository ? `${repository.owner?.login}/${repository.name}` : undefined,
+    action: payload.action,
+  });
+
+  // Legacy bot behavior — gated by the delivery marker so redeliveries do not create
+  // duplicate sessions. Skipped entirely on a duplicate delivery.
+  if (!legacyDuplicate) {
+    c.executionCtx.waitUntil(
+      handleWebhook(c.env, log, event, payload, traceId, deliveryId)
+        .then(async () => {
+          if (!dedupeKey) return;
+
+          try {
+            await cacheStore.put(dedupeKey, DELIVERY_STATUS_PROCESSED, {
+              expirationTtl: ttlSecondsFromMs(DELIVERY_DEDUPE_TTL_MS),
+            });
+          } catch (err) {
+            log.warn("webhook.dedupe_finalize_failed", {
+              trace_id: traceId,
+              delivery_id: deliveryId,
+              error: err instanceof Error ? err : new Error(String(err)),
+            });
+          }
+        })
+        .catch(async (err) => {
+          if (dedupeKey) {
+            try {
+              await cacheStore.delete(dedupeKey);
+            } catch (deleteErr) {
+              log.warn("webhook.dedupe_clear_failed", {
+                trace_id: traceId,
+                delivery_id: deliveryId,
+                error: deleteErr instanceof Error ? deleteErr : new Error(String(deleteErr)),
+              });
+            }
+          }
+
+          log.error("webhook.processing_error", {
+            trace_id: traceId,
+            delivery_id: deliveryId,
+            error: err instanceof Error ? err : new Error(String(err)),
+          });
+        })
+    );
+  }
+
+  // Additive control-plane forward — independent of legacy bot behavior. It runs on
+  // every delivery (including redeliveries) and is gated by its OWN dedupe marker that
+  // is set only on a successful forward, so a transient forward failure is retried on
+  // the next GitHub redelivery instead of being permanently swallowed by the legacy
+  // delivery marker.
+  c.executionCtx.waitUntil(
+    forwardGitHubEvent(c.env, cacheStore, log, event, payload, traceId, deliveryId)
+  );
+
+  return c.json(legacyDuplicate ? { ok: true, duplicate: true } : { ok: true });
+});
+
+async function handleWebhook(
+  env: Env,
+  log: Logger,
+  event: string | undefined,
+  payload: unknown,
+  traceId: string,
+  deliveryId: string | undefined
+): Promise<void> {
+  const p = payload as Record<string, unknown>;
+  const repo = p.repository
+    ? `${(p.repository as Record<string, unknown> & { owner: { login: string }; name: string }).owner.login}/${(p.repository as Record<string, unknown> & { name: string }).name}`
+    : undefined;
+  const sender = (p.sender as { login?: string } | undefined)?.login;
+  const pullNumber =
+    (p.pull_request as { number?: number } | undefined)?.number ??
+    (p.issue as { number?: number } | undefined)?.number;
+
+  const wideEventBase = {
+    trace_id: traceId,
+    delivery_id: deliveryId,
+    event_type: event,
+    action: p.action,
+    repo,
+    pull_number: pullNumber,
+    sender,
+  };
+
+  const start = Date.now();
+  let result: HandlerResult;
+
+  try {
+    result = await dispatchHandler(env, log, event, p, payload, traceId);
+  } catch (err) {
+    log.info("webhook.handled", {
+      ...wideEventBase,
+      outcome: "error",
+      duration_ms: Date.now() - start,
+      error: err instanceof Error ? err : new Error(String(err)),
+    });
+    throw err;
+  }
+
+  const wideEvent: Record<string, unknown> = {
+    ...wideEventBase,
+    outcome: result.outcome,
+    duration_ms: Date.now() - start,
+  };
+  if (result.outcome === "skipped") {
+    wideEvent.skip_reason = result.skip_reason;
+  } else {
+    wideEvent.session_id = result.session_id;
+    wideEvent.message_id = result.message_id;
+    wideEvent.handler_action = result.handler_action;
+  }
+  log.info("webhook.handled", wideEvent);
+}
+
+/**
+ * Forward the normalized event to the control plane for automation triggering.
+ *
+ * This is additive and fully decoupled from the legacy bot path: it runs on every
+ * delivery (including GitHub redeliveries) and uses its OWN dedupe marker keyed on the
+ * delivery id. The marker is written only after a successful forward, so a non-ok
+ * response or thrown error leaves no marker and the next redelivery retries the
+ * forward — it is never permanently swallowed by the legacy delivery marker, and a
+ * forward failure never blocks or alters legacy behavior.
+ */
+async function forwardGitHubEvent(
+  env: Env,
+  cacheStore: CacheStore,
+  log: Logger,
+  event: string | undefined,
+  payload: Record<string, unknown>,
+  traceId: string,
+  deliveryId: string | undefined
+): Promise<void> {
+  if (!event) return;
+
+  const normalizedEvent = normalizeGitHubEvent(event, payload);
+  if (normalizedEvent === null) return;
+
+  const forwardKey = deliveryId ? getForwardDedupeKey(deliveryId) : null;
+  if (forwardKey) {
+    const alreadyForwarded = await cacheStore.get(forwardKey);
+    if (alreadyForwarded) {
+      log.info("webhook.github_event_forward_skipped", {
+        trace_id: traceId,
+        delivery_id: deliveryId,
+        event_type: event,
+      });
+      return;
+    }
+  }
+
+  try {
+    const body = JSON.stringify(normalizedEvent);
+    const authHeaders = await buildInternalAuthHeaders(env.INTERNAL_CALLBACK_SECRET, traceId);
+    const response = await env.CONTROL_PLANE.fetch("https://internal/internal/github-event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders },
+      body,
+    });
+    if (!response.ok) {
+      log.warn("webhook.github_event_forward_failed", {
+        trace_id: traceId,
+        delivery_id: deliveryId,
+        event_type: event,
+        status: response.status,
+      });
+      return;
+    }
+
+    if (forwardKey) {
+      await cacheStore.put(forwardKey, FORWARD_STATUS_FORWARDED, {
+        expirationTtl: ttlSecondsFromMs(FORWARD_DEDUPE_TTL_MS),
+      });
+    }
+  } catch (err) {
+    log.warn("webhook.github_event_forward_error", {
+      trace_id: traceId,
+      delivery_id: deliveryId,
+      event_type: event,
+      error: err instanceof Error ? err : new Error(String(err)),
+    });
+  }
+}
+
+function dispatchHandler(
+  env: Env,
+  log: Logger,
+  event: string | undefined,
+  p: Record<string, unknown>,
+  payload: unknown,
+  traceId: string
+): Promise<HandlerResult> {
+  switch (event) {
+    case "pull_request":
+      if (p.action === "opened") {
+        return handlePullRequestOpened(env, log, payload as PullRequestOpenedPayload, traceId);
+      }
+      if (p.action === "review_requested") {
+        return handleReviewRequested(env, log, payload as ReviewRequestedPayload, traceId);
+      }
+      return Promise.resolve({
+        outcome: "skipped",
+        skip_reason: "unsupported_action",
+      });
+    case "issue_comment":
+      if (p.action === "created") {
+        return handleIssueComment(env, log, payload as IssueCommentPayload, traceId);
+      }
+      return Promise.resolve({
+        outcome: "skipped",
+        skip_reason: "unsupported_action",
+      });
+    case "pull_request_review_comment":
+      if (p.action === "created") {
+        return handleReviewComment(env, log, payload as ReviewCommentPayload, traceId);
+      }
+      return Promise.resolve({
+        outcome: "skipped",
+        skip_reason: "unsupported_action",
+      });
+    default:
+      return Promise.resolve({
+        outcome: "skipped",
+        skip_reason: "unsupported_event",
+      });
+  }
+}
+
+export default app;

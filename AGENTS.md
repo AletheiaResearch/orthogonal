@@ -16,7 +16,7 @@ Three tiers connected by WebSockets:
 3. **Data Plane** (Modal, Python) — sandboxed environments running coding agents. Manages sandbox
    creation, warm pools, snapshots.
 
-**Bot integrations** — all Cloudflare Workers using Hono:
+**Bot integrations** (`services/integrations/`) — all Cloudflare Workers using Hono:
 
 - `slack-bot` — Slack messages → coding sessions
 - `github-bot` — PR review assignments and @mention commands
@@ -65,9 +65,9 @@ pnpm run typecheck                               # tsc across all TS packages
 pnpm --filter @open-inspect/control-plane test   # unit tests (node env)
 pnpm --filter @open-inspect/control-plane run test:integration  # integration (workerd/Miniflare + real D1)
 pnpm --filter @orthogonal/orto test
-pnpm --filter @open-inspect/github-bot test
-pnpm --filter @open-inspect/slack-bot test
-pnpm --filter @open-inspect/linear-bot test
+pnpm --filter @orthogonal/github-bot test
+pnpm --filter @orthogonal/slack-bot test
+pnpm --filter @orthogonal/linear-bot test
 
 # Tests — Python (pytest)
 cd packages/modal-infra && pytest tests/ -v
@@ -141,7 +141,8 @@ under 72 characters. Use the PR body for details, not the commit message.
 
 Pushing to `main` auto-deploys changed services:
 
-- **Terraform** → control plane + D1 migrations + bots only (triggers: `terraform/`, `packages/*/`)
+- **Terraform** → control plane + D1 migrations + bots only (triggers: `terraform/`, `packages/*/`,
+  `services/integrations/*/`)
 - **Vercel** → web app (`apps/orto`) auto-deploys via its own dashboard-managed Vercel Git
   integration on push (not Terraform)
 - **Modal** → data plane (triggers: `packages/modal-infra/`, deployed via Terraform apply)
