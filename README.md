@@ -113,18 +113,18 @@ built for internal use where all employees are trusted and have access to compan
 
 ## Packages
 
-| Package                                     | Description                                                                       |
-| ------------------------------------------- | --------------------------------------------------------------------------------- |
-| [control-plane](packages/control-plane)     | Cloudflare Workers + Durable Objects                                              |
-| [orto](apps/orto)                           | Next.js web client (Vercel + PostHog)                                             |
-| [sandbox-runtime](packages/sandbox-runtime) | Shared in-sandbox agent runtime                                                   |
-| [modal-infra](packages/modal-infra)         | Modal sandbox infrastructure                                                      |
-| [slack-bot](packages/slack-bot)             | Slack integration (sessions from messages)                                        |
-| [github-bot](packages/github-bot)           | GitHub integration (auto-review, @mention)                                        |
-| [linear-bot](packages/linear-bot)           | Linear integration (issue → coding session)                                       |
-| [shared](packages/shared)                   | Shared types and utilities                                                        |
-| [ui](packages/ui)                           | Shared React component library (shadcn primitives + AI Elements–style agentic UI) |
-| [storybook](apps/storybook)                 | Storybook catalog for `@orthogonal/ui`                                            |
+| Package                                        | Description                                                                       |
+| ---------------------------------------------- | --------------------------------------------------------------------------------- |
+| [control-plane](packages/control-plane)        | Cloudflare Workers + Durable Objects                                              |
+| [orto](apps/orto)                              | Next.js web client (Vercel + PostHog)                                             |
+| [sandbox-runtime](packages/sandbox-runtime)    | Shared in-sandbox agent runtime                                                   |
+| [modal-infra](packages/modal-infra)            | Modal sandbox infrastructure                                                      |
+| [slack-bot](services/integrations/slack-bot)   | Slack integration (sessions from messages)                                        |
+| [github-bot](services/integrations/github-bot) | GitHub integration (auto-review, @mention)                                        |
+| [linear-bot](services/integrations/linear-bot) | Linear integration (issue → coding session)                                       |
+| [shared](packages/shared)                      | Shared types and utilities                                                        |
+| [ui](packages/ui)                              | Shared React component library (shadcn primitives + AI Elements–style agentic UI) |
+| [storybook](apps/storybook)                    | Storybook catalog for `@orthogonal/ui`                                            |
 
 ## Getting Started
 
