@@ -118,7 +118,22 @@ callbacksRouter.post("/complete", async (c) => {
   const startTime = Date.now();
   // Use trace_id from control-plane if present, otherwise generate one
   const traceId = c.req.header("x-trace-id") || crypto.randomUUID();
-  const payload = await c.req.json();
+  let payload: unknown;
+
+  try {
+    payload = await c.req.json();
+  } catch {
+    log.warn("http.request", {
+      trace_id: traceId,
+      http_method: "POST",
+      http_path: "/callbacks/complete",
+      http_status: 400,
+      outcome: "rejected",
+      reject_reason: "invalid_json",
+      duration_ms: Date.now() - startTime,
+    });
+    return c.json({ error: "invalid payload" }, 400);
+  }
 
   // Validate payload shape
   if (!isValidPayload(payload)) {

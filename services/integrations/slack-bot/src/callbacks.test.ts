@@ -324,6 +324,23 @@ describe("POST /callbacks/complete", () => {
     vi.restoreAllMocks();
   });
 
+  it("rejects malformed JSON payloads", async () => {
+    const ctx = makeCtx();
+    const response = await makeApp().fetch(
+      new Request("http://localhost/callbacks/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-trace-id": "trace-1" },
+        body: "{",
+      }),
+      makeEnv(),
+      ctx
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid payload" });
+    expect(ctx.waitUntil).not.toHaveBeenCalled();
+  });
+
   it("rejects signed payloads with non-slack context source", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
     const payload = await makeCompletionPayload({
