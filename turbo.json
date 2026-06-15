@@ -7,6 +7,11 @@
       "outputs": ["dist/**", ".next/**", "!.next/cache/**", "storybook-static/**"],
       "env": ["NEXT_PUBLIC_*"]
     },
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "dependsOn": ["^build"]
+    },
     "typecheck": {
       "dependsOn": ["^build"]
     },
