@@ -10,6 +10,11 @@ import { Hono } from "hono";
 
 import { callbacksRouter } from "./callbacks";
 import {
+  isValidProjectRepoMapping,
+  isValidTeamRepoMapping,
+  isValidTriggerConfig,
+} from "./config-validators";
+import {
   getTeamRepoMapping,
   getProjectRepoMapping,
   getTriggerConfig,
@@ -20,6 +25,8 @@ import { createLogger } from "./logger";
 import type { Env, UserPreferences, AgentSessionWebhook } from "./types";
 import {
   buildOAuthAuthorizeUrl,
+  consumeOAuthState,
+  createOAuthState,
   exchangeCodeForToken,
   verifyLinearWebhook,
 } from "./utils/linear-client";
@@ -82,8 +89,9 @@ app.get("/health", (c) => {
 
 // ─── OAuth Routes ────────────────────────────────────────────────────────────
 
-app.get("/oauth/authorize", (c) => {
-  return c.redirect(buildOAuthAuthorizeUrl(c.env), 302);
+app.get("/oauth/authorize", async (c) => {
+  const state = await createOAuthState(c.env);
+  return c.redirect(buildOAuthAuthorizeUrl(c.env, state), 302);
 });
 
 app.get("/oauth/callback", async (c) => {
@@ -92,6 +100,11 @@ app.get("/oauth/callback", async (c) => {
 
   const code = c.req.query("code");
   if (!code) return c.text("Missing required OAuth parameters", 400);
+
+  // CSRF protection: the state must match one we issued at /oauth/authorize.
+  // Validate before exchanging the code so a forged callback can't mint a token.
+  const stateValid = await consumeOAuthState(c.env, c.req.query("state") ?? null);
+  if (!stateValid) return c.text("Invalid or expired OAuth state", 400);
 
   try {
     const { orgName } = await exchangeCodeForToken(c.env, code);
@@ -155,6 +168,11 @@ app.post("/webhook", async (c) => {
       return c.json({ error: "Missing Linear-Delivery header" }, 400);
     }
 
+    // KNOWN LIMITATION (deferred): isDuplicateEvent is a non-atomic read-then-
+    // write and the marker is persisted here, before handleAgentSessionEvent
+    // completes. Whether a crash mid-processing results in a lost event or a safe
+    // retry depends on Linear reusing the Linear-Delivery ID, which is external
+    // and unverifiable here. See kv-store.ts isDuplicateEvent for details.
     const isDuplicate = await isDuplicateEvent(c.env, deliveryId);
     if (isDuplicate) {
       log.info("webhook.deduplicated", { trace_id: traceId, event_key: deliveryId });
@@ -196,6 +214,9 @@ app.get("/config/team-repos", async (c) => {
 
 app.put("/config/team-repos", async (c) => {
   const body = await c.req.json();
+  if (!isValidTeamRepoMapping(body)) {
+    return c.json({ error: "Invalid team-repos mapping" }, 400);
+  }
   await c.env.LINEAR_KV.put("config:team-repos", JSON.stringify(body));
   return c.json({ ok: true });
 });
@@ -206,6 +227,9 @@ app.get("/config/triggers", async (c) => {
 
 app.put("/config/triggers", async (c) => {
   const body = await c.req.json();
+  if (!isValidTriggerConfig(body)) {
+    return c.json({ error: "Invalid trigger config" }, 400);
+  }
   await c.env.LINEAR_KV.put("config:triggers", JSON.stringify(body));
   return c.json({ ok: true });
 });
@@ -216,6 +240,9 @@ app.get("/config/project-repos", async (c) => {
 
 app.put("/config/project-repos", async (c) => {
   const body = await c.req.json();
+  if (!isValidProjectRepoMapping(body)) {
+    return c.json({ error: "Invalid project-repos mapping" }, 400);
+  }
   await c.env.LINEAR_KV.put("config:project-repos", JSON.stringify(body));
   return c.json({ ok: true });
 });

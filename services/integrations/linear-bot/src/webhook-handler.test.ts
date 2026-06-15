@@ -5,7 +5,34 @@ import {
   buildPrompt,
   buildPromptContextPrompt,
   escapeHtml,
+  parseRepositoryFullName,
 } from "./webhook-handler";
+
+describe("parseRepositoryFullName", () => {
+  it("parses a well-formed owner/name", () => {
+    expect(parseRepositoryFullName("org/repo")).toEqual({ owner: "org", name: "repo" });
+  });
+
+  it("rejects a value with no slash", () => {
+    expect(parseRepositoryFullName("repo")).toBeNull();
+  });
+
+  it("rejects a value with more than one slash", () => {
+    expect(parseRepositoryFullName("org/group/repo")).toBeNull();
+  });
+
+  it("rejects an empty owner segment", () => {
+    expect(parseRepositoryFullName("/repo")).toBeNull();
+  });
+
+  it("rejects an empty name segment", () => {
+    expect(parseRepositoryFullName("org/")).toBeNull();
+  });
+
+  it("rejects an empty string", () => {
+    expect(parseRepositoryFullName("")).toBeNull();
+  });
+});
 
 describe("escapeHtml", () => {
   it("escapes & to &amp;", () => {

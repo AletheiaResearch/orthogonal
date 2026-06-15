@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { formatCompletionComment, formatToolAction, isValidToolCallPayload } from "./callbacks";
+import {
+  formatCompletionComment,
+  formatToolAction,
+  isFreshTimestamp,
+  isValidToolCallPayload,
+} from "./callbacks";
 
 // ─── formatToolAction ────────────────────────────────────────────────────────
 
@@ -179,5 +184,58 @@ describe("isValidToolCallPayload", () => {
 
   it("rejects sessionId of wrong type", () => {
     expect(isValidToolCallPayload({ ...valid, sessionId: 123 })).toBe(false);
+  });
+
+  it("accepts an empty args object (legit no-arg tool call)", () => {
+    expect(isValidToolCallPayload({ ...valid, args: {} })).toBe(true);
+  });
+
+  it("rejects missing args (formatToolAction would throw a swallowed TypeError)", () => {
+    const { args: _, ...rest } = valid;
+    expect(isValidToolCallPayload(rest)).toBe(false);
+  });
+
+  it("rejects args: null", () => {
+    expect(isValidToolCallPayload({ ...valid, args: null })).toBe(false);
+  });
+
+  it("rejects args that is an array", () => {
+    expect(isValidToolCallPayload({ ...valid, args: ["ls"] })).toBe(false);
+  });
+
+  it("rejects args of a primitive type", () => {
+    expect(isValidToolCallPayload({ ...valid, args: "ls" })).toBe(false);
+  });
+});
+
+// ─── isFreshTimestamp ─────────────────────────────────────────────────────────
+
+describe("isFreshTimestamp", () => {
+  const now = 1_700_000_000_000;
+  const windowMs = 5 * 60 * 1000;
+
+  it("accepts the current timestamp", () => {
+    expect(isFreshTimestamp(now, now)).toBe(true);
+  });
+
+  it("accepts a timestamp exactly at the window boundary (past)", () => {
+    expect(isFreshTimestamp(now - windowMs, now)).toBe(true);
+  });
+
+  it("accepts a timestamp exactly at the window boundary (future skew)", () => {
+    expect(isFreshTimestamp(now + windowMs, now)).toBe(true);
+  });
+
+  it("rejects a timestamp older than the window (replay)", () => {
+    expect(isFreshTimestamp(now - windowMs - 1000, now)).toBe(false);
+  });
+
+  it("rejects a timestamp too far in the future", () => {
+    expect(isFreshTimestamp(now + windowMs + 1000, now)).toBe(false);
+  });
+
+  it("rejects a non-finite timestamp", () => {
+    expect(isFreshTimestamp(NaN, now)).toBe(false);
+    expect(isFreshTimestamp(Infinity, now)).toBe(false);
   });
 });

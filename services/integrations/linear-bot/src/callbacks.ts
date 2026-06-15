@@ -20,6 +20,22 @@ import {
 
 const log = createLogger("callback");
 
+/**
+ * Validity window for signed callback timestamps. Mirrors the shared internal
+ * auth token window (5 minutes). Callbacks are signed with a `timestamp` field,
+ * so without this check a captured-and-replayed callback would be valid forever.
+ */
+const CALLBACK_TIMESTAMP_VALIDITY_MS = 5 * 60 * 1000;
+
+/**
+ * Returns true when `timestampMs` is within the replay window of `nowMs`.
+ * Clock skew is allowed in both directions (|now - ts| <= window).
+ */
+export function isFreshTimestamp(timestampMs: number, nowMs: number = Date.now()): boolean {
+  if (!Number.isFinite(timestampMs)) return false;
+  return Math.abs(nowMs - timestampMs) <= CALLBACK_TIMESTAMP_VALIDITY_MS;
+}
+
 export async function verifyCallbackSignature<T extends { signature: string }>(
   payload: T,
   secret: string
@@ -98,6 +114,18 @@ callbacksRouter.post("/complete", async (c) => {
     return c.json({ error: "unauthorized" }, 401);
   }
 
+  if (!isFreshTimestamp(payload.timestamp)) {
+    log.warn("http.request", {
+      trace_id: traceId,
+      http_path: "/callbacks/complete",
+      http_status: 401,
+      outcome: "rejected",
+      reject_reason: "stale_timestamp",
+      duration_ms: Date.now() - startTime,
+    });
+    return c.json({ error: "unauthorized" }, 401);
+  }
+
   c.executionCtx.waitUntil(handleCompletionCallback(payload, c.env, traceId));
 
   return c.json({ ok: true });
@@ -146,6 +174,12 @@ export function isValidToolCallPayload(payload: unknown): payload is ToolCallCal
   return (
     typeof p.sessionId === "string" &&
     typeof p.tool === "string" &&
+    // `args` must be a non-null object. formatToolAction does Object.values(args)
+    // and args.command; a missing/non-object value throws a TypeError that would
+    // be swallowed by the route's try/catch, silently dropping the activity.
+    p.args !== null &&
+    typeof p.args === "object" &&
+    !Array.isArray(p.args) &&
     typeof p.timestamp === "number" &&
     typeof p.signature === "string" &&
     p.context !== null &&
@@ -190,6 +224,19 @@ callbacksRouter.post("/tool_call", async (c) => {
       http_status: 401,
       outcome: "rejected",
       reject_reason: "invalid_signature",
+      session_id: payload.sessionId,
+      duration_ms: Date.now() - startTime,
+    });
+    return c.json({ error: "unauthorized" }, 401);
+  }
+
+  if (!isFreshTimestamp(payload.timestamp)) {
+    log.warn("http.request", {
+      trace_id: traceId,
+      http_path: "/callbacks/tool_call",
+      http_status: 401,
+      outcome: "rejected",
+      reject_reason: "stale_timestamp",
       session_id: payload.sessionId,
       duration_ms: Date.now() - startTime,
     });

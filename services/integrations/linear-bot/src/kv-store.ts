@@ -103,6 +103,13 @@ export async function storeIssueSession(
 
 /**
  * Check if an event has already been processed (deduplication).
+ *
+ * KNOWN LIMITATION (deferred): this is a non-atomic read-then-write. Two near-
+ * simultaneous deliveries of the same event can both read "absent" and proceed.
+ * KV has no atomic compare-and-set; a fully race-free dedup would require a
+ * Durable Object, which is out of scope here. The marker is written eagerly
+ * (before processing completes), so behavior under retry-vs-loss depends on
+ * Linear's external, unverifiable delivery-ID reuse semantics.
  */
 export async function isDuplicateEvent(env: Env, eventKey: string): Promise<boolean> {
   const existing = await env.LINEAR_KV.get(`event:${eventKey}`);

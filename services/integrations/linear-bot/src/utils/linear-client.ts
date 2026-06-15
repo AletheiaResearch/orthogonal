@@ -19,13 +19,52 @@ function getWorkspaceTokenKey(orgId: string): string {
   return `${OAUTH_TOKEN_KEY_PREFIX}${orgId}`;
 }
 
-export function buildOAuthAuthorizeUrl(env: Env): string {
+const OAUTH_STATE_KEY_PREFIX = "oauth:state:";
+
+/**
+ * TTL for a pending OAuth `state` value. Short window: the user only needs long
+ * enough to complete Linear's consent screen.
+ */
+const OAUTH_STATE_TTL_SECONDS = 600;
+
+function getOAuthStateKey(state: string): string {
+  return `${OAUTH_STATE_KEY_PREFIX}${state}`;
+}
+
+/**
+ * Generate a random CSRF `state`, persist it in KV with a short TTL, and return
+ * it so the caller can include it in the authorize redirect.
+ */
+export async function createOAuthState(env: Env): Promise<string> {
+  const state = crypto.randomUUID();
+  await env.LINEAR_KV.put(getOAuthStateKey(state), "1", {
+    expirationTtl: OAUTH_STATE_TTL_SECONDS,
+  });
+  return state;
+}
+
+/**
+ * Validate and single-use-consume an OAuth `state`. Returns true only when the
+ * state was previously issued by createOAuthState and not yet consumed. The
+ * marker is deleted on a hit so a captured state cannot be replayed.
+ */
+export async function consumeOAuthState(env: Env, state: string | null): Promise<boolean> {
+  if (!state) return false;
+  const key = getOAuthStateKey(state);
+  const existing = await env.LINEAR_KV.get(key);
+  if (!existing) return false;
+  await env.LINEAR_KV.delete(key);
+  return true;
+}
+
+export function buildOAuthAuthorizeUrl(env: Env, state: string): string {
   const authUrl = new URL("https://linear.app/oauth/authorize");
   authUrl.searchParams.set("client_id", env.LINEAR_CLIENT_ID);
   authUrl.searchParams.set("redirect_uri", `${env.WORKER_URL}/oauth/callback`);
   authUrl.searchParams.set("response_type", "code");
   authUrl.searchParams.set("scope", "read,write,app:assignable,app:mentionable");
   authUrl.searchParams.set("actor", "app");
+  authUrl.searchParams.set("state", state);
   return authUrl.toString();
 }
 
