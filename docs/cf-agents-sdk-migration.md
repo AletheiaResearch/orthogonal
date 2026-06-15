@@ -1,6 +1,10 @@
 # Proposal: Migrating the custom session/sync/API layer to the Cloudflare Agents SDK
 
-**Status:** Research + proposal for discussion. Not approved. Ends in open decision points (§9).
+**Status:** Research + proposal. Direction **decided 2026-06-15** (§9): approved scope is a **spike
+only** — Phase 0 (naming/tenant seams, no SDK) + Phase 1a (no-traffic `SessionAgent` proving the
+second-peer MUST-VERIFY) — then re-evaluate before any production migration. Tenant key
+**deferred**; leg-B auth stays hand-rolled in the Agent (verified `onBeforeConnect` can't reach
+per-DO state); eventual full port, if green-lit, is a **ground-up rewrite**.
 
 **Scope:** Core control-plane only — the per-session Durable Object, its WebSocket/sync layer, and
 the Modal bridge. The `slack-bot`/`github-bot`/`linear-bot` integrations are **explicitly out of
@@ -240,6 +244,19 @@ the `WebSocketPair` and accepts via `this.ctx.acceptWebSocket(server, tags)`** �
 (`durable-object.ts:874-911`). **The SDK absorbs nothing for leg B's accept path; it stays a
 hand-rolled upgrade inside the Agent.** This keeps the `/sessions/{id}/ws` URL, headers, and status
 codes byte-for-byte — so `bridge.py` / `sandbox-runtime` change **zero** (constraint satisfied).
+
+> **VERIFIED (2026-06-15) — `onBeforeConnect` does not help leg B.** Per the SDK docs
+> (`developers.cloudflare.com/agents/runtime/communication/routing`),
+> `onBeforeConnect`/`onBeforeRequest` are **options to `routeAgentRequest(request, env, {...})`**,
+> with signature `(request, lobby) => Response | Request | void`. They run in the **Worker routing
+> layer, before the request is routed to any Agent instance**, and **can** return a pre-accept
+> `Response` (e.g. `401`) ✅. **But they receive only `request` + `lobby` (env/namespace) — not the
+> Agent instance, so they have no access to `this.sql` / the per-session DO `sandbox` row.** Leg B's
+> auth (`getSandbox()`/`isValidSandboxToken`) is per-DO state, so **`onBeforeConnect` cannot perform
+> it** unless we also project the sandbox token hash into a Worker-readable store (D1/KV) — a new
+> consistency surface we should avoid. **Conclusion: use `onBeforeConnect` for the _client_ leg
+> (stateless/JWT token check against `env`); keep the hand-rolled upgrade inside the Agent for _leg
+> B_.** (This settles Decision 2 — see §9.)
 
 **(b) The SDK still owns message dispatch and the connection set — this is the MUST-VERIFY.**
 Because the SDK's `Server.webSocketMessage` is the single DO-level handler, a socket accepted via
@@ -537,6 +554,12 @@ status); **no DO-to-Agent data copy** — DO SQLite is private per class with no
 
 Five forks, each naming the constraint that drives the recommendation. **Decision 0 is the gate.**
 
+> **DECIDED (2026-06-15).** D0 → **Option B** (spike Phase 0 + 1a, then re-evaluate). D1 → **Option
+> B** (ground-up rewrite — _overrides_ the doc's original recommendation of A; see the note in D1).
+> D2 → resolved to **Option A** for leg B after verifying `onBeforeConnect` (it runs at the routing
+> layer without per-DO `this.sql`; see §4.3a VERIFIED note). D3 → **Option A** (defer the key; bare
+> names + nullable D1 column). D4 → not separately decided; the recommended Option A stands.
+
 ### Decision 0 — Do we migrate at all, and how far?
 
 - **Option A: Proceed incrementally**, stopping after **Phase 1a** to re-decide on hard evidence
@@ -560,6 +583,14 @@ Five forks, each naming the constraint that drives the recommendation. **Decisio
 - **Recommendation: A.** Constraint: _incremental, not big-bang; the current DO works._ The domain
   logic (circuit breakers, ack protocol, child lineage, execution-timeout reconcile) is the hard-won
   part and is **not** what the SDK replaces.
+- **DECIDED: Option B (ground-up rewrite)** — overrides the recommendation above. **Implication:**
+  the domain logic the doc flagged as hard-won (ack/buffer/replay, circuit breakers, child lineage,
+  execution-timeout reconcile) gets re-expressed on SDK idioms rather than lifted as-is, which
+  **raises the regression risk the doc warns about**. That makes the spike's parity checks and the
+  `test/integration` suite the load-bearing safety net — the rewrite must be validated against the
+  `SessionDO` baseline behavior, not just "compiles and connects." Note this only governs the
+  eventual full implementation _if_ D0's spike green-lights proceeding; the spike (Phase 0 + 1a)
+  itself ports no domain logic.
 
 ### Decision 2 — How leg B authenticates within the SDK (the real bridge fork)
 
@@ -568,13 +599,18 @@ Five forks, each naming the constraint that drives the recommendation. **Decisio
   `this.ctx.acceptWebSocket` (§4.3a). SDK absorbs nothing here.
 - **Option B: Accept-then-WS-close** — let the SDK accept, then close with a code on auth failure;
   requires changing `bridge.py` fatal-vs-retryable handling. **Violates "Modal unchanged."**
-- **Option C: `onBeforeConnect`/`onBeforeRequest`** returning a pre-accept `Response` **if** the
-  installed SDK exposes one with DO context. **Unverified** — may not exist / may lack `this.sql`
-  access.
-- **Recommendation: A.** Constraint: _Modal/`bridge.py` byte-for-byte unchanged + per-DO auth
-  state._ B is out by constraint; C is unverified. A is the only option that satisfies both today —
-  at the cost that leg B never becomes idiomatic SDK. (This replaces the strawman "WS vs webhook"
-  framing; keeping the inbound WS is a non-goal-level given, §8.)
+- **Option C: `onBeforeConnect`/`onBeforeRequest`** returning a pre-accept `Response`. **VERIFIED
+  (2026-06-15):** these are `routeAgentRequest` options, run at the **Worker routing layer** with
+  `(request, lobby)` — they **can** reject pre-accept, **but have no per-DO `this.sql` access**, so
+  they **cannot** run leg B's `getSandbox()`/`isValidSandboxToken` (per-session DO state). See
+  §4.3a.
+- **Recommendation / DECIDED: A for leg B.** Constraint: _Modal/`bridge.py` byte-for-byte
+  unchanged + per-DO auth state._ B is out by constraint; **C is now verified _insufficient_ for leg
+  B** (great for the _client_ leg's stateless token check, useless for per-session sandbox auth
+  without projecting the token into D1/KV — a consistency surface to avoid). A is the only option
+  that satisfies both — at the cost that leg B never becomes idiomatic SDK. **Resolution:
+  `onBeforeConnect` for the client leg; hand-rolled upgrade inside the Agent for leg B.** (Keeping
+  the inbound WS is a non-goal-level given, §8.)
 
 ### Decision 3 — The tenant key, and whether to prefix DO names now
 
@@ -584,10 +620,11 @@ Five forks, each naming the constraint that drives the recommendation. **Decisio
   wrong key (ownership is `user_id`).
 - **Option C: Prefix now with `installation_id`** (already a seam via `GITHUB_APP_INSTALLATION_MAP`,
   coarser/more stable than `repo_owner`).
-- **Recommendation: A.** Constraint: _flexible-for-MT-later without locking in a wrong, irreversible
-  boundary._ A DO name is permanent; the data says ownership is `user_id`, not `repo_owner`.
-  Centralizing the helper is free; committing the _value_ is not — defer it until the real boundary
-  is known.
+- **Recommendation / DECIDED: A (defer the key).** Constraint: _flexible-for-MT-later without
+  locking in a wrong, irreversible boundary._ A DO name is permanent; the data says ownership is
+  `user_id`, not `repo_owner`. Centralizing the helper is free; committing the _value_ is not —
+  defer it until the real boundary is known. Phase 0 ships `sessionAgentName(sessionId)` returning
+  the bare id plus the nullable `tenant_id` column.
 
 ### Decision 4 — Per-session state: `this.sql` system-of-record vs `setState` blob
 
