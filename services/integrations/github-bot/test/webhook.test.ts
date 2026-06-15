@@ -35,16 +35,23 @@ function createMockKV() {
   };
 }
 
-function makeEnv() {
+function makeEnv(): Env {
   const githubKv = createMockKV();
   return {
-    GITHUB_KV: githubKv,
-    GITHUB_WEBHOOK_SECRET: SECRET,
-    GITHUB_BOT_USERNAME: "test-bot[bot]",
+    GITHUB_KV: githubKv as unknown as KVNamespace,
+    CONTROL_PLANE: {
+      fetch: vi.fn(async () => new Response("ok", { status: 200 })),
+    } as unknown as Fetcher,
     DEPLOYMENT_NAME: "test",
     DEFAULT_MODEL: "anthropic/claude-haiku-4-5",
+    GITHUB_BOT_USERNAME: "test-bot[bot]",
+    GITHUB_APP_ID: "12345",
+    GITHUB_APP_PRIVATE_KEY: "test-key",
+    GITHUB_APP_INSTALLATION_ID: "67890",
+    GITHUB_WEBHOOK_SECRET: SECRET,
+    INTERNAL_CALLBACK_SECRET: "test-internal-secret",
     LOG_LEVEL: "error",
-  } as unknown as Env;
+  } satisfies Env;
 }
 
 function makeCtx() {

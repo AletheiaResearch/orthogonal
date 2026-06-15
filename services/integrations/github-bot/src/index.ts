@@ -28,9 +28,10 @@ import type {
 import { verifyWebhookSignature } from "./verify";
 
 const app = new Hono<{ Bindings: Env }>();
-const DELIVERY_DEDUPE_TTL_MS = 7 * 24 * 60 * 60 * 1_000;
+const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1_000;
+const DELIVERY_DEDUPE_TTL_MS = ONE_WEEK_MS;
 const DELIVERY_PROCESSING_TTL_MS = 5 * 60 * 1_000;
-const FORWARD_DEDUPE_TTL_MS = 7 * 24 * 60 * 60 * 1_000;
+const FORWARD_DEDUPE_TTL_MS = ONE_WEEK_MS;
 const DELIVERY_STATUS_PROCESSING = "processing";
 const DELIVERY_STATUS_PROCESSED = "processed";
 const FORWARD_STATUS_FORWARDED = "forwarded";

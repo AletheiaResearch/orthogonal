@@ -548,6 +548,48 @@ describe("handleIssueComment", () => {
     expect(generateInstallationToken).not.toHaveBeenCalled();
   });
 
+  it("triggers on a bounded @mention token", async () => {
+    const env = createMockEnv();
+    const log = createMockLogger();
+    const payload: IssueCommentPayload = {
+      ...issueCommentPayload,
+      comment: { ...issueCommentPayload.comment, body: "@test-bot[bot] please help" },
+    };
+
+    const result = await handleIssueComment(env, log, payload, "trace-mention-bounded");
+
+    expect(result.outcome).toBe("processed");
+    expect(getControlPlaneFetch(env)).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not trigger on an embedded mention with trailing chars", async () => {
+    const env = createMockEnv();
+    const log = createMockLogger();
+    const payload: IssueCommentPayload = {
+      ...issueCommentPayload,
+      comment: { ...issueCommentPayload.comment, body: "foo@test-bot[bot]bar" },
+    };
+
+    const result = await handleIssueComment(env, log, payload, "trace-mention-embedded");
+
+    expect(result).toEqual({ outcome: "skipped", skip_reason: "no_mention" });
+    expect(generateInstallationToken).not.toHaveBeenCalled();
+  });
+
+  it("does not trigger on a mention without a leading boundary", async () => {
+    const env = createMockEnv();
+    const log = createMockLogger();
+    const payload: IssueCommentPayload = {
+      ...issueCommentPayload,
+      comment: { ...issueCommentPayload.comment, body: "x@test-bot[bot]" },
+    };
+
+    const result = await handleIssueComment(env, log, payload, "trace-mention-no-boundary");
+
+    expect(result).toEqual({ outcome: "skipped", skip_reason: "no_mention" });
+    expect(generateInstallationToken).not.toHaveBeenCalled();
+  });
+
   it("returns early if comment is from the bot (loop prevention)", async () => {
     const env = createMockEnv();
     const log = createMockLogger();
@@ -627,6 +669,20 @@ describe("handleReviewComment", () => {
     };
 
     const result = await handleReviewComment(env, log, payload, "trace-3");
+
+    expect(result).toEqual({ outcome: "skipped", skip_reason: "no_mention" });
+    expect(generateInstallationToken).not.toHaveBeenCalled();
+  });
+
+  it("does not trigger on an embedded mention with trailing chars", async () => {
+    const env = createMockEnv();
+    const log = createMockLogger();
+    const payload: ReviewCommentPayload = {
+      ...reviewCommentPayload,
+      comment: { ...reviewCommentPayload.comment, body: "foo@test-bot[bot]bar" },
+    };
+
+    const result = await handleReviewComment(env, log, payload, "trace-rc-embedded");
 
     expect(result).toEqual({ outcome: "skipped", skip_reason: "no_mention" });
     expect(generateInstallationToken).not.toHaveBeenCalled();

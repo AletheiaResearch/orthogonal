@@ -96,6 +96,19 @@ function stripMention(body: string, botUsername: string): string {
   return body.replace(new RegExp(`@${escaped}`, "gi"), "").trim();
 }
 
+/**
+ * Detect a mention of the bot as a bounded token rather than a raw substring.
+ *
+ * Requires a leading boundary (start of string or whitespace) before the "@" and
+ * forbids a trailing word character or hyphen, so an embedded form like
+ * "foo@name[bot]bar" or "x@name[bot]" does not falsely trigger. The full configured
+ * "@name[bot]" form is still what must be matched — a bare "@slug" is not supported.
+ */
+function hasBotMention(body: string, botUsername: string): boolean {
+  const escaped = botUsername.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|\\s)@${escaped}(?![\\w-])`, "i").test(body);
+}
+
 function fireAndForgetReaction(
   log: Logger,
   token: string,
@@ -400,10 +413,11 @@ export async function handleIssueComment(
     return { outcome: "skipped", skip_reason: "not_a_pr" };
   }
 
-  // Mention detection intentionally requires the full "@name[bot]" form. Matching the
-  // bare "@slug" would need verification against a real app-mention webhook payload and
-  // risks false triggers, so it is deliberately not supported here.
-  if (!comment.body.toLowerCase().includes(`@${env.GITHUB_BOT_USERNAME.toLowerCase()}`)) {
+  // Mention detection matches the bot as a bounded token (leading boundary, no trailing
+  // word character or hyphen) so embedded forms like "foo@name[bot]bar" do not falsely
+  // trigger. The full "@name[bot]" form is still required; a bare "@slug" would need
+  // verification against a real app-mention webhook payload and is not supported here.
+  if (!hasBotMention(comment.body, env.GITHUB_BOT_USERNAME)) {
     log.debug("handler.no_mention", {
       trace_id: traceId,
       issue_number: issue.number,
@@ -504,10 +518,11 @@ export async function handleReviewComment(
   const repoName = repo.name;
   const repoFullName = `${owner}/${repoName}`.toLowerCase();
 
-  // Mention detection intentionally requires the full "@name[bot]" form. Matching the
-  // bare "@slug" would need verification against a real app-mention webhook payload and
-  // risks false triggers, so it is deliberately not supported here.
-  if (!comment.body.toLowerCase().includes(`@${env.GITHUB_BOT_USERNAME.toLowerCase()}`)) {
+  // Mention detection matches the bot as a bounded token (leading boundary, no trailing
+  // word character or hyphen) so embedded forms like "foo@name[bot]bar" do not falsely
+  // trigger. The full "@name[bot]" form is still required; a bare "@slug" would need
+  // verification against a real app-mention webhook payload and is not supported here.
+  if (!hasBotMention(comment.body, env.GITHUB_BOT_USERNAME)) {
     log.debug("handler.no_mention", {
       trace_id: traceId,
       pull_number: pr.number,
