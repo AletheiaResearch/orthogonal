@@ -1,5 +1,5 @@
 # Modal App Module
-# Wraps Modal CLI commands since no Terraform provider exists
+# Wraps Modal CLI commands since no OpenTofu provider exists
 # Uses null_resource with local-exec provisioners
 
 locals {

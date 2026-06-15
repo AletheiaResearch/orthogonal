@@ -76,7 +76,7 @@ opencode-reference/
 # Token files
 *-token.txt
 
-# Terraform
+# OpenTofu / Terraform
 **/.terraform/
 *.tfstate
 *.tfstate.*
@@ -90,6 +90,8 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
+.tofurc
+tofu.rc
 *.tfplan
 .vercel
 

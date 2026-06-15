@@ -42,9 +42,9 @@ module "modal_app" {
     {
       name = "github-app"
       values = {
-        GITHUB_APP_ID              = var.github_app_id
-        GITHUB_APP_PRIVATE_KEY     = var.github_app_private_key
-        GITHUB_APP_INSTALLATION_ID = var.github_app_installation_id
+        GITHUB_APP_ID               = var.github_app_id
+        GITHUB_APP_PRIVATE_KEY      = var.github_app_private_key
+        GITHUB_APP_INSTALLATION_ID  = var.github_app_installation_id
         GITHUB_APP_INSTALLATION_MAP = jsonencode(var.github_app_installation_map)
       }
     },

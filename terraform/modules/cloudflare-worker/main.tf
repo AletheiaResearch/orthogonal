@@ -1,4 +1,4 @@
-# Cloudflare Worker Module (Native Terraform)
+# Cloudflare Worker Module (Native OpenTofu)
 # Uses the recommended 3-resource pattern: cloudflare_worker + cloudflare_worker_version + cloudflare_workers_deployment
 
 locals {
