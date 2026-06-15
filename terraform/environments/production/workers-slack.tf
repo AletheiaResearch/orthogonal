@@ -14,7 +14,7 @@ resource "null_resource" "slack_bot_build" {
 
   provisioner "local-exec" {
     command     = "pnpm run build"
-    working_dir = "${var.project_root}/packages/slack-bot"
+    working_dir = "${var.project_root}/services/integrations/slack-bot"
   }
 }
 

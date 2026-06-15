@@ -12,7 +12,7 @@ resource "null_resource" "linear_bot_build" {
 
   provisioner "local-exec" {
     command     = "pnpm run build"
-    working_dir = "${var.project_root}/packages/linear-bot"
+    working_dir = "${var.project_root}/services/integrations/linear-bot"
   }
 }
 
