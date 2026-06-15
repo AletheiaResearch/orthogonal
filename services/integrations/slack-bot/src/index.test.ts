@@ -278,6 +278,12 @@ function promptFetchBodies(fetchMock: { mock: { calls: readonly (readonly unknow
     .map(([, init]) => JSON.parse(String((init as RequestInit).body)) as Record<string, unknown>);
 }
 
+function threadRepliesUrls(fetchMock: { mock: { calls: readonly (readonly unknown[])[] } }) {
+  return fetchMock.mock.calls
+    .map(([input]) => (typeof input === "string" ? input : String(input)))
+    .filter((url) => url.includes("conversations.replies"));
+}
+
 function sessionFetchBodies(fetchMock: { mock: { calls: readonly (readonly unknown[])[] } }) {
   return fetchMock.mock.calls
     .filter(([input]) => {
@@ -311,6 +317,27 @@ describe("POST /events", () => {
     clearLocalCache();
     mockVerifySlackSignature.mockResolvedValue(true);
     mockGetUserInfo.mockResolvedValue({ ok: true, user: undefined });
+  });
+
+  it("returns 400 for malformed JSON bodies", async () => {
+    const env = makeEnv();
+    const ctx = makeCtx();
+
+    const request = new Request("http://localhost/events", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-slack-signature": "v0=test",
+        "x-slack-request-timestamp": `${Math.floor(Date.now() / 1000)}`,
+      },
+      body: "{",
+    });
+
+    const response = await app.fetch(request, env, ctx);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid payload" });
+    expect(ctx.waitUntil).not.toHaveBeenCalled();
   });
 
   it("publishes App Home when the home tab is opened", async () => {
@@ -522,6 +549,46 @@ describe("POST /events", () => {
     expect(promptBodies[0].content).toContain("Slack channel context");
     expect(promptBodies[0].content).not.toContain("Context from the Slack thread");
     expect(promptBodies[0].content).not.toContain("The latest commit is");
+
+    slackFetch.mockRestore();
+  });
+
+  it("fetches 11 thread messages so 10 prior messages survive filtering", async () => {
+    const order: string[] = [];
+    const slackFetch = mockSlackFetch(order, { threadMessages: [] });
+    const env = makeSessionEnv(order);
+    await (env.SLACK_KV as unknown as { put: (k: string, v: string) => Promise<void> }).put(
+      "thread:C123:111.222",
+      JSON.stringify({
+        sessionId: "session-1",
+        repoId: "acme/app",
+        repoFullName: "acme/app",
+        model: "anthropic/claude-haiku-4-5",
+        reasoningEffort: "max",
+        createdAt: Date.now(),
+      })
+    );
+    const ctx = makeCtx();
+
+    const response = await app.fetch(
+      slackEventRequest({
+        type: "app_mention",
+        text: "<@B123> keep going",
+        user: "U123",
+        channel: "C123",
+        ts: "333.444",
+        thread_ts: "111.222",
+      }),
+      env,
+      ctx
+    );
+
+    expect(response.status).toBe(200);
+    await flushWaitUntil(ctx);
+
+    const repliesUrls = threadRepliesUrls(slackFetch);
+    expect(repliesUrls).toHaveLength(1);
+    expect(repliesUrls[0]).toContain("limit=11");
 
     slackFetch.mockRestore();
   });
@@ -1096,7 +1163,7 @@ describe("POST /interactions", () => {
       })
     );
     await (env.SLACK_KV as unknown as { put: (k: string, v: string) => Promise<void> }).put(
-      "user_preferences:U123",
+      "user_prefs:U123",
       JSON.stringify({
         userId: "U123",
         model: "anthropic/claude-haiku-4-5",

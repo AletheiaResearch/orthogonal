@@ -512,7 +512,21 @@ app.post("/events", async (c) => {
     return c.json({ error: "Invalid signature" }, 401);
   }
 
-  const payload = JSON.parse(body);
+  let payload;
+  try {
+    payload = JSON.parse(body);
+  } catch {
+    log.warn("http.request", {
+      trace_id: traceId,
+      http_method: "POST",
+      http_path: "/events",
+      http_status: 400,
+      outcome: "rejected",
+      reject_reason: "invalid_json",
+      duration_ms: Date.now() - startTime,
+    });
+    return c.json({ error: "invalid payload" }, 400);
+  }
 
   // Handle URL verification challenge
   if (payload.type === "url_verification") {
@@ -520,7 +534,12 @@ app.post("/events", async (c) => {
   }
 
   // Deduplicate events - Slack can retry on timeouts
-  // Use event_id to prevent duplicate session creation
+  // Use event_id to prevent duplicate session creation.
+  // NOTE: This is best-effort dedup only. The get->put below is non-atomic over
+  // eventually-consistent KV, so two retries delivered close together (or to
+  // different edge locations) can both read a miss and proceed. A truly
+  // race-free guarantee would require an atomic compare-and-set, e.g. a Durable
+  // Object; that is intentionally out of scope here.
   const eventId = payload.event_id as string | undefined;
   if (eventId) {
     const dedupeKey = `event:${eventId}`;
@@ -761,7 +780,9 @@ async function handleIncomingMessage(params: IncomingMessageParams): Promise<voi
   let previousMessages: string[] | undefined;
   if (threadTs) {
     try {
-      const threadResult = await getThreadMessages(env.SLACK_BOT_TOKEN, channel, threadTs, 10);
+      // Fetch 11 so that, after dropping the current message, up to 10 prior
+      // messages remain (slice(-10) keeps the most recent 10).
+      const threadResult = await getThreadMessages(env.SLACK_BOT_TOKEN, channel, threadTs, 11);
       if (threadResult.ok && threadResult.messages) {
         const filtered = threadResult.messages.filter((m) => m.ts !== ts);
         // Resolve unique user IDs to display names for attribution

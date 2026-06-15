@@ -2,7 +2,13 @@
  * Callback handlers for control-plane notifications.
  */
 
-import { computeHmacHex, postMessage, removeReaction, timingSafeEqual } from "@open-inspect/shared";
+import {
+  computeHmacHex,
+  createKvCacheStore,
+  postMessage,
+  removeReaction,
+  timingSafeEqual,
+} from "@open-inspect/shared";
 import { Hono } from "hono";
 
 import { formatToolStatus, setAssistantThreadStatusBestEffort } from "./activity-status";
@@ -40,6 +46,13 @@ async function clearThinkingReaction(
 /**
  * Verify internal callback signature using shared secret.
  * Prevents external callers from forging completion callbacks.
+ *
+ * NOTE: The HMAC is computed over `JSON.stringify(data)` where `data` is the
+ * payload minus the `signature` field. This relies on the
+ * parse -> (drop signature) -> stringify round-trip producing byte-identical
+ * JSON on both the signer (control-plane) and verifier (here). JSON.stringify
+ * preserves insertion order, so the two sides must build the object with the
+ * same key ordering; if either side reorders keys the signatures will not match.
  */
 async function verifyCallbackSignature<T extends { signature: string }>(
   payload: T,
@@ -54,6 +67,15 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function isValidSlackCallbackContext(context: unknown): boolean {
+  return (
+    isPlainRecord(context) &&
+    context.source === "slack" &&
+    typeof context.channel === "string" &&
+    typeof context.threadTs === "string"
+  );
+}
+
 /**
  * Validate callback payload shape.
  */
@@ -66,18 +88,7 @@ function isValidPayload(payload: unknown): payload is CompletionCallback {
     typeof p.success === "boolean" &&
     typeof p.timestamp === "number" &&
     typeof p.signature === "string" &&
-    isPlainRecord(p.context) &&
-    typeof p.context.channel === "string" &&
-    typeof p.context.threadTs === "string"
-  );
-}
-
-function isValidSlackCallbackContext(context: unknown): boolean {
-  return (
-    isPlainRecord(context) &&
-    context.source === "slack" &&
-    typeof context.channel === "string" &&
-    typeof context.threadTs === "string"
+    isValidSlackCallbackContext(p.context)
   );
 }
 
@@ -151,6 +162,30 @@ callbacksRouter.post("/complete", async (c) => {
     });
     return c.json({ error: "unauthorized" }, 401);
   }
+
+  // Deduplicate completions - a control-plane retry would otherwise double-post
+  // the completion message to Slack. Keyed on messageId, mirroring the event_id
+  // dedup used in /events.
+  // NOTE: Same best-effort caveat applies as in /events: the get->put is
+  // non-atomic over eventually-consistent KV and is not race-free.
+  const dedupeKey = `complete:${payload.messageId}`;
+  const cacheStore = createKvCacheStore(c.env.SLACK_KV);
+  const existing = await cacheStore.get(dedupeKey);
+  if (existing) {
+    log.info("http.request", {
+      trace_id: traceId,
+      http_method: "POST",
+      http_path: "/callbacks/complete",
+      http_status: 200,
+      session_id: payload.sessionId,
+      message_id: payload.messageId,
+      outcome: "duplicate",
+      duration_ms: Date.now() - startTime,
+    });
+    return c.json({ ok: true });
+  }
+  // Mark as seen with 1 hour TTL (control-plane retries are within minutes)
+  await cacheStore.put(dedupeKey, "1", { expirationTtl: 3600 });
 
   // Process in background
   c.executionCtx.waitUntil(handleCompletionCallback(payload, c.env, traceId));

@@ -5,9 +5,40 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { callbacksRouter } from "./callbacks";
 import type { Env } from "./types";
 
+function createMockKV() {
+  const store = new Map<string, string>();
+
+  return {
+    get: vi.fn(async (key: string, type?: string) => {
+      const value = store.get(key);
+      if (!value) {
+        return null;
+      }
+      return type === "json" ? JSON.parse(value) : value;
+    }),
+    put: vi.fn(async (key: string, value: string) => {
+      store.set(key, value);
+    }),
+    delete: vi.fn(async (key: string) => {
+      store.delete(key);
+    }),
+    list: vi.fn(async (options?: { prefix?: string }) => {
+      const prefix = options?.prefix ?? "";
+      const keys = Array.from(store.keys())
+        .filter((name) => name.startsWith(prefix))
+        .map((name) => ({ name }));
+      return {
+        keys,
+        list_complete: true,
+        cursor: "",
+      };
+    }),
+  };
+}
+
 function makeEnv(overrides: Partial<Env> = {}): Env {
   return {
-    SLACK_KV: {} as KVNamespace,
+    SLACK_KV: createMockKV() as unknown as KVNamespace,
     CONTROL_PLANE: { fetch: vi.fn() } as unknown as Fetcher,
     DEPLOYMENT_NAME: "test",
     CONTROL_PLANE_URL: "https://control-plane.test",
@@ -80,6 +111,48 @@ async function makeToolCallPayload(
 async function postToolCall(payload: unknown, env = makeEnv(), ctx = makeCtx()) {
   const response = await makeApp().fetch(
     new Request("http://localhost/callbacks/tool_call", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-trace-id": "trace-1" },
+      body: JSON.stringify(payload),
+    }),
+    env,
+    ctx
+  );
+  return { response, env, ctx };
+}
+
+async function makeCompletionPayload(
+  overrides: Partial<{
+    sessionId: string;
+    messageId: string;
+    success: boolean;
+    error: string;
+    timestamp: number;
+    context: Record<string, unknown>;
+  }> = {},
+  secret = "callback-secret"
+) {
+  const data = {
+    sessionId: "session-1",
+    messageId: "msg-1",
+    success: true,
+    timestamp: 1778900000000,
+    context: {
+      source: "slack",
+      channel: "C123",
+      threadTs: "111.222",
+      repoFullName: "acme/app",
+      model: "anthropic/claude-haiku-4-5",
+    },
+    ...overrides,
+  };
+
+  return signPayload(data, secret);
+}
+
+async function postComplete(payload: unknown, env = makeEnv(), ctx = makeCtx()) {
+  const response = await makeApp().fetch(
+    new Request("http://localhost/callbacks/complete", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-trace-id": "trace-1" },
       body: JSON.stringify(payload),
@@ -243,5 +316,52 @@ describe("POST /callbacks/tool_call", () => {
       })
     );
     await flushWaitUntil(ctx);
+  });
+});
+
+describe("POST /callbacks/complete", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("rejects signed payloads with non-slack context source", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const payload = await makeCompletionPayload({
+      context: {
+        source: "linear",
+        channel: "C123",
+        threadTs: "111.222",
+      },
+    });
+    const { response, ctx } = await postComplete(payload);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid payload" });
+    expect(ctx.waitUntil).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("schedules processing for a valid signed completion", async () => {
+    const payload = await makeCompletionPayload();
+    const { response, ctx } = await postComplete(payload);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    expect(ctx.waitUntil).toHaveBeenCalledOnce();
+  });
+
+  it("dedupes duplicate deliveries by messageId without double-processing", async () => {
+    const payload = await makeCompletionPayload();
+    const env = makeEnv();
+
+    const first = await postComplete(payload, env);
+    expect(first.response.status).toBe(200);
+    expect(first.ctx.waitUntil).toHaveBeenCalledOnce();
+
+    // A control-plane retry of the same messageId must not schedule a second post.
+    const second = await postComplete(payload, env);
+    expect(second.response.status).toBe(200);
+    expect(await second.response.json()).toEqual({ ok: true });
+    expect(second.ctx.waitUntil).not.toHaveBeenCalled();
   });
 });
