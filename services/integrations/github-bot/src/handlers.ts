@@ -400,6 +400,9 @@ export async function handleIssueComment(
     return { outcome: "skipped", skip_reason: "not_a_pr" };
   }
 
+  // Mention detection intentionally requires the full "@name[bot]" form. Matching the
+  // bare "@slug" would need verification against a real app-mention webhook payload and
+  // risks false triggers, so it is deliberately not supported here.
   if (!comment.body.toLowerCase().includes(`@${env.GITHUB_BOT_USERNAME.toLowerCase()}`)) {
     log.debug("handler.no_mention", {
       trace_id: traceId,
@@ -501,6 +504,9 @@ export async function handleReviewComment(
   const repoName = repo.name;
   const repoFullName = `${owner}/${repoName}`.toLowerCase();
 
+  // Mention detection intentionally requires the full "@name[bot]" form. Matching the
+  // bare "@slug" would need verification against a real app-mention webhook payload and
+  // risks false triggers, so it is deliberately not supported here.
   if (!comment.body.toLowerCase().includes(`@${env.GITHUB_BOT_USERNAME.toLowerCase()}`)) {
     log.debug("handler.no_mention", {
       trace_id: traceId,

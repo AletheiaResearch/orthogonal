@@ -16,13 +16,6 @@ vi.mock("../src/github-auth", () => ({
   checkSenderPermission: vi.fn().mockResolvedValue({ hasPermission: true }),
 }));
 
-vi.mock("../src/utils/internal", () => ({
-  generateInternalToken: vi.fn().mockResolvedValue("test-internal-token"),
-  buildInternalAuthHeaders: vi.fn().mockResolvedValue({
-    Authorization: "Bearer test-internal-token",
-  }),
-}));
-
 vi.mock("../src/utils/integration-config", () => ({
   getGitHubConfig: vi.fn().mockResolvedValue({
     model: "anthropic/claude-haiku-4-5",

@@ -258,7 +258,7 @@ src/
 ├── github-auth.ts    # GitHub App JWT + installation token generation, reaction posting
 ├── logger.ts         # Structured JSON logger (mirrors control plane format)
 └── utils/
-    └── internal.ts   # Re-exports generateInternalToken from @open-inspect/shared
+    └── integration-config.ts # Resolves per-repo GitHub config from the control plane (auth helpers come from @open-inspect/shared)
 test/
 ├── verify.test.ts    # Signature verification (8 tests)
 ├── webhook.test.ts   # Endpoint routing and integration (6 tests)

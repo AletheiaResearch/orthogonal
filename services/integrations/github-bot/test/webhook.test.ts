@@ -116,8 +116,10 @@ describe("POST /webhooks/github", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
-    expect(ctx.waitUntil).toHaveBeenCalledOnce();
-    await flushWaitUntil(ctx);
+    // One waitUntil for the legacy bot path, one for the additive control-plane forward.
+    expect(ctx.waitUntil).toHaveBeenCalledTimes(2);
+    await flushWaitUntil(ctx, 0);
+    await flushWaitUntil(ctx, 1);
   });
 
   it("deduplicates repeated deliveries by X-GitHub-Delivery", async () => {
@@ -144,12 +146,17 @@ describe("POST /webhooks/github", () => {
     expect(firstRes.status).toBe(200);
     expect(await firstRes.json()).toEqual({ ok: true });
     await flushWaitUntil(ctx, 0);
+    await flushWaitUntil(ctx, 1);
 
     const secondRes = await app.fetch(request(), env, ctx);
     expect(secondRes.status).toBe(200);
     expect(await secondRes.json()).toEqual({ ok: true, duplicate: true });
+    await flushWaitUntil(ctx, 2);
 
-    expect(ctx.waitUntil).toHaveBeenCalledOnce();
+    // First delivery: legacy + forward waitUntil. Duplicate delivery: forward waitUntil
+    // only (the legacy path is skipped). review_requested does not normalize, so the
+    // forward exits before touching KV — the delivery dedupe get/put counts are unchanged.
+    expect(ctx.waitUntil).toHaveBeenCalledTimes(3);
     const githubKv = env.GITHUB_KV as unknown as {
       get: ReturnType<typeof vi.fn>;
       put: ReturnType<typeof vi.fn>;
@@ -192,13 +199,19 @@ describe("POST /webhooks/github", () => {
     expect(firstRes.status).toBe(200);
     expect(await firstRes.json()).toEqual({ ok: true });
     await flushWaitUntil(ctx, 0);
+    await flushWaitUntil(ctx, 1);
 
     const secondRes = await app.fetch(request(), env, ctx);
     expect(secondRes.status).toBe(200);
     expect(await secondRes.json()).toEqual({ ok: true });
-    await flushWaitUntil(ctx, 1);
+    await flushWaitUntil(ctx, 2);
+    await flushWaitUntil(ctx, 3);
 
-    expect(ctx.waitUntil).toHaveBeenCalledTimes(2);
+    // Each delivery schedules a legacy waitUntil and a forward waitUntil. Because the
+    // legacy handler throws (null repository), the first delivery clears its marker, so
+    // the second delivery is not a duplicate and runs the legacy path again — clearing
+    // the marker a second time.
+    expect(ctx.waitUntil).toHaveBeenCalledTimes(4);
     const githubKv = env.GITHUB_KV as unknown as {
       get: ReturnType<typeof vi.fn>;
       put: ReturnType<typeof vi.fn>;
@@ -226,8 +239,10 @@ describe("POST /webhooks/github", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(ctx.waitUntil).toHaveBeenCalledOnce();
-    await flushWaitUntil(ctx);
+    // Legacy waitUntil plus the additive forward waitUntil.
+    expect(ctx.waitUntil).toHaveBeenCalledTimes(2);
+    await flushWaitUntil(ctx, 0);
+    await flushWaitUntil(ctx, 1);
   });
 
   it("returns 200 for handled event with non-matching action", async () => {
@@ -252,8 +267,188 @@ describe("POST /webhooks/github", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(ctx.waitUntil).toHaveBeenCalledOnce();
-    await flushWaitUntil(ctx);
+    // Legacy waitUntil plus the additive forward waitUntil.
+    expect(ctx.waitUntil).toHaveBeenCalledTimes(2);
+    await flushWaitUntil(ctx, 0);
+    await flushWaitUntil(ctx, 1);
+  });
+
+  it("returns 400 and clears the processing marker for a malformed payload", async () => {
+    const body = "{not valid json";
+    const signature = await sign(SECRET, body);
+    const ctx = makeCtx();
+    const env = makeEnv();
+
+    const res = await app.fetch(
+      new Request("http://localhost/webhooks/github", {
+        method: "POST",
+        body,
+        headers: {
+          "X-Hub-Signature-256": signature,
+          "X-GitHub-Event": "pull_request",
+          "X-GitHub-Delivery": "delivery-malformed",
+        },
+      }),
+      env,
+      ctx
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "invalid payload" });
+    // No async work scheduled — neither legacy processing nor the forward.
+    expect(ctx.waitUntil).not.toHaveBeenCalled();
+
+    const githubKv = env.GITHUB_KV as unknown as {
+      put: ReturnType<typeof vi.fn>;
+      delete: ReturnType<typeof vi.fn>;
+    };
+    // The in-flight "processing" marker we wrote before parsing is cleared so a
+    // corrected redelivery (same delivery id) is not blocked for the marker TTL.
+    expect(githubKv.put).toHaveBeenCalledWith(
+      "delivery:delivery-malformed",
+      "processing",
+      expect.anything()
+    );
+    expect(githubKv.delete).toHaveBeenCalledWith("delivery:delivery-malformed");
+  });
+
+  it("does not clear a pre-existing marker when a duplicate delivery is malformed", async () => {
+    const body = "{still bad";
+    const signature = await sign(SECRET, body);
+    const ctx = makeCtx();
+    const env = makeEnv();
+
+    // Seed an existing delivery marker so this request is treated as a duplicate.
+    const githubKv = env.GITHUB_KV as unknown as {
+      get: ReturnType<typeof vi.fn>;
+      put: ReturnType<typeof vi.fn>;
+      delete: ReturnType<typeof vi.fn>;
+    };
+    await githubKv.put("delivery:delivery-dupe-bad", "processed");
+    githubKv.delete.mockClear();
+    githubKv.put.mockClear();
+
+    const res = await app.fetch(
+      new Request("http://localhost/webhooks/github", {
+        method: "POST",
+        body,
+        headers: {
+          "X-Hub-Signature-256": signature,
+          "X-GitHub-Event": "pull_request",
+          "X-GitHub-Delivery": "delivery-dupe-bad",
+        },
+      }),
+      env,
+      ctx
+    );
+
+    expect(res.status).toBe(400);
+    // We did not write the marker this time, so we must not delete someone else's marker.
+    expect(githubKv.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe("control-plane forward decoupling", () => {
+  // pull_request/synchronize is normalized for the control-plane forward but is NOT a
+  // legacy handler action, so the legacy path never touches CONTROL_PLANE — every
+  // CONTROL_PLANE.fetch observed here is the additive forward.
+  const synchronizeBody = JSON.stringify({
+    action: "synchronize",
+    pull_request: {
+      number: 42,
+      head: { ref: "feature/cache", sha: "abc123" },
+      base: { ref: "main" },
+    },
+    repository: { owner: { login: "acme" }, name: "widgets" },
+    sender: { login: "alice" },
+  });
+
+  function makeForwardEnv(controlPlaneFetch: ReturnType<typeof vi.fn>) {
+    const githubKv = createMockKV();
+    return {
+      GITHUB_KV: githubKv,
+      CONTROL_PLANE: { fetch: controlPlaneFetch },
+      GITHUB_WEBHOOK_SECRET: SECRET,
+      GITHUB_BOT_USERNAME: "test-bot[bot]",
+      DEPLOYMENT_NAME: "test",
+      DEFAULT_MODEL: "anthropic/claude-haiku-4-5",
+      INTERNAL_CALLBACK_SECRET: "test-internal-secret",
+      LOG_LEVEL: "error",
+    } as unknown as Env;
+  }
+
+  async function postSynchronize(env: Env, ctx: ReturnType<typeof makeCtx>) {
+    const signature = await sign(SECRET, synchronizeBody);
+    return app.fetch(
+      new Request("http://localhost/webhooks/github", {
+        method: "POST",
+        body: synchronizeBody,
+        headers: {
+          "X-Hub-Signature-256": signature,
+          "X-GitHub-Event": "pull_request",
+          "X-GitHub-Delivery": "delivery-sync",
+        },
+      }),
+      env,
+      ctx
+    );
+  }
+
+  it("retries the forward on redelivery after a transient failure and keeps legacy intact", async () => {
+    let attempt = 0;
+    const controlPlaneFetch = vi.fn(async () => {
+      attempt += 1;
+      // First forward attempt fails transiently; the redelivery succeeds.
+      return new Response(attempt === 1 ? "boom" : "ok", { status: attempt === 1 ? 500 : 200 });
+    });
+    const env = makeForwardEnv(controlPlaneFetch);
+    const ctx = makeCtx();
+    const githubKv = env.GITHUB_KV as unknown as {
+      get: ReturnType<typeof vi.fn>;
+      put: ReturnType<typeof vi.fn>;
+    };
+
+    // First delivery: legacy skips (synchronize is not a legacy action) and the forward
+    // gets a 500.
+    const firstRes = await postSynchronize(env, ctx);
+    expect(firstRes.status).toBe(200);
+    await flushWaitUntil(ctx, 0); // legacy (no-op skip)
+    await flushWaitUntil(ctx, 1); // forward (fails)
+
+    expect(controlPlaneFetch).toHaveBeenCalledTimes(1);
+    // Forward failed → its own dedupe marker was NOT written, so a redelivery retries.
+    expect(await githubKv.get("forward:delivery-sync")).toBeNull();
+    // Legacy delivery marker was still promoted to "processed" (legacy behavior intact).
+    expect(await githubKv.get("delivery:delivery-sync")).toBe("processed");
+
+    // GitHub redelivers the same delivery id. Legacy is now a duplicate, but the forward
+    // must run again and this time succeed.
+    const secondRes = await postSynchronize(env, ctx);
+    expect(secondRes.status).toBe(200);
+    expect(await secondRes.json()).toEqual({ ok: true, duplicate: true });
+    await flushWaitUntil(ctx, 2); // forward retry (succeeds)
+
+    expect(controlPlaneFetch).toHaveBeenCalledTimes(2);
+    // Successful forward writes its own marker.
+    expect(await githubKv.get("forward:delivery-sync")).toBe("forwarded");
+  });
+
+  it("does not re-forward once the forward has succeeded", async () => {
+    const controlPlaneFetch = vi.fn(async () => new Response("ok", { status: 200 }));
+    const env = makeForwardEnv(controlPlaneFetch);
+    const ctx = makeCtx();
+
+    const firstRes = await postSynchronize(env, ctx);
+    expect(firstRes.status).toBe(200);
+    await flushWaitUntil(ctx, 0);
+    await flushWaitUntil(ctx, 1);
+    expect(controlPlaneFetch).toHaveBeenCalledTimes(1);
+
+    // Redelivery of a successfully forwarded event must not hit the control plane again.
+    const secondRes = await postSynchronize(env, ctx);
+    expect(secondRes.status).toBe(200);
+    await flushWaitUntil(ctx, 2);
+    expect(controlPlaneFetch).toHaveBeenCalledTimes(1);
   });
 });
 

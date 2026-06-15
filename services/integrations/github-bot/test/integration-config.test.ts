@@ -2,14 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import type { Logger } from "../src/logger";
 import type { Env } from "../src/types";
-
-vi.mock("../src/utils/internal", () => ({
-  generateInternalToken: vi.fn().mockResolvedValue("test-internal-token"),
-  buildInternalAuthHeaders: vi.fn().mockResolvedValue({
-    Authorization: "Bearer test-internal-token",
-  }),
-}));
-
 import { getGitHubConfig } from "../src/utils/integration-config";
 
 function createMockLogger(): Logger {
