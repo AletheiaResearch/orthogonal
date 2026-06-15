@@ -20,11 +20,15 @@ export function buildUntrustedUserContentBlock(params: {
   note?: string;
 }): string {
   const { source, author, content, note } = params;
+  // Neutralize the <user_content> delimiters in untrusted input, tolerating case
+  // and whitespace variants (e.g. "</USER_CONTENT>", "< /user_content>") so a
+  // crafted payload cannot forge a closing tag and escape the boundary.
+  // Already-escaped markers are deepened first so neutralization is idempotent.
   const escapedContent = content
-    .replaceAll("<\\user_content", "<\\\\user_content")
-    .replaceAll("<\\/user_content>", "<\\\\/user_content>")
-    .replaceAll("<user_content", "<\\user_content")
-    .replaceAll("</user_content>", "<\\/user_content>");
+    .replace(/<\\\s*user_content\b/gi, "<\\\\user_content")
+    .replace(/<\\\s*\/\s*user_content\s*>/gi, "<\\\\/user_content>")
+    .replace(/<\s*user_content\b/gi, "<\\user_content")
+    .replace(/<\s*\/\s*user_content\s*>/gi, "<\\/user_content>");
 
   return `<user_content source="${escapeHtml(source)}" author="${escapeHtml(author)}">
 ${escapedContent}
