@@ -231,16 +231,16 @@ Key log events:
 corepack enable && pnpm install
 
 # Build
-pnpm --filter @open-inspect/github-bot build
+pnpm --filter @orthogonal/github-bot build
 
 # Run tests (46 tests)
-pnpm --filter @open-inspect/github-bot test
+pnpm --filter @orthogonal/github-bot test
 
 # Type check
-pnpm --filter @open-inspect/github-bot typecheck
+pnpm --filter @orthogonal/github-bot typecheck
 
 # Lint
-pnpm --filter @open-inspect/github-bot lint
+pnpm --filter @orthogonal/github-bot lint
 ```
 
 Tests run in Node.js via Vitest (no `@cloudflare/vitest-pool-workers` needed — the bot has no

@@ -1,5 +1,5 @@
 {
-  "name": "@open-inspect/github-bot",
+  "name": "@orthogonal/slack-bot",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,9 +7,11 @@
     "build": "vite build",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "@open-inspect/shared": "workspace:*",
     "hono": "catalog:"
@@ -19,6 +21,7 @@
     "@vitest/coverage-v8": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
   }
 }

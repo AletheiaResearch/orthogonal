@@ -176,8 +176,8 @@ The agent uses Linear's native activity system:
 ```bash
 # From repo root
 corepack enable && pnpm install
-pnpm --filter @open-inspect/linear-bot build
-cd packages/linear-bot && pnpm exec wrangler dev  # Local development
+pnpm --filter @orthogonal/linear-bot build
+cd services/integrations/linear-bot && pnpm exec wrangler dev  # Local development
 ```
 
 ## Architecture
