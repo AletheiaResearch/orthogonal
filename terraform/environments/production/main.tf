@@ -2,7 +2,7 @@
 # Open-Inspect - Production Environment
 # =============================================================================
 # This root module is intentionally split across multiple files to keep each
-# concern isolated while preserving stable Terraform addresses.
+# concern isolated while preserving stable OpenTofu addresses.
 #
 # Files in this directory:
 # - locals.tf                    Shared naming/URL/script path locals

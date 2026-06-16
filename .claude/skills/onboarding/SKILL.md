@@ -23,8 +23,8 @@ Use TodoWrite to create a checklist tracking these phases:
 4. GitHub App creation
 5. Slack App creation (if enabled)
 6. Security secrets generation
-7. Terraform configuration
-8. Terraform deployment (two phases)
+7. OpenTofu configuration
+8. OpenTofu deployment (two phases)
 9. Post-deployment Slack setup (if enabled)
 10. Post-deployment GitHub Bot setup (if enabled)
 11. Web app deployment (apps/orto via its own Vercel project)
@@ -97,7 +97,7 @@ Tell user to create R2 API Token at R2 → Overview → Manage R2 API Tokens wit
 permission.
 
 > **Vercel**: No Vercel API token is collected here. The web app (`apps/orto`) deploys via its own
-> dashboard-managed Vercel project (not Terraform), so the user only needs a Vercel account. The
+> dashboard-managed Vercel project (not OpenTofu), so the user only needs a Vercel account. The
 > project is set up in Phase 11.
 
 ### Modal
@@ -165,7 +165,7 @@ echo "modal_api_secret: $(openssl rand -hex 32)"
 echo "github_webhook_secret: $(openssl rand -hex 32)"  # Only if GitHub bot enabled
 ```
 
-## Phase 7: Terraform Configuration
+## Phase 7: OpenTofu Configuration
 
 Create `terraform/environments/production/backend.tfvars`:
 
@@ -197,9 +197,9 @@ github_webhook_secret = "{generated_value}"
 github_bot_username   = "{app-slug}[bot]"
 ```
 
-## Phase 8: Terraform Deployment (Two-Phase)
+## Phase 8: OpenTofu Deployment (Two-Phase)
 
-**Important**: Build the workers before running Terraform (Terraform references the built bundles):
+**Important**: Build the workers before running OpenTofu (OpenTofu references the built bundles):
 
 ```bash
 pnpm --filter @open-inspect/control-plane --filter @orthogonal/slack-bot --filter @orthogonal/github-bot --filter @orthogonal/linear-bot build
@@ -209,19 +209,19 @@ pnpm --filter @open-inspect/control-plane --filter @orthogonal/slack-bot --filte
 
 ```bash
 cd terraform/environments/production
-terraform init -backend-config=backend.tfvars
-terraform apply
+tofu init -backend-config=backend.tfvars
+tofu apply
 ```
 
 **Phase 2** (after Phase 1 succeeds): Update tfvars to set both bindings to `true`, then:
 
 ```bash
-terraform apply
+tofu apply
 ```
 
 ## Phase 9: Complete Slack Setup (If Enabled)
 
-After Terraform deployment, guide user:
+After OpenTofu deployment, guide user:
 
 ### Enable App Home
 
@@ -248,7 +248,7 @@ The App Home provides a settings interface where users can configure their prefe
 
 ## Phase 10: Complete GitHub Bot Setup (If Enabled)
 
-After Terraform deployment, guide user:
+After OpenTofu deployment, guide user:
 
 ### Configure Webhook on GitHub App
 
@@ -274,21 +274,20 @@ terraform.tfvars.
 
 ## Phase 11: Web App Deployment
 
-The web app (`apps/orto`) deploys via its own dashboard-managed Vercel project — **not** Terraform.
+The web app (`apps/orto`) deploys via its own dashboard-managed Vercel project — **not** OpenTofu.
 Guide the user to set up the Vercel Git integration following
 [apps/orto/README.md](../../../apps/orto/README.md): create a Vercel project from the repo, set the
 **Root Directory** to `apps/orto`, configure the monorepo install/build commands, and set the
 environment variables (full list in `apps/orto/.env.example`). Critically, wire the app to the
-control plane from the Terraform outputs — `terraform output control_plane_url` →
-`CONTROL_PLANE_URL` and `terraform output ws_url` → `NEXT_PUBLIC_WS_URL`; without these the app
-signs in but can't create or stream sessions. Also set `NEXTAUTH_SECRET` (Phase 6), `NEXTAUTH_URL`
-(the orto URL), GitHub OAuth creds, and `ALLOWED_USERS` / `ALLOWED_EMAIL_DOMAINS`. Once deployed,
-note the project's URL, then:
+control plane from the OpenTofu outputs — `tofu output control_plane_url` → `CONTROL_PLANE_URL` and
+`tofu output ws_url` → `NEXT_PUBLIC_WS_URL`; without these the app signs in but can't create or
+stream sessions. Also set `NEXTAUTH_SECRET` (Phase 6), `NEXTAUTH_URL` (the orto URL), GitHub OAuth
+creds, and `ALLOWED_USERS` / `ALLOWED_EMAIL_DOMAINS`. Once deployed, note the project's URL, then:
 
 1. Confirm the GitHub App's OAuth callback URL (`{your-web-app-url}/api/auth/callback/github`)
    matches it exactly (see Phase 4).
 2. Set `web_app_url` in `terraform.tfvars` to this real URL (replacing the Phase 7 placeholder) and
-   run `terraform apply` again so the control-plane/slack-bot/linear-bot workers pick up the real
+   run `tofu apply` again so the control-plane/slack-bot/linear-bot workers pick up the real
    `WEB_APP_URL` (their "View Session" / PR deep-links are built from it).
 
 ## Phase 12: Verification
@@ -314,7 +313,7 @@ session, send prompt.
   `github_bot_username` matches the App's bot login
 - **Vercel build fails**: Check the `apps/orto` project's root directory and monorepo install/build
   commands match [apps/orto/README.md](../../../apps/orto/README.md)
-- **"no such file or directory" for dist/index.js**: Build workers before Terraform:
+- **"no such file or directory" for dist/index.js**: Build workers before OpenTofu:
   `pnpm --filter @open-inspect/control-plane --filter @orthogonal/slack-bot --filter @orthogonal/github-bot --filter @orthogonal/linear-bot build`
 - **Worker deployment fails**: Build shared package first:
   `pnpm --filter @open-inspect/shared build`
@@ -324,4 +323,4 @@ session, send prompt.
 - Track all collected credentials securely throughout the process
 - Never log sensitive values
 - The callback URL MUST match the actual deployed Vercel URL
-- Two-phase Terraform deployment is required due to Cloudflare Durable Object constraints
+- Two-phase OpenTofu deployment is required due to Cloudflare Durable Object constraints

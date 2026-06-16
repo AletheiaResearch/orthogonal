@@ -164,7 +164,7 @@ paths are no-ops.
 
 ## Deployment (Vercel)
 
-This app is deployed via a dashboard-managed Vercel project — it is **not** managed by Terraform.
+This app is deployed via a dashboard-managed Vercel project — it is **not** managed by OpenTofu.
 
 1. Create a Vercel project from this repository.
 2. **Root Directory**: `apps/orto`

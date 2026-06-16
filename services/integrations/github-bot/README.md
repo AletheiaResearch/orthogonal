@@ -56,7 +56,7 @@ Key design decisions:
 
 ## Deployment
 
-The bot is deployed via Terraform as a standalone Cloudflare Worker alongside the existing workers.
+The bot is deployed via OpenTofu as a standalone Cloudflare Worker alongside the existing workers.
 
 **Two-phase deployment** (same pattern as the Slack bot):
 
@@ -90,7 +90,7 @@ The existing GitHub App needs these additions:
 
 **Webhook URL**: `https://open-inspect-github-bot-{suffix}.{account}.workers.dev/webhooks/github`
 
-**Webhook secret**: Must match `GITHUB_WEBHOOK_SECRET` in the Terraform configuration.
+**Webhook secret**: Must match `GITHUB_WEBHOOK_SECRET` in the OpenTofu configuration.
 
 When the same GitHub App is installed on multiple orgs, set `GITHUB_APP_INSTALLATION_MAP` (JSON
 owner login → installation ID) on the bot worker. Webhook payloads include `installation.id`, which

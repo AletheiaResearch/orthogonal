@@ -60,9 +60,9 @@ git show <migration-commit>^:packages/control-plane/src/session/durable-object.t
 
 ## 4. Data plane / bootstrap
 
-- [ ] **Modal pattern:** new package under `packages/<name>-infra/` + Terraform `null_resource`
+- [ ] **Modal pattern:** new package under `packages/<name>-infra/` + OpenTofu `null_resource`
       deploy
-- [ ] **Daytona pattern:** Terraform module builds base snapshot; REST from Worker only
+- [ ] **Daytona pattern:** OpenTofu module builds base snapshot; REST from Worker only
 - [ ] **Vercel pattern:** bootstrap script installs `sandbox-runtime` into provider base image
 
 Regardless of pattern:
@@ -90,7 +90,7 @@ If supported:
 - [ ] Add provider-specific build worker or in-Worker orchestration
 - [ ] Update `docs/IMAGE_PREBUILD.md`
 
-## 6. Terraform
+## 6. OpenTofu
 
 - [ ] Add `sandbox_provider` variable: `"modal" | "<new>"` (default `"modal"`)
 - [ ] Restore `locals.use_*_backend` in `locals.tf` if modules are conditional
@@ -102,7 +102,7 @@ If supported:
 - [ ] Keep Modal module unconditional **or** make both conditional — pick one ops model
 
 **Do not confuse** Vercel sandbox variables (`vercel_sandbox_*`, removed) with the `apps/orto` web
-app, which deploys via its own dashboard-managed Vercel project (not Terraform).
+app, which deploys via its own dashboard-managed Vercel project (not OpenTofu).
 
 ## 7. Web app (if feature-gated)
 
@@ -154,7 +154,7 @@ Based on the Modal-only migration removal (~6.4k lines across three providers):
 
 | Scope                                                               | Rough effort      |
 | ------------------------------------------------------------------- | ----------------- |
-| Provider + factory + Terraform + tests (no repo images)             | ~800–1,500 LOC    |
+| Provider + factory + OpenTofu + tests (no repo images)              | ~800–1,500 LOC    |
 | Full repo image parity                                              | +500–1,000 LOC    |
 | Restore full multi-provider framework (selection, web gating, docs) | +400 LOC plumbing |
 

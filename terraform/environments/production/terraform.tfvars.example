@@ -197,26 +197,26 @@ project_root = "../../../"
 #   - No CORS rules or lifecycle policies are required.
 #   - Location should match r2_media_location (default ENAM).
 #
-# Create with wrangler (equivalent to what Terraform would do):
+# Create with wrangler (equivalent to what OpenTofu would do):
 #   wrangler r2 bucket create <bucket-name> --location ENAM
 # Or create via the Cloudflare dashboard: R2 -> Create bucket (Standard storage class).
 #
-# After manual creation, import the bucket so Terraform manages the binding without
+# After manual creation, import the bucket so OpenTofu manages the binding without
 # trying to recreate it:
-#   terraform import cloudflare_r2_bucket.media <cloudflare_account_id>/<bucket-name>/default
+#   tofu import cloudflare_r2_bucket.media <cloudflare_account_id>/<bucket-name>/default
 #
-# WARNING — renaming an existing Terraform-managed bucket:
-# If you previously deployed without this variable (Terraform owns the default-named
+# WARNING — renaming an existing OpenTofu-managed bucket:
+# If you previously deployed without this variable (OpenTofu owns the default-named
 # bucket) and now set r2_media_bucket_name to a different name WITHOUT first running
-# `terraform import` on the new name, Terraform will destroy the existing bucket and
+# `tofu import` on the new name, OpenTofu will destroy the existing bucket and
 # create a new one — permanently deleting all stored objects. Migrate objects first
 # (e.g. with rclone) and import the new bucket before applying.
 #
 # Worker runtime needs (granted automatically through the binding, listed for reference):
 #   - R2 object-level: Read, Write, Delete on this bucket only.
-# The Terraform/Cloudflare API token does NOT need object-level R2 permissions —
+# The OpenTofu/Cloudflare API token does NOT need object-level R2 permissions —
 # it only manages the bucket resource and the Worker binding. Required token scopes:
-#   - Workers R2 Storage: Edit (only needed when Terraform creates/manages the bucket;
+#   - Workers R2 Storage: Edit (only needed when OpenTofu creates/manages the bucket;
 #     if the bucket is pre-created and imported, drop to Read or omit)
 #   - Workers Scripts: Edit (to attach the MEDIA_BUCKET binding to the Worker)
 # r2_media_bucket_name = ""
@@ -226,7 +226,7 @@ project_root = "../../../"
 # =============================================================================
 # For first-time deployment, set both to false to avoid chicken-and-egg issues
 # with Durable Objects and service bindings.
-# After the first successful deployment, set both to true and run terraform apply again.
+# After the first successful deployment, set both to true and run tofu apply again.
 
 enable_durable_object_bindings = false
 enable_service_bindings = false

@@ -283,7 +283,7 @@ variable "modal_api_secret" {
 # =============================================================================
 
 variable "web_app_url" {
-  description = "Production URL of the apps/orto web app (e.g. https://my-orto-app.vercel.app). orto self-deploys on its own Vercel dashboard project — it is NOT managed by Terraform. This URL is consumed as WEB_APP_URL by the control-plane, slack-bot, and linear-bot workers."
+  description = "Production URL of the apps/orto web app (e.g. https://my-orto-app.vercel.app). orto self-deploys on its own Vercel dashboard project — it is NOT managed by OpenTofu. This URL is consumed as WEB_APP_URL by the control-plane, slack-bot, and linear-bot workers."
   type        = string
 
   validation {
@@ -350,7 +350,7 @@ variable "r2_media_location" {
 }
 
 variable "r2_media_bucket_name" {
-  description = "Override the R2 media bucket name. Leave empty to use the default 'open-inspect-media-<deployment_name>'. Set this when the bucket must be pre-created out-of-band (e.g. when the Terraform credentials cannot create R2 buckets)."
+  description = "Override the R2 media bucket name. Leave empty to use the default 'open-inspect-media-<deployment_name>'. Set this when the bucket must be pre-created out-of-band (e.g. when the OpenTofu credentials cannot create R2 buckets)."
   type        = string
   default     = ""
 }

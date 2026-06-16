@@ -13,7 +13,7 @@ set -euo pipefail
 # Usage:
 #   ./scripts/migrate-kv-to-d1.sh <kv-namespace-id> <d1-database-name>
 #
-# The KV namespace ID can be obtained from: terraform output session_index_kv_id
+# The KV namespace ID can be obtained from: tofu output session_index_kv_id
 
 KV_NAMESPACE_ID="${1:?Usage: migrate-kv-to-d1.sh <kv-namespace-id> <d1-database-name>}"
 D1_DATABASE_NAME="${2:?Usage: migrate-kv-to-d1.sh <kv-namespace-id> <d1-database-name>}"

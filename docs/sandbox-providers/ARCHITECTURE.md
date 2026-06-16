@@ -124,7 +124,7 @@ code.
 `repo_image_callback.py` is auth-shape agnostic: expects `OI_REPO_IMAGE_BUILD_ID`, `CALLBACK_URL`,
 and `CALLBACK_TOKEN` env vars injected by the data plane.
 
-## Terraform (Modal always on)
+## OpenTofu (Modal always on)
 
 | File                                                         | Role                                                      |
 | ------------------------------------------------------------ | --------------------------------------------------------- |

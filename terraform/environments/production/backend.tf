@@ -1,11 +1,11 @@
-# Terraform State Backend Configuration
+# OpenTofu State Backend Configuration
 # Uses Cloudflare R2 (S3-compatible storage)
 #
 # Prerequisites:
 # 1. Create R2 bucket: wrangler r2 bucket create open-inspect-terraform-state
 # 2. Generate R2 API token with read/write permissions
 # 3. Initialize with:
-#    terraform init \
+#    tofu init \
 #      -backend-config="access_key=<R2_ACCESS_KEY_ID>" \
 #      -backend-config="secret_key=<R2_SECRET_ACCESS_KEY>" \
 #      -backend-config="endpoints={s3=\"https://<CLOUDFLARE_ACCOUNT_ID>.r2.cloudflarestorage.com\"}"
@@ -15,7 +15,7 @@
 #   secret_key = "your-r2-secret-access-key"
 #   endpoints  = { s3 = "https://<account-id>.r2.cloudflarestorage.com" }
 #
-# Then run: terraform init -backend-config=backend.tfvars
+# Then run: tofu init -backend-config=backend.tfvars
 
 terraform {
   backend "s3" {

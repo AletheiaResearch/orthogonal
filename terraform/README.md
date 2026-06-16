@@ -1,19 +1,19 @@
-# Terraform Infrastructure
+# OpenTofu Infrastructure
 
 This directory contains Infrastructure as Code (IaC) for deploying the Open-Inspect system using
-Terraform.
+OpenTofu.
 
 ## Architecture Overview
 
 The infrastructure spans multiple cloud providers:
 
-| Provider       | Resources                                            | Terraform Support                |
+| Provider       | Resources                                            | OpenTofu Support                 |
 | -------------- | ---------------------------------------------------- | -------------------------------- |
 | **Cloudflare** | Workers, KV Namespaces, Durable Objects, D1 Database | Native provider                  |
 | **Modal**      | Sandbox infrastructure                               | CLI wrapper (no provider exists) |
 
-The web app (`apps/orto`) is **not** managed by Terraform — it self-deploys on its own Vercel
-dashboard project. Terraform only consumes its production URL via the `web_app_url` variable.
+The web app (`apps/orto`) is **not** managed by OpenTofu — it self-deploys on its own Vercel
+dashboard project. OpenTofu only consumes its production URL via the `web_app_url` variable.
 
 ## Directory Structure
 
@@ -21,7 +21,7 @@ dashboard project. Terraform only consumes its production URL via the `web_app_u
 terraform/
 ├── d1/
 │   └── migrations/              # D1 database migrations (applied via d1-migrate.sh)
-├── modules/                      # Reusable Terraform modules
+├── modules/                      # Reusable OpenTofu modules
 │   ├── cloudflare-kv/           # KV namespace management
 │   ├── cloudflare-worker/       # Worker deployment with bindings (KV, DO, D1)
 │   └── modal-app/               # Modal CLI wrapper
@@ -47,8 +47,8 @@ terraform/
 ### 1. Required Tools
 
 ```bash
-# Terraform >= 1.9.0
-brew install terraform
+# OpenTofu >= 1.9.0
+brew install opentofu
 
 # Modal CLI (for Modal deployments)
 pip install modal
@@ -56,6 +56,8 @@ pip install modal
 # Node.js >= 22 (for building workers)
 brew install node@22
 ```
+
+OpenTofu install docs: https://opentofu.org/docs/intro/install/
 
 ### 2. Cloudflare Setup
 
@@ -65,10 +67,10 @@ brew install node@22
      - Workers KV Storage: **Edit**
      - Workers R2 Storage: **Edit**
      - D1: **Edit**
-   - If you manage Cloudflare routes/custom domains through Terraform, also add:
+   - If you manage Cloudflare routes/custom domains through OpenTofu, also add:
      - Workers Routes: **Edit**
 
-2. **Create R2 Bucket** for Terraform state:
+2. **Create R2 Bucket** for OpenTofu state:
    - Bucket name: `open-inspect-terraform-state`
    - Generate R2 API token with read/write permissions
 
@@ -85,7 +87,7 @@ brew install node@22
    - Create at: https://github.com/settings/developers
    - Callback URL: `${web_app_url}/api/auth/callback/github` — use the production URL of your
      `apps/orto` deployment (the web app self-deploys on its own Vercel dashboard project; it is not
-     managed by Terraform)
+     managed by OpenTofu)
 
 2. **GitHub App** - For repository access in sandboxes
    - Create at: https://github.com/settings/apps
@@ -117,14 +119,14 @@ vim terraform.tfvars
 vim backend.tfvars
 ```
 
-### 2. Initialize Terraform
+### 2. Initialize OpenTofu
 
 ```bash
 # Initialize with R2 backend config file
-terraform init -backend-config=backend.tfvars
+tofu init -backend-config=backend.tfvars
 
 # Or pass values directly:
-terraform init \
+tofu init \
   -backend-config="access_key=YOUR_R2_ACCESS_KEY_ID" \
   -backend-config="secret_key=YOUR_R2_SECRET_ACCESS_KEY" \
   -backend-config='endpoints={s3="https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com"}'
@@ -133,13 +135,13 @@ terraform init \
 ### 3. Plan Changes
 
 ```bash
-terraform plan
+tofu plan
 ```
 
 ### 4. Apply Changes
 
 ```bash
-terraform apply
+tofu apply
 ```
 
 ## Module Reference
@@ -240,12 +242,12 @@ Object in a Version if a deployment doesn't exist (i.e., migrations haven't been
 
 **First-time deployment with Durable Objects and service bindings:**
 
-Use the built-in two-phase flags instead of editing Terraform modules:
+Use the built-in two-phase flags instead of editing OpenTofu modules:
 
 1. Set `enable_durable_object_bindings = false` and `enable_service_bindings = false`.
-2. Run `terraform apply` to create the initial workers and migrations.
+2. Run `tofu apply` to create the initial workers and migrations.
 3. Set both values back to `true`.
-4. Run `terraform apply` again to attach the Durable Object and service bindings.
+4. Run `tofu apply` again to attach the Durable Object and service bindings.
 
 See
 [Cloudflare's documentation](https://developers.cloudflare.com/workers/platform/infrastructure-as-code/)
@@ -259,7 +261,7 @@ for details.
 
 ### Modal Limitations
 
-Since Modal has no Terraform provider, the module uses `null_resource` with `local-exec`:
+Since Modal has no OpenTofu provider, the module uses `null_resource` with `local-exec`:
 
 - Changes are detected via source file hashing
 - Manual intervention may be needed for complex updates
@@ -269,8 +271,8 @@ Since Modal has no Terraform provider, the module uses `null_resource` with `loc
 After deployment, verify with:
 
 ```bash
-# Get verification commands from Terraform output
-terraform output verification_commands
+# Get verification commands from OpenTofu output
+tofu output verification_commands
 
 # Or manually:
 
@@ -278,13 +280,13 @@ terraform output verification_commands
 curl https://open-inspect-control-plane-prod.<subdomain>.workers.dev/health
 
 # 2. Sandbox backend health check
-# Modal exposes a health endpoint. Prefer the exact URL from terraform output verification_commands.
+# Modal exposes a health endpoint. Prefer the exact URL from tofu output verification_commands.
 # Manual form: https://<workspace>[-<modal_environment_web_suffix>]--open-inspect-api-health.modal.run
 MODAL_WORKSPACE_SLUG="<workspace>" # or "<workspace>-<modal_environment_web_suffix>"
 curl https://${MODAL_WORKSPACE_SLUG}--open-inspect-api-health.modal.run
 
 # 3. Verify web app deployment (apps/orto, deployed on its own Vercel dashboard project)
-# Use the value you set for web_app_url, or run: terraform output web_app_url
+# Use the value you set for web_app_url, or run: tofu output web_app_url
 curl https://<your-orto-app>.vercel.app
 
 # 4. Test authenticated endpoint (should return 401)
@@ -296,7 +298,7 @@ curl https://open-inspect-control-plane-prod.<subdomain>.workers.dev/sessions
 ### "Backend initialization required"
 
 ```bash
-terraform init \
+tofu init \
   -backend-config="access_key=$R2_ACCESS_KEY_ID" \
   -backend-config="secret_key=$R2_SECRET_ACCESS_KEY"
 ```
@@ -321,7 +323,7 @@ variables.
    - `Workers KV Storage: Edit`
    - `Workers R2 Storage: Edit`
    - `D1: Edit`
-   - `Workers Routes: Edit` if you manage routes/custom domains through Terraform
+   - `Workers Routes: Edit` if you manage routes/custom domains through OpenTofu
 
 ## Adding New Environments
 
@@ -339,8 +341,8 @@ cp -r environments/production environments/staging
 
 # Initialize and apply
 cd environments/staging
-terraform init -backend-config="access_key=..." -backend-config="secret_key=..."
-terraform apply
+tofu init -backend-config="access_key=..." -backend-config="secret_key=..."
+tofu apply
 ```
 
 ## Security Considerations

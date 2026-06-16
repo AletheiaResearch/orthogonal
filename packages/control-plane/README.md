@@ -153,7 +153,7 @@ for that provider.
 ### Prerequisites
 
 - Node.js 22+
-- Terraform (for deployment)
+- OpenTofu (for deployment)
 
 ### Setup
 
@@ -169,12 +169,24 @@ pnpm --filter @open-inspect/control-plane build
 # Outputs to dist/index.js
 ```
 
+### Run locally
+
+```bash
+cp .dev.vars.example .dev.vars   # fill in local secrets
+pnpm --filter @open-inspect/control-plane dev   # wrangler dev on http://localhost:8787
+```
+
+The checked-in `wrangler.jsonc` is a **test-only** config — it backs local `wrangler dev` (Miniflare
+provides D1, Durable Objects, KV, R2) and the integration test runner. It is **not** the production
+Worker config, which OpenTofu generates at deploy time. For the full local loop see
+[docs/LOCAL_DEVELOPMENT.md](../../docs/LOCAL_DEVELOPMENT.md).
+
 ### Deploy
 
-Deployment is managed via Terraform. See [terraform/README.md](../../terraform/README.md) for
+Deployment is managed via OpenTofu. See [terraform/README.md](../../terraform/README.md) for
 details.
 
-All secrets and environment variables are configured through Terraform's `terraform.tfvars` file.
+All secrets and environment variables are configured through OpenTofu's `terraform.tfvars` file.
 
 ## SQLite Schema
 
@@ -243,7 +255,7 @@ and the control plane returns a manual GitHub `pull/new` URL instead of failing 
 
 ### Configuration
 
-All secrets are configured via Terraform. Required secrets include:
+All secrets are configured via OpenTofu. Required secrets include:
 
 - `GITHUB_APP_ID` - GitHub App ID
 - `GITHUB_APP_PRIVATE_KEY` - GitHub App private key (PKCS#8 format)
@@ -253,7 +265,7 @@ All secrets are configured via Terraform. Required secrets include:
 Optional variables:
 
 - `GITHUB_APP_INSTALLATION_MAP` - JSON map of GitHub owner login to installation ID for the same
-  GitHub App (populated from Terraform `github_app_installation_map`). Unmapped owners fall back to
+  GitHub App (populated from OpenTofu `github_app_installation_map`). Unmapped owners fall back to
   `GITHUB_APP_INSTALLATION_ID`.
 - `SCM_PROVIDER` - Source control provider for this deployment (`github`, `bitbucket`, or `gitlab`,
   default: `github`). `bitbucket` returns explicit `501 Not Implemented` responses until
