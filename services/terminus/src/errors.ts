@@ -86,6 +86,12 @@ export function errorResponse(err: GatewayError): Response {
 /** Coerce an unknown thrown value into a GatewayError (unknowns become 502 upstream errors). */
 export function toGatewayError(err: unknown): GatewayError {
   if (err instanceof GatewayError) return err;
-  const message = err instanceof Error ? err.message : String(err);
-  return upstreamError(message);
+  // Don't forward the raw upstream message to the client (info leak); log it instead.
+  console.error(
+    JSON.stringify({
+      event: "terminus.upstream_error",
+      message: err instanceof Error ? err.message : String(err),
+    })
+  );
+  return upstreamError("Upstream request failed");
 }

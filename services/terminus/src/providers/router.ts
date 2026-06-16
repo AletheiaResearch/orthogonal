@@ -21,10 +21,14 @@ import { missingBaseURL, unsupportedProvider } from "../errors";
 export function buildLanguageModel(ref: ResolvedModelRef, apiKey: string) {
   switch (ref.npm) {
     case "@ai-sdk/anthropic":
-      return createAnthropic({ apiKey })(ref.modelId);
+      return createAnthropic({ apiKey, ...(ref.baseURL ? { baseURL: ref.baseURL } : {}) })(
+        ref.modelId
+      );
 
     case "@ai-sdk/openai":
-      return createOpenAI({ apiKey })(ref.modelId);
+      return createOpenAI({ apiKey, ...(ref.baseURL ? { baseURL: ref.baseURL } : {}) })(
+        ref.modelId
+      );
 
     case "@ai-sdk/openai-compatible": {
       if (!ref.baseURL) throw missingBaseURL(ref.providerId);

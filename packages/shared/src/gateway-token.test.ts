@@ -80,7 +80,7 @@ describe("gateway-token", () => {
     expect(result.reason).toBe("expired");
   });
 
-  it("accepts a token exactly at the expiry boundary", async () => {
+  it("rejects a token at the exact expiry boundary", async () => {
     const token = await mintGatewayToken({ sid: "s", allowed_models: [] }, SECRET, {
       now: NOW,
       ttlSeconds: 60,
@@ -88,7 +88,9 @@ describe("gateway-token", () => {
 
     const result = await verifyGatewayToken(token, SECRET, { now: NOW + 60 });
 
-    expect(result.valid).toBe(true);
+    expect(result.valid).toBe(false);
+    if (result.valid) return;
+    expect(result.reason).toBe("expired");
   });
 
   it("rejects a token signed with a different secret", async () => {

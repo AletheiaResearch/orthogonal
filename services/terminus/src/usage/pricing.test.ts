@@ -38,6 +38,16 @@ describe("computeCostUsd", () => {
     expect(usd).toBeCloseTo(2); // only input priced
   });
 
+  it("does not double-charge cached input tokens (cache is a subset of input)", () => {
+    const cost: ModelCost = { input: 10, cache_read: 1 };
+    const usd = computeCostUsd(
+      { inputTokens: 1000, outputTokens: 0, cacheReadTokens: 400, cacheWriteTokens: 0 },
+      cost
+    );
+    // 600 non-cached input @ 10 + 400 cached-read @ 1, per 1M
+    expect(usd).toBeCloseTo((600 * 10 + 400 * 1) / 1_000_000);
+  });
+
   it("does not price reasoning separately (reasoning tokens are a subset of output)", () => {
     const cost: ModelCost = { input: 1, output: 1, reasoning: 100 };
     const usd = computeCostUsd(

@@ -35,6 +35,14 @@ describe("gatewayAuth", () => {
     expect(body.error.code).toBe("unauthorized");
   });
 
+  it("accepts a lowercase bearer scheme (case-insensitive)", async () => {
+    const token = await mintGatewayToken({ sid: "sess_1", allowed_models: [] }, SECRET);
+    const res = await call({ Authorization: `bearer ${token}` });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ sid: "sess_1" });
+  });
+
   it("rejects a non-Bearer Authorization header (401)", async () => {
     const res = await call({ Authorization: "Basic abc" });
     expect(res.status).toBe(401);

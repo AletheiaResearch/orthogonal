@@ -91,6 +91,12 @@ describe("toModelMessages", () => {
     expect(() => toModelMessages([{ role: "tool", content: "x" }])).toThrow();
   });
 
+  it("throws a 400 for a tool message whose tool_call_id has no preceding tool call", () => {
+    expect(() =>
+      toModelMessages([{ role: "tool", tool_call_id: "call_unknown", content: "results" }])
+    ).toThrow(/unknown tool_call_id/);
+  });
+
   it("falls back to empty input when tool-call arguments are not valid JSON", () => {
     const out = toModelMessages([
       {

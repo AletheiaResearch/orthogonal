@@ -18,10 +18,17 @@ export interface TokenCounts {
 
 export function computeCostUsd(tokens: TokenCounts, cost: ModelCost | undefined): number {
   if (!cost) return 0;
+  // cacheRead/cacheWrite are subsets of inputTokens, so price only the non-cached
+  // remainder at the input rate to avoid double-charging. Whether cache tokens are
+  // truly a subset of input is provider-dependent; this is a best-effort estimate.
+  const nonCachedInput = Math.max(
+    0,
+    tokens.inputTokens - tokens.cacheReadTokens - tokens.cacheWriteTokens
+  );
   const perMillion =
-    tokens.inputTokens * (cost.input ?? 0) +
+    nonCachedInput * (cost.input ?? 0) +
     tokens.outputTokens * (cost.output ?? 0) +
-    tokens.cacheReadTokens * (cost.cache_read ?? 0) +
-    tokens.cacheWriteTokens * (cost.cache_write ?? 0);
+    tokens.cacheReadTokens * (cost.cache_read ?? cost.input ?? 0) +
+    tokens.cacheWriteTokens * (cost.cache_write ?? cost.input ?? 0);
   return perMillion / 1_000_000;
 }

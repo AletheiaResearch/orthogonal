@@ -115,6 +115,20 @@ describe("toOpenAIChatStream", () => {
     expect(onUsage).toHaveBeenCalledOnce();
   });
 
+  it("yields an OpenAI-style error frame and stops on a fullStream error part", async () => {
+    const frames = await collect(
+      toOpenAIChatStream(parts({ type: "error", error: new Error("boom") }), META)
+    );
+
+    // No trailing [DONE] after an error frame.
+    expect(frames.some((f) => f.includes("[DONE]"))).toBe(false);
+    const objs = dataObjects(frames);
+    expect(objs).toHaveLength(1);
+    const err = objs[0].error as { message: string; type: string };
+    expect(err.message).toBe("boom");
+    expect(err.type).toBe("api_error");
+  });
+
   it("maps a tool-call part to an OpenAI tool_calls delta", async () => {
     const frames = await collect(
       toOpenAIChatStream(

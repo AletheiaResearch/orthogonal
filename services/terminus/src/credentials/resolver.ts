@@ -62,12 +62,13 @@ export class EnvKeyResolver implements CredentialResolver {
    * Returns the first non-empty value found.
    */
   private readKey(providerId: string, envKeys?: string[]): string | null {
-    const override = this.options.envVarOverrides?.[providerId];
-    const candidates = override
-      ? [override]
-      : envKeys && envKeys.length > 0
-        ? envKeys
-        : [providerEnvVarName(providerId)];
+    const candidates = [
+      ...(this.options.envVarOverrides?.[providerId]
+        ? [this.options.envVarOverrides[providerId]]
+        : []),
+      ...(envKeys ?? []),
+      providerEnvVarName(providerId),
+    ];
 
     for (const name of candidates) {
       const value = this.env[name];

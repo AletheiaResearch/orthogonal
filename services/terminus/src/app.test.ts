@@ -187,6 +187,42 @@ describe("terminus app", () => {
     expect(records[0].costUsd).toBeCloseTo((5 * 5 + 2 * 25) / 1_000_000);
   });
 
+  it("still returns 200 when the usage sink rejects (metering must not fail the response)", async () => {
+    const rejectingSink: UsageSink = {
+      record: () => Promise.reject(new Error("sink down")),
+    };
+    const model = new MockLanguageModelV3({
+      doGenerate: {
+        content: [{ type: "text", text: "Hello there" }],
+        finishReason: "stop",
+        usage: LL_USAGE,
+        warnings: [],
+      },
+    } as unknown as MockArgs);
+    const gateway = createApp({
+      loadRegistry: () => Promise.resolve(REGISTRY),
+      usageSink: rejectingSink,
+      chat: { buildModel: () => model },
+    });
+
+    const res = await gateway.request(
+      "/v1/chat/completions",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${await token()}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "anthropic/claude-opus-4-5",
+          messages: [{ role: "user", content: "hi" }],
+        }),
+      },
+      env
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { choices: { message: { content: string } }[] };
+    expect(body.choices[0].message.content).toBe("Hello there");
+  });
+
   it("proxies a streaming completion as OpenAI SSE with a real usage chunk", async () => {
     const { sink, records } = capturingSink();
     const chunks = [

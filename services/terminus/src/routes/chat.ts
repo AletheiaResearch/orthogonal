@@ -49,7 +49,12 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
   } catch {
     return errorResponse(badRequest("request body is not valid JSON"));
   }
-  if (!body || typeof body.model !== "string" || !Array.isArray(body.messages)) {
+  if (
+    !body ||
+    typeof body.model !== "string" ||
+    !Array.isArray(body.messages) ||
+    (body.stream !== undefined && typeof body.stream !== "boolean")
+  ) {
     return errorResponse(badRequest("`model` (string) and `messages` (array) are required"));
   }
 
@@ -82,13 +87,23 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       temperature: body.temperature,
       topP: body.top_p,
       maxOutputTokens: body.max_completion_tokens ?? body.max_tokens,
+      stopSequences: typeof body.stop === "string" ? [body.stop] : body.stop,
       abortSignal: c.req.raw.signal,
     };
 
     const emit = (usage: LanguageModelUsage): Promise<void> => {
-      const record = deps.usageSink.record(
-        usageRecord(claims, body.model, usage, nowMs, ref.model.cost)
-      );
+      // Metering is best-effort: a sink rejection must never fail a successful
+      // completion, so swallow+log here and keep the returned promise non-rejecting.
+      const record = deps.usageSink
+        .record(usageRecord(claims, body.model, usage, nowMs, ref.model.cost))
+        .catch((e) => {
+          console.error(
+            JSON.stringify({
+              event: "terminus.usage.sink_error",
+              message: e instanceof Error ? e.message : String(e),
+            })
+          );
+        });
       try {
         // Extend the Worker's lifetime past the response so the (fire-and-forget,
         // for streaming) usage write completes. `c.executionCtx` throws when no
@@ -146,7 +161,7 @@ function usageRecord(
     reasoningTokens: usage.outputTokenDetails?.reasoningTokens ?? 0,
     cacheReadTokens,
     cacheWriteTokens,
-    totalTokens: usage.totalTokens ?? 0,
+    totalTokens: usage.totalTokens ?? inputTokens + outputTokens,
     costUsd: computeCostUsd({ inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens }, cost),
     createdAt,
   };

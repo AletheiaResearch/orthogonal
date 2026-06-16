@@ -105,7 +105,7 @@ export async function verifyGatewayToken(
   if (typeof payload.nbf === "number" && now < payload.nbf) {
     return { valid: false, reason: "not-yet-valid" };
   }
-  if (now > payload.exp) return { valid: false, reason: "expired" };
+  if (now >= payload.exp) return { valid: false, reason: "expired" };
 
   return {
     valid: true,

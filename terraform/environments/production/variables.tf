@@ -244,7 +244,7 @@ variable "enable_terminus" {
   default     = false
 
   validation {
-    condition     = var.enable_terminus == false || length(var.terminus_jwt_secret) > 0
+    condition     = var.enable_terminus == false || length(trimspace(var.terminus_jwt_secret)) > 0
     error_message = "When enable_terminus is true, terminus_jwt_secret must be non-empty."
   }
 }

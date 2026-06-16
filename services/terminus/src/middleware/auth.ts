@@ -23,8 +23,11 @@ export async function gatewayAuth(c: TerminusContext, next: Next): Promise<Respo
     );
   }
 
-  const header = c.req.header("Authorization");
-  const token = header?.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : null;
+  const token =
+    c.req
+      .header("Authorization")
+      ?.match(/^Bearer\s+(.+)$/i)?.[1]
+      ?.trim() ?? null;
   if (!token) return errorResponse(unauthorized());
 
   const result = await verifyGatewayToken(token, secret);

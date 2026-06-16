@@ -86,6 +86,20 @@ describe("fetchRegistry", () => {
     );
   });
 
+  it("serves via fetch when the KV get throws (cache failures are best-effort)", async () => {
+    const kv = {
+      get: () => Promise.reject(new Error("KV unavailable")),
+      put: () => Promise.resolve(),
+    } as unknown as KVNamespace;
+    const env = { MODELS_CACHE: kv } as unknown as Env;
+    const fetchImpl = okFetch(REGISTRY);
+
+    const reg = await fetchRegistry(env, fetchImpl as unknown as typeof fetch);
+
+    expect(reg.anthropic.name).toBe("Anthropic");
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
   it("throws on a non-200 response with no cache", async () => {
     const env = {} as unknown as Env;
     const fetchImpl = vi.fn(() => Promise.resolve(new Response("nope", { status: 503 })));

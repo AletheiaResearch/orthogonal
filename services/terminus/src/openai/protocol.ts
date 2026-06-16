@@ -160,6 +160,14 @@ export async function* toOpenAIChatStream(
       onUsage?.(part.totalUsage);
       yield sse(chunkFrame(meta, {}, mapFinishReason(part.finishReason)));
       yield sse(usageFrame(meta, mapUsage(part.totalUsage)));
+    } else if (part.type === "error") {
+      yield sse({
+        error: {
+          message: part.error instanceof Error ? part.error.message : String(part.error),
+          type: "api_error",
+        },
+      });
+      return;
     }
   }
 

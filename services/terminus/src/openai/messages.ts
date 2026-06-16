@@ -95,13 +95,15 @@ export function toModelMessages(messages: OpenAIChatMessage[]): ModelMessage[] {
 
       case "tool": {
         if (!m.tool_call_id) throw badRequest("tool message is missing tool_call_id");
+        const toolName = toolNames.get(m.tool_call_id);
+        if (!toolName) throw badRequest(`unknown tool_call_id: ${m.tool_call_id}`);
         out.push({
           role: "tool",
           content: [
             {
               type: "tool-result",
               toolCallId: m.tool_call_id,
-              toolName: toolNames.get(m.tool_call_id) ?? "",
+              toolName,
               output: { type: "text", value: textOf(m.content) },
             },
           ],
