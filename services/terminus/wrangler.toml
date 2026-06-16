@@ -1,0 +1,21 @@
+# Development wrangler config — production deployment is via Terraform.
+# Use this for local development with `wrangler dev`.
+
+name = "open-inspect-terminus"
+main = "dist/index.js"
+compatibility_date = "2024-12-30"
+compatibility_flags = ["nodejs_compat"]
+
+# KV namespace caching the models.dev registry catalog.
+[[kv_namespaces]]
+binding = "MODELS_CACHE"
+id = "" # Fill in after creating: wrangler kv namespace create MODELS_CACHE
+
+[vars]
+DEPLOYMENT_NAME = "dev"
+
+# Secrets (set via `wrangler secret put`):
+# - TERMINUS_JWT_SECRET   — HS256 secret used to verify the sandbox gateway token
+# - ANTHROPIC_API_KEY     — platform provider key (override path)
+# - OPENAI_API_KEY        — platform provider key (override path)
+# - <PROVIDER>_API_KEY    — any models.dev provider, resolved dynamically by env name

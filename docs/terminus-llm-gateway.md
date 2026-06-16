@@ -96,18 +96,18 @@ shape does not change when multi-tenancy lands.
 
 ## Checklist (living tracker)
 
-- [ ] Verify the 4 unknowns above
-- [ ] Scaffold `services/terminus` (package.json, tsconfig, vite, wrangler.toml, oxlint) matching
-      the bots
-- [ ] Add `services/terminus` to `pnpm-workspace.yaml`
-- [ ] shared: `gateway-token.ts` (mint/verify) + export + build
+- [~] Verify the 4 unknowns above (background workflow running)
+- [x] Scaffold `services/terminus` (package.json, tsconfig, vite, wrangler.toml, oxlint) matching
+      the bots — installs/typechecks/builds green
+- [x] Add `services/terminus` to `pnpm-workspace.yaml`
+- [x] shared: `gateway-token.ts` (mint/verify) + export + build — 11 tests green
 - [ ] auth middleware + token verify (CON-52)
 - [ ] catalog from models.dev + `/v1/models` (CON-49)
-- [ ] credential resolver interface + env-key impl (CON-51)
+- [x] credential resolver interface + env-key impl (CON-51) — 8 tests green
 - [ ] provider router (default openai-compatible + anthropic/openai overrides) (CON-48)
 - [ ] chat route: streamText → OpenAI-compat SSE + non-stream (CON-48)
 - [ ] UsageSink seam (no-op) for CON-54
 - [ ] Vitest unit tests (token, catalog filter, resolver, SSE mapping w/ mocked upstream)
 - [ ] Terraform worker module instance + secrets + KV
 - [ ] build/typecheck/lint/test green; update this doc
-- [ ] Linear: comments on CON-51 + CON-52 for deferred items
+- [x] Linear: comments on CON-51 + CON-52 for deferred items

@@ -1,0 +1,26 @@
+{
+  "name": "@orthogonal/terminus",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@open-inspect/shared": "workspace:*",
+    "hono": "catalog:"
+  },
+  "devDependencies": {
+    "@orthogonal/tooling-configs": "workspace:*",
+    "@vitest/coverage-v8": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
+  }
+}
