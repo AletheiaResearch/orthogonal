@@ -50,6 +50,7 @@ jobs:
               - 'services/integrations/slack-bot/**'
               - 'services/integrations/github-bot/**'
               - 'services/integrations/linear-bot/**'
+              - 'services/terminus/**'
               - 'packages/tooling-configs/**'
               - 'apps/**'
               - 'package.json'

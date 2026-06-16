@@ -11,4 +11,5 @@ locals {
   slack_bot_script_path     = "${var.project_root}/services/integrations/slack-bot/dist/index.js"
   linear_bot_script_path    = "${var.project_root}/services/integrations/linear-bot/dist/index.js"
   github_bot_script_path    = "${var.project_root}/services/integrations/github-bot/dist/index.js"
+  terminus_script_path      = "${var.project_root}/services/terminus/dist/index.js"
 }

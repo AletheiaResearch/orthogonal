@@ -32,3 +32,11 @@ module "linear_kv" {
   account_id     = var.cloudflare_account_id
   namespace_name = "open-inspect-linear-kv-${local.name_suffix}"
 }
+
+module "terminus_kv" {
+  count  = var.enable_terminus ? 1 : 0
+  source = "../../modules/cloudflare-kv"
+
+  account_id     = var.cloudflare_account_id
+  namespace_name = "open-inspect-terminus-cache-${local.name_suffix}"
+}
