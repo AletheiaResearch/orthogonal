@@ -1,0 +1,16 @@
+// Test-only config for @cloudflare/vitest-pool-workers (Miniflare D1).
+// Production deployment is managed via Terraform; local dev uses wrangler.toml.
+{
+  "name": "open-inspect-terminus-test",
+  "main": "src/index.ts",
+  "compatibility_date": "2024-12-30",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_name": "open-inspect-terminus-test",
+    },
+  ],
+  "kv_namespaces": [{ "binding": "MODELS_CACHE", "id": "00000000000000000000000000000000" }],
+}
