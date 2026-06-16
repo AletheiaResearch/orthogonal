@@ -295,6 +295,33 @@ cron tick → SELECT codex rows WHERE expires_at < now + buffer
 - Separate Terminus D1 (recommended, self-contained) vs sharing control-plane's D1 — **separate**.
 - Smoke (real creds): Codex upstream body acceptance; OAuth refresh-endpoint behavior from a Worker.
 
+### Build progress (branch `nejc/con-50-codex-opencode`, base `terminus`)
+
+Committed + pushed, TDD, all green (86 unit + 13 D1-integration tests):
+
+- ✅ **Spine** — `registry.ts` `credentialMode`; synthetic `codex/*` provider (`catalog/codex.ts`);
+  router `.responses()` branch + 4 OAuth headers + `codexProviderOptions`; request-contract
+  **spike** verified vs `@ai-sdk/openai@3.0.69` + cross-checked vs openai/codex (Rust) + OpenCode
+  core.
+- ✅ **Shared crypto** — `@open-inspect/shared` `encryptSecret`/`decryptSecret` (AES-256-GCM,
+  optional owner-AAD); additive, control-plane crypto untouched.
+- ✅ **Vault** — own D1 + Drizzle (`drizzle-orm@0.45.2`/`drizzle-kit@0.31.10`);
+  `provider_credentials` schema + generated migration; `CredentialVault` (put/get api-key + Codex,
+  list-enabled, owner-scoped upsert); Miniflare-D1 integration harness.
+- ✅ **Codex token manager** — `CodexTokenManager` (cached read → rotate via ported
+  `refreshCodexToken` → persist rotated single-use token); `refreshIfNearExpiry` (cron path) + lazy
+  fallback; 401-reread concurrency.
+
+Remaining for CON-50:
+
+- ⬜ **Vault-backed `CredentialResolver`** — migrate the non-codex providers from `EnvKeyResolver`
+  to the vault behind the same interface (in-isolate-cached `listEnabledProviders` for the catalog).
+- ⬜ **Wire `chat.ts` / `/v1/models` / `env.ts`** — codex path via `CodexTokenManager` + the router
+  branch; non-codex via the vault; `env`: `DB` (D1) + `CREDENTIALS_ENCRYPTION_KEY`.
+- ⬜ **Cron `scheduled()`** handler → `CodexTokenManager.refreshIfNearExpiry`.
+- ⬜ **Terraform** — Terminus D1 + apply the Drizzle migration + `CREDENTIALS_ENCRYPTION_KEY`
+  secret + Codex/provider seed secrets + cron trigger.
+
 ## CON-53 — OpenCode wiring — plan
 
 Two halves:
