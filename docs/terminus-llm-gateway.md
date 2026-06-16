@@ -200,6 +200,101 @@ The **request body** the AI SDK responses model emits may not satisfy `backend-a
 request via `createOpenAI({fetch})` and diff against a known-good request from the working sandbox
 plugin path before wiring upstream.
 
+## CON-50 — REVISED: Terminus credential vault (supersedes determination #1)
+
+> Through design review (Nejc, 2026-06-17) CON-50 grew from "broker Codex tokens from control-plane"
+> into **Terminus owns its credentials end-to-end** — the self-contained,
+> OpenRouter/LiteLLM/Helicone-shaped gateway it was always meant to be. The original "control-plane
+> is the sole refresher" determination (#1 below) was over-broad: the real invariant is **one
+> refresher per refresh token**. Terminus owning its _own_ ChatGPT account (distinct from the legacy
+> per-repo sandbox creds) satisfies that cleanly. The control-plane refresh path stays for the
+> legacy raw-key sandbox flow — additive, on distinct tokens, no conflict.
+
+### Locked decisions (Nejc, 2026-06-17)
+
+- **Terminus owns all provider credentials** in its **own D1** database (not a DO; not
+  control-plane). _D1 over DO_ because: the credential+routing model is relational (Helicone-style);
+  the codebase already does encrypted secrets **and** single-use OAuth rotation on D1
+  (`repo-secrets.ts`, `openai-token-refresh-service.ts`); and the scheduled-refresh model makes the
+  request path **read-only**, so the DO's rotation-serialization isn't needed (a D1 conditional
+  update guards the rare race).
+- **Encryption at rest = AES-256-GCM**, key from a Worker secret (`CREDENTIALS_ENCRYPTION_KEY`).
+  Lift control-plane's `auth/crypto.ts` into `@open-inspect/shared` so both workers encrypt/decrypt
+  identically; extend it with an optional **AAD = owner id** (Helicone binds ciphertext to `org_id`
+  so a row can't be decrypted under another owner). Decrypt **only in-isolate**; **never** KV.
+- **Unified credential entity** (Helicone `provider_keys`): platform and BYOK are the **same row**,
+  distinguished by `owner`; routing/authorization — not table identity — gates who uses which key.
+  CON-50 ships `owner = platform` only (the gateway token's `tenant` is `null` today).
+- **Codex = a credential row** whose encrypted secret holds the 4 OAuth components (`refresh`,
+  `access`, `account_id`, `expires_at`). Terminus is the **sole refresher for its own account**
+  (ports control-plane's `refreshOpenAIToken` — a plain HTTPS POST; no loopback needed).
+- **Refresh = cron `scheduled()`** handler (refreshes near-expiry, ~10 min buffer) **+ lazy
+  refresh-on-read fallback** for the post-seed window. Concurrent rotation is handled by porting
+  control-plane's proven pattern: attempt the OpenAI refresh; on a `401` (the single-use token was
+  already rotated by a concurrent writer) re-read the freshly-rotated row from D1 and use it. (The
+  refresh token lives _inside_ `secret_encrypted`, so it can't be a SQL `WHERE` predicate; an
+  optional optimistic guard is an opaque `secret_encrypted` compare or a `version` column.) Request
+  path is read-only.
+- **Seeding via Terraform/Worker secret** (the human still logs in locally via OpenCode and pastes
+  the Codex refresh token + provider keys into Terraform-managed secrets); the D1 table is the
+  runtime source of truth; ingestion via an admin API / Orto BYOK comes later.
+- **Scope:** CON-50 migrates **all** provider keys into the vault (per Nejc) + Codex OAuth + cron
+  refresh. **Deferred → new CON-41 sub-issues:** (a) BYOK / per-tenant ingestion API + admin panel
+  (blocked on multi-tenancy; `tenant` is `null` today), (b) LiteLLM/Helicone-style **LB & routing**
+  (multi-key per provider, weights, fallbacks, cooldowns) as a versioned routing-config blob.
+
+### Already built + verified (source-agnostic spine — stands regardless of the source)
+
+`registry.ts` `credentialMode` + synthetic `codex/*` provider (`catalog/codex.ts`); router
+`.responses()` Codex branch + the 4 OAuth headers (`ChatGPT-Account-Id`, `originator:"opencode"`,
+`session_id`) + `codexProviderOptions` (`store:false`, `include:["reasoning.encrypted_content"]`,
+`reasoningSummary:"auto"`, `prompt_cache_key`); and the **request-contract spike** — verified
+against `@ai-sdk/openai@3.0.69`, cross-checked vs `openai/codex` (Rust) + OpenCode core. 91 tests.
+
+### Data model — Terminus D1 `provider_credentials`
+
+One unified table (mirrors Helicone's single `provider_keys`):
+
+| Column                      | Meaning                                                                                       |
+| --------------------------- | --------------------------------------------------------------------------------------------- |
+| `id TEXT PK`                | credential id                                                                                 |
+| `owner_type TEXT`           | `platform` \| `tenant` (CON-50: `platform` only)                                              |
+| `owner_id TEXT`             | tenant id for BYOK; `''`/sentinel for platform. Used as the AES-GCM **AAD**                   |
+| `provider TEXT`             | models.dev provider id, or `codex`                                                            |
+| `credential_mode`           | `api_key` \| `codex-oauth`                                                                    |
+| `secret_encrypted`          | AES-256-GCM base64 — `api_key`: the key; `codex-oauth`: encrypted JSON of the 4 components    |
+| `expires_at INT`            | access-token expiry (ms); **plaintext** so the cron finds near-expiry rows without decrypting |
+| `enabled INT`               | advertise/serve this credential                                                               |
+| `config TEXT`               | provider-specific JSON (baseURL/region overrides) — Helicone `config` analog (nullable)       |
+| `created_at/updated_at INT` | epoch ms                                                                                      |
+
+`UNIQUE(owner_type, owner_id, provider)` for now (single key per owner+provider; relaxed when
+multi-key LB lands). Routing/LB config + per-key limits are **deferred** (the LB sub-issue).
+
+### Request flow (gateway ON)
+
+```
+verify gateway token → resolve credential by (owner=platform, provider) from D1
+  → decrypt in-isolate (AAD=owner_id) → buildLanguageModel (codex .responses() branch or provider)
+  → streamText/generateText → OpenAI-compat SSE → usage sink
+```
+
+In-isolate read-through cache of decrypted creds (ephemeral, per-isolate — not KV). `/v1/models`
+advertises the providers/models with an `enabled` credential row (Codex included when seeded).
+
+### Refresh flow (Codex)
+
+```
+cron tick → SELECT codex rows WHERE expires_at < now + buffer
+  → POST OpenAI token endpoint (ported refreshOpenAIToken) → rotated {refresh, access, expires}
+  → UPDATE … WHERE refresh_token = <old>  (conditional; re-read on miss = concurrent rotation)
+```
+
+### Open / live-verify
+
+- Separate Terminus D1 (recommended, self-contained) vs sharing control-plane's D1 — **separate**.
+- Smoke (real creds): Codex upstream body acceptance; OAuth refresh-endpoint behavior from a Worker.
+
 ## CON-53 — OpenCode wiring — plan
 
 Two halves:

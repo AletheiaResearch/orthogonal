@@ -107,4 +107,33 @@ describe("resolveModelRef", () => {
   it("returns null for an unqualified id (no slash)", () => {
     expect(resolveModelRef(REGISTRY, "claude-opus-4-5")).toBeNull();
   });
+
+  it("leaves credentialMode undefined for ordinary providers", () => {
+    const ref = resolveModelRef(REGISTRY, "anthropic/claude-opus-4-5");
+    expect(ref?.credentialMode).toBeUndefined();
+  });
+
+  it("propagates a provider's credentialMode onto the resolved ref", () => {
+    const registry: ModelsDevRegistry = {
+      synthetic: {
+        id: "synthetic",
+        name: "Synthetic",
+        env: [],
+        npm: "@ai-sdk/openai",
+        api: "https://upstream.example/api",
+        credentialMode: "codex-oauth",
+        models: {
+          "some-model": {
+            id: "some-model",
+            name: "Some Model",
+            limit: { context: 1000, output: 1000 },
+            modalities: { input: ["text"], output: ["text"] },
+          },
+        },
+      },
+    };
+
+    const ref = resolveModelRef(registry, "synthetic/some-model");
+    expect(ref?.credentialMode).toBe("codex-oauth");
+  });
 });

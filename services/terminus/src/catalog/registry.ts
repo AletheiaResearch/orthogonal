@@ -35,6 +35,14 @@ export interface ModelsDevModel {
   [key: string]: unknown;
 }
 
+/**
+ * Non-default credential brokering for a provider. Absent for ordinary
+ * models.dev providers (platform key via `env`/secret). `codex-oauth` marks a
+ * synthetic provider whose credential is a per-session ChatGPT/Codex OAuth
+ * access token brokered by the control plane (CON-50) — never a Worker secret.
+ */
+export type CredentialMode = "codex-oauth";
+
 export interface ModelsDevProvider {
   id: string;
   name: string;
@@ -45,6 +53,8 @@ export interface ModelsDevProvider {
   npm?: string;
   /** OpenAI-compatible baseURL; present only for openai-compatible providers. */
   api?: string;
+  /** Synthetic-provider extension (models.dev never sets it); see {@link CredentialMode}. */
+  credentialMode?: CredentialMode;
   models: Record<string, ModelsDevModel>;
 }
 
@@ -62,6 +72,8 @@ export interface ResolvedModelRef {
   baseURL?: string;
   /** Candidate env-var names for the provider credential. */
   envKeys: string[];
+  /** Non-default credential brokering (e.g. `codex-oauth`); undefined = platform key. */
+  credentialMode?: CredentialMode;
   model: ModelsDevModel;
   provider: ModelsDevProvider;
 }
@@ -93,6 +105,7 @@ export function resolveModelRef(
     npm: model.provider?.npm ?? provider.npm ?? DEFAULT_PROVIDER_NPM,
     baseURL: model.provider?.api ?? provider.api,
     envKeys: provider.env ?? [],
+    credentialMode: provider.credentialMode,
     model,
     provider,
   };
