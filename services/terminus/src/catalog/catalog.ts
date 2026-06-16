@@ -40,8 +40,16 @@ export async function buildModelsList(
   const allowed = new Set(allowedModels);
   const data: CatalogModel[] = [];
 
-  for (const [providerId, provider] of Object.entries(registry)) {
-    if (!(await resolver.isEnabled(providerId, provider.env))) continue;
+  // Resolve provider enablement in parallel — matters once the resolver is
+  // backed by an async store (D1/KV); sequential awaits over ~145 providers
+  // would otherwise be a per-request bottleneck.
+  const providers = Object.entries(registry);
+  const enabled = await Promise.all(
+    providers.map(([providerId, provider]) => resolver.isEnabled(providerId, provider.env))
+  );
+
+  for (const [index, [providerId, provider]] of providers.entries()) {
+    if (!enabled[index]) continue;
 
     for (const [modelId, model] of Object.entries(provider.models ?? {})) {
       const id = `${providerId}/${modelId}`;
