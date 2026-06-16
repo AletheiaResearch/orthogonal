@@ -75,12 +75,44 @@ describe("terminus app", () => {
     expect(body.data.map((m) => m.id)).toEqual(["anthropic/claude-opus-4-5"]);
   });
 
-  it("stubs chat completions with 501 until the proxy lands", async () => {
-    const res = await app().request(
+  async function chat(body: unknown, allowed: string[] = []) {
+    return app().request(
       "/v1/chat/completions",
-      { method: "POST", headers: { Authorization: `Bearer ${await token()}` } },
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${await token(allowed)}`,
+          "content-type": "application/json",
+        },
+        body: typeof body === "string" ? body : JSON.stringify(body),
+      },
       env
     );
-    expect(res.status).toBe(501);
+  }
+
+  it("rejects an invalid JSON body with 400", async () => {
+    expect((await chat("not json")).status).toBe(400);
+  });
+
+  it("rejects a body missing model/messages with 400", async () => {
+    expect((await chat({})).status).toBe(400);
+  });
+
+  it("rejects a model outside the token's allowed_models with 403", async () => {
+    const res = await chat({ model: "anthropic/claude-opus-4-5", messages: [] }, [
+      "openai/gpt-5.4",
+    ]);
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 404 for a model not in the catalog", async () => {
+    const res = await chat({ model: "nope/whatever", messages: [] });
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 502 when the model's provider has no configured key", async () => {
+    // env configures only ANTHROPIC_API_KEY, so openai is unconfigured.
+    const res = await chat({ model: "openai/gpt-5.4", messages: [] });
+    expect(res.status).toBe(502);
   });
 });

@@ -3,9 +3,8 @@
  *
  * Fronts all LLM traffic for sandboxes: verifies a short-lived signed token,
  * resolves the upstream provider credential server-side, serves a dynamic model
- * catalog from the models.dev registry, and (CON-48) proxies chat completions
- * through the Vercel AI SDK. Sandboxes hold only a scoped token, never raw
- * provider keys.
+ * catalog from the models.dev registry, and proxies chat completions through the
+ * Vercel AI SDK. Sandboxes hold only a scoped token, never raw provider keys.
  */
 import { Hono } from "hono";
 
@@ -13,16 +12,23 @@ import { buildModelsList } from "./catalog/catalog";
 import { fetchRegistry } from "./catalog/models-dev";
 import { EnvKeyResolver } from "./credentials/resolver";
 import type { Env } from "./env";
-import { GatewayError, errorResponse, toGatewayError } from "./errors";
+import { errorResponse, toGatewayError } from "./errors";
 import { gatewayAuth, type TerminusVars } from "./middleware/auth";
+import { type ChatDeps, chatCompletions } from "./routes/chat";
+import { LoggingUsageSink } from "./usage/sink";
 
 export interface AppDeps {
   /** Injectable for tests; defaults to the live models.dev fetcher. */
   loadRegistry?: typeof fetchRegistry;
+  /** Injectable usage sink; defaults to the logging no-op. */
+  usageSink?: ChatDeps["usageSink"];
+  /** Test-only chat overrides (model builder, clock, id source). */
+  chat?: Pick<ChatDeps, "buildModel" | "now" | "newId">;
 }
 
 export function createApp(deps: AppDeps = {}) {
   const loadRegistry = deps.loadRegistry ?? fetchRegistry;
+  const usageSink = deps.usageSink ?? new LoggingUsageSink();
   const app = new Hono<{ Bindings: Env; Variables: TerminusVars }>();
 
   app.get("/health", (c) => c.json({ status: "healthy", service: "terminus" }));
@@ -42,17 +48,9 @@ export function createApp(deps: AppDeps = {}) {
     }
   });
 
-  // CON-48 — chat completions proxy. Implemented next; stubbed so the catalog +
-  // auth surface ships and deploys independently.
-  app.post("/v1/chat/completions", () =>
-    errorResponse(
-      new GatewayError(
-        "upstream_error",
-        501,
-        "api_error",
-        "chat completions proxy not yet implemented"
-      )
-    )
+  // CON-48 — chat completions proxy via the Vercel AI SDK.
+  app.post("/v1/chat/completions", (c) =>
+    chatCompletions(c, { loadRegistry, usageSink, ...deps.chat })
   );
 
   return app;
