@@ -34,12 +34,14 @@ locals {
       name = pt.name
       text = pt.value
     }],
-    # Secret text bindings
+    # Secret text bindings (skip empty/whitespace-only values — an empty
+    # secret_text binding is rejected by Cloudflare and would fail the deploy;
+    # this lets workers declare optional provider keys that default to "").
     [for sec in var.secrets : {
       type = "secret_text"
       name = sec.name
       text = sec.value
-    }],
+    } if trimspace(sec.value) != ""],
     # Durable Object bindings (only when enabled - disable for initial deployment)
     var.enable_durable_object_bindings ? [for do in var.durable_objects : {
       type       = "durable_object_namespace"
