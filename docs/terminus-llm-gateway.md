@@ -199,3 +199,94 @@ The **request body** the AI SDK responses model emits may not satisfy `backend-a
 (needs `store:false`, `originator` header, reasoning/instructions quirks). Capture the outgoing
 request via `createOpenAI({fetch})` and diff against a known-good request from the working sandbox
 plugin path before wiring upstream.
+
+## CON-53 — OpenCode wiring — plan
+
+Two halves:
+
+1. **Control-plane mints + injects the gateway token.** In `manager.ts` `doSpawn` (~:394) **and**
+   `restoreFromSnapshot` (~:603), when gateway is configured AND the per-session `llmGatewayEnabled`
+   toggle is ON, call
+   `mintGatewayToken({ sid: session.session_name||id, tenant: null, allowed_models: [] }, TERMINUS_JWT_SECRET, { ttlSeconds })`
+   and inject `GATEWAY_TOKEN` + `GATEWAY_BASE_URL` into the sandbox env (thread through
+   CreateSandboxConfig/RestoreSandboxConfig → `client.ts` Modal payload → `web_api.py` →
+   `manager.py` `env_vars`). When ON, **drop Modal's `llm_secrets`** (`manager.py:412`) so raw keys
+   never enter the sandbox — that drop _is_ the security win. Add `TERMINUS_JWT_SECRET` +
+   `TERMINUS_GATEWAY_URL` to control-plane `Env` (`types.ts`) + Terraform
+   (`workers-control-plane.tf` secret + a `terminus_url` local).
+2. **OpenCode config-hook plugin**
+   (`packages/sandbox-runtime/src/sandbox_runtime/plugins/gateway-plugin.js`, modeled on
+   `codex-auth-plugin.js`): fetch `GET {GATEWAY_BASE_URL}/v1/models` with `Bearer GATEWAY_TOKEN`,
+   register ONE custom openai-compatible provider (baseURL→`gateway/v1`, headers→token,
+   models←catalog transformed to OpenCode's descriptor shape, **keyed so
+   `body.model == provider/model`**), + a fetch interceptor refreshing via a new
+   `POST /sessions/:id/gateway-token` near expiry. Copy it in `entrypoint.py:823-830` gated on
+   `GATEWAY_TOKEN`.
+
+**Decisions (locked):**
+
+- **Rollout:** default-OFF `llmGatewayEnabled` per-session setting; raw-key injection stays; flip
+  default-ON only after a live smoke test.
+- **Token:** short TTL (900s) + plugin refresh (a frozen 15-min token would 401 mid-run since
+  `EXECUTION_TIMEOUT_MS`=90min and verify has no grace).
+- **Delivery:** plugin (superset of inline `OPENCODE_CONFIG_CONTENT`; reuses the proven codex
+  `auth.loader` + fetch-interceptor pattern).
+- **allowed_models:** `[]` = unrestricted for v1 (matches CON-52 deferral).
+
+**⚠️ Unverified, NOT CI-testable (live smoke test required before flipping ON):** that an OpenCode
+config-hook can register a custom `@ai-sdk/openai-compatible` provider whose baseURL points at the
+gateway with models from `/v1/models`, on the pinned OpenCode version. The codex precedent only
+proves the auth/fetch-interceptor mechanism, NOT `config()`-registers-a-provider. Load-bearing risk.
+
+**Key files:**
+`packages/control-plane/src/{types.ts, session/durable-object.ts, sandbox/lifecycle/manager.ts, sandbox/client.ts, sandbox/provider.ts, session/http/handlers/sandbox.handler.ts, routes/session-runtime-proxy.ts, router.ts}`,
+`packages/modal-infra/src/{web_api.py, sandbox/manager.py}`,
+`packages/sandbox-runtime/src/sandbox_runtime/{entrypoint.py, plugins/gateway-plugin.js}`,
+`terraform/environments/production/{workers-control-plane.tf, locals.tf}`.
+
+## Continuation prompt (paste into a fresh session in this worktree)
+
+> Continue Linear issue **CON-41** (Terminus LLM gateway) in this worktree. Read
+> `docs/terminus-llm-gateway.md` end-to-end first — it is the design + tracking doc and contains the
+> committed CON-50 and CON-53 plans.
+>
+> **State:** the foundation spine (CON-48 proxy, CON-49 `/v1/models`, CON-51 credential resolution,
+> CON-52 token auth) and **CON-54-scoped** (cost-priced usage emission; durable store deferred) are
+> done, tested (72 tests), and committed on branch `worktree-con-41-llm-gateway`. **Remaining:
+> CON-50 then CON-53** (plans + locked decisions in this doc).
+>
+> **Workspace/PR rules:** work in this worktree; push with
+> `git push origin HEAD:nejc/con-41-llm-gateway-model-routing-chatgptcodex-oauth-vercel-ai-sdk`
+> (flows into **PR #12**, base **`terminus`** — an integration branch). **Do NOT merge to `main` and
+> do NOT change the PR base.** PR #12 is the whole-epic PR; it merges only when all sub-issues are
+> in.
+>
+> **Repo rules:** build `@open-inspect/shared` first; conventional commits; **sole author Nejc
+> Drobnič — never add a Co-Authored-By trailer or any AI-attribution footer to commits or the PR**;
+> pnpm catalog is `strict` with a 7-day `minimumReleaseAge` gate (pin versions published ≥7 days
+> ago); **TDD** (test first, watch it fail); **verify before claiming done**
+> (`pnpm --filter @orthogonal/terminus typecheck && test && build`, `pnpm fmt:check`, `pnpm lint`);
+> call the `advisor` before committing to an approach and before declaring done; use **Workflows**
+> for parallel research/impl; keep this doc updated (it's shown live via the cmux markdown viewer).
+>
+> **Linear:** keep sub-issue states current (move to **In Review** + link PR #12 when implemented);
+> CON-41 is In Review; **CON-54 stays open** to track the durable timeseries-DB store (deferred per
+> Nejc). Comment durable decisions on the relevant issue.
+>
+> **Locked decisions:** CON-53 ships behind a **default-OFF `llmGatewayEnabled`** toggle (raw-key
+> injection stays; flip ON after a live smoke test) with a **short-TTL token + plugin refresh** and
+> **plugin** (not inline) delivery; CON-50 reuses **control-plane as the sole token refresher**
+> (Terminus pulls access tokens over a `CONTROL_PLANE` service binding — never holds the refresh
+> token) and builds Codex via `@ai-sdk/openai` `.responses()` + `ChatGPT-Account-Id` with a
+> synthetic `codex/*` provider; CON-54 has **no durable store** (a timeseries metrics DB is chosen
+> later).
+>
+> **Live-verify gaps (implement + unit-test here; flag a deploy-time smoke test):** CON-50's
+> upstream body contract at `chatgpt.com/backend-api/codex/responses` (needs real Codex creds);
+> CON-53's OpenCode config-hook baseURL repoint (needs a live pinned-OpenCode sandbox).
+>
+> Suggested order for CON-50: (1) spike the Codex request body via `createOpenAI({ fetch })`; (2)
+> terminus identification seam (`codex/*` → `ResolvedModelRef.credentialMode`); (3) router
+> Codex-Responses branch; (4) control-plane service-auth on the token-refresh route + a Terminus
+> `CodexCredentialResolver` over the service binding; (5) wire `chat.ts`; (6) advertise-always in
+> `/v1/models`. TDD each; commit + push as you go.
