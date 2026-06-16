@@ -7,7 +7,7 @@
 import { type LanguageModelUsage, generateText, streamText } from "ai";
 
 import type { fetchRegistry } from "../catalog/models-dev";
-import { type ResolvedModelRef, resolveModelRef } from "../catalog/registry";
+import { type ModelCost, type ResolvedModelRef, resolveModelRef } from "../catalog/registry";
 import { EnvKeyResolver } from "../credentials/resolver";
 import {
   badRequest,
@@ -26,6 +26,7 @@ import {
   toOpenAIChatStream,
 } from "../openai/protocol";
 import { buildLanguageModel } from "../providers/router";
+import { computeCostUsd } from "../usage/pricing";
 import type { UsageRecord, UsageSink } from "../usage/sink";
 
 export interface ChatDeps {
@@ -85,7 +86,9 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
     };
 
     const emit = (usage: LanguageModelUsage): Promise<void> => {
-      const record = deps.usageSink.record(usageRecord(claims, body.model, usage, nowMs));
+      const record = deps.usageSink.record(
+        usageRecord(claims, body.model, usage, nowMs, ref.model.cost)
+      );
       try {
         // Extend the Worker's lifetime past the response so the (fire-and-forget,
         // for streaming) usage write completes. `c.executionCtx` throws when no
@@ -127,18 +130,24 @@ function usageRecord(
   claims: { sid: string; tenant: string | null },
   model: string,
   usage: LanguageModelUsage,
-  createdAt: number
+  createdAt: number,
+  cost: ModelCost | undefined
 ): UsageRecord {
+  const inputTokens = usage.inputTokens ?? 0;
+  const outputTokens = usage.outputTokens ?? 0;
+  const cacheReadTokens = usage.inputTokenDetails?.cacheReadTokens ?? 0;
+  const cacheWriteTokens = usage.inputTokenDetails?.cacheWriteTokens ?? 0;
   return {
     sid: claims.sid,
     tenant: claims.tenant,
     model,
-    inputTokens: usage.inputTokens ?? 0,
-    outputTokens: usage.outputTokens ?? 0,
+    inputTokens,
+    outputTokens,
     reasoningTokens: usage.outputTokenDetails?.reasoningTokens ?? 0,
-    cacheReadTokens: usage.inputTokenDetails?.cacheReadTokens ?? 0,
-    cacheWriteTokens: usage.inputTokenDetails?.cacheWriteTokens ?? 0,
+    cacheReadTokens,
+    cacheWriteTokens,
     totalTokens: usage.totalTokens ?? 0,
+    costUsd: computeCostUsd({ inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens }, cost),
     createdAt,
   };
 }

@@ -183,6 +183,8 @@ describe("terminus app", () => {
       inputTokens: 5,
       outputTokens: 2,
     });
+    // cost priced gateway-side from the registry model.cost {input:5, output:25} per 1M
+    expect(records[0].costUsd).toBeCloseTo((5 * 5 + 2 * 25) / 1_000_000);
   });
 
   it("proxies a streaming completion as OpenAI SSE with a real usage chunk", async () => {
