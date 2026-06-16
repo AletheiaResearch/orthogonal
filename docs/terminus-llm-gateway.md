@@ -82,7 +82,7 @@ HS256, shared secret `TERMINUS_JWT_SECRET`, short TTL (~15 min), stateless verif
 Claims: `{ sid, tenant: null, allowed_models: string[], iat, exp }`. `tenant` nullable now; the
 shape does not change when multi-tenancy lands.
 
-## Unknowns to verify before/while building (don't assume)
+## Unknowns — all resolved during the build
 
 1. **OpenCode emit shape** — exact request + stream-chunk shape OpenCode's
    `@ai-sdk/openai-compatible` custom provider emits to the gateway baseURL (pinned OpenCode
@@ -118,7 +118,8 @@ shape does not change when multi-tenancy lands.
       tools/tool-calls/tool-results, streaming SSE + JSON, usage emit — tested ✅ committed
 - [x] Terraform worker module instance + secrets + KV (`enable_terminus`, gated off by default) + CI
       `ts` filter
-- [x] build/typecheck/lint/test green — typecheck clean, **65 tests** pass, build 273 kB gzip
+- [x] build/typecheck/lint/test green — typecheck clean, **67 tests** pass (incl. proxy happy-path:
+      non-stream + streaming SSE end-to-end via `MockLanguageModelV3`), build 273 kB gzip
 - [x] Linear: comments on CON-51 + CON-52 for deferred items
 
 ## Status — foundation spine complete

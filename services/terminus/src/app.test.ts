@@ -1,9 +1,30 @@
 import { mintGatewayToken } from "@open-inspect/shared";
+import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
 import { describe, expect, it } from "vitest";
 
 import type { ModelsDevRegistry } from "./catalog/registry";
 import type { Env } from "./env";
 import { createApp } from "./index";
+import type { UsageRecord, UsageSink } from "./usage/sink";
+
+type MockArgs = ConstructorParameters<typeof MockLanguageModelV3>[0];
+const LL_USAGE = {
+  inputTokens: { total: 5, noCache: 5, cacheRead: 0, cacheWrite: 0 },
+  outputTokens: { total: 2, text: 2, reasoning: 0 },
+};
+
+function capturingSink(): { sink: UsageSink; records: UsageRecord[] } {
+  const records: UsageRecord[] = [];
+  return {
+    records,
+    sink: {
+      record: (r) => {
+        records.push(r);
+        return Promise.resolve();
+      },
+    },
+  };
+}
 
 const SECRET = "test-secret-please-rotate";
 
@@ -114,5 +135,114 @@ describe("terminus app", () => {
     // env configures only ANTHROPIC_API_KEY, so openai is unconfigured.
     const res = await chat({ model: "openai/gpt-5.4", messages: [] });
     expect(res.status).toBe(502);
+  });
+
+  it("proxies a non-streaming completion via the AI SDK and emits usage", async () => {
+    const { sink, records } = capturingSink();
+    const model = new MockLanguageModelV3({
+      doGenerate: {
+        content: [{ type: "text", text: "Hello there" }],
+        finishReason: "stop",
+        usage: LL_USAGE,
+        warnings: [],
+      },
+    } as unknown as MockArgs);
+    const gateway = createApp({
+      loadRegistry: () => Promise.resolve(REGISTRY),
+      usageSink: sink,
+      chat: { buildModel: () => model },
+    });
+
+    const res = await gateway.request(
+      "/v1/chat/completions",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${await token()}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "anthropic/claude-opus-4-5",
+          messages: [{ role: "user", content: "hi" }],
+        }),
+      },
+      env
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      object: string;
+      choices: { message: { content: string } }[];
+      usage: { prompt_tokens: number; completion_tokens: number };
+    };
+    expect(body.object).toBe("chat.completion");
+    expect(body.choices[0].message.content).toBe("Hello there");
+    expect(body.usage.prompt_tokens).toBe(5);
+    expect(body.usage.completion_tokens).toBe(2);
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      sid: "sess_1",
+      model: "anthropic/claude-opus-4-5",
+      inputTokens: 5,
+      outputTokens: 2,
+    });
+  });
+
+  it("proxies a streaming completion as OpenAI SSE with a real usage chunk", async () => {
+    const { sink, records } = capturingSink();
+    const chunks = [
+      { type: "stream-start", warnings: [] },
+      { type: "text-start", id: "t" },
+      { type: "text-delta", id: "t", delta: "Hello" },
+      { type: "text-delta", id: "t", delta: " there" },
+      { type: "text-end", id: "t" },
+      { type: "finish", finishReason: "stop", usage: LL_USAGE },
+    ];
+    const model = new MockLanguageModelV3({
+      doStream: { stream: simulateReadableStream({ chunks }) },
+    } as unknown as MockArgs);
+    const gateway = createApp({
+      loadRegistry: () => Promise.resolve(REGISTRY),
+      usageSink: sink,
+      chat: { buildModel: () => model },
+    });
+
+    const res = await gateway.request(
+      "/v1/chat/completions",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${await token()}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "anthropic/claude-opus-4-5",
+          messages: [{ role: "user", content: "hi" }],
+          stream: true,
+        }),
+      },
+      env
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+
+    const text = await res.text();
+    expect(text).toContain("[DONE]");
+    const frames = text
+      .split("\n\n")
+      .filter((f) => f.startsWith("data: ") && !f.includes("[DONE]"))
+      .map(
+        (f) =>
+          JSON.parse(f.slice("data: ".length)) as {
+            choices?: { delta?: { content?: string } }[];
+            usage?: { prompt_tokens: number; completion_tokens: number };
+          }
+      );
+
+    const content = frames
+      .map((f) => f.choices?.[0]?.delta?.content)
+      .filter(Boolean)
+      .join("");
+    expect(content).toBe("Hello there");
+
+    const usageChunk = frames.find((f) => f.usage);
+    expect(usageChunk?.usage?.prompt_tokens).toBe(5);
+    expect(usageChunk?.usage?.completion_tokens).toBe(2);
+    expect(records[0]?.inputTokens).toBe(5);
   });
 });

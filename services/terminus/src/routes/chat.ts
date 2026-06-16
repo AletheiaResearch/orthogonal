@@ -84,9 +84,16 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       abortSignal: c.req.raw.signal,
     };
 
-    const emit = (usage: LanguageModelUsage) => {
+    const emit = (usage: LanguageModelUsage): Promise<void> => {
       const record = deps.usageSink.record(usageRecord(claims, body.model, usage, nowMs));
-      c.executionCtx?.waitUntil?.(record);
+      try {
+        // Extend the Worker's lifetime past the response so the (fire-and-forget,
+        // for streaming) usage write completes. `c.executionCtx` throws when no
+        // ExecutionContext exists (unit tests / non-Worker runtimes) — harmless there.
+        c.executionCtx.waitUntil(record);
+      } catch {
+        // no ExecutionContext; the record still runs to completion
+      }
       return record;
     };
 
