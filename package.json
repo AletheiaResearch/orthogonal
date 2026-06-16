@@ -14,7 +14,7 @@
     "test:integration": "pnpm -r run test:integration",
     "typecheck": "pnpm -r run typecheck",
     "build": "pnpm -r run build",
-    "dev": "turbo run dev",
+    "dev": "turbo run dev --filter=!@orthogonal/landing",
     "prepare": "node -e \"if (process.env.CI) process.exit(0)\" && husky"
   },
   "devDependencies": {

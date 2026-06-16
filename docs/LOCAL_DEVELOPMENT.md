@@ -88,6 +88,9 @@ GITHUB_CLIENT_SECRET=your_github_client_secret
 # Control plane endpoints (Mode A: a deployed control plane)
 CONTROL_PLANE_URL=https://your-control-plane.workers.dev
 NEXT_PUBLIC_WS_URL=wss://your-control-plane.workers.dev
+# Must equal the deployed control plane's INTERNAL_CALLBACK_SECRET — required, or
+# session list/create throw (apps/orto/src/lib/control-plane.ts).
+INTERNAL_CALLBACK_SECRET=
 
 # Access control — for solo dev, allow yourself in (see Troubleshooting)
 UNSAFE_ALLOW_ALL_USERS=true
@@ -97,6 +100,9 @@ Notes:
 
 - `CONTROL_PLANE_URL` has **no default** and the server throws `CONTROL_PLANE_URL not configured` if
   it is unset.
+- `INTERNAL_CALLBACK_SECRET` is **also required** — `apps/orto/src/lib/control-plane.ts` throws
+  without it, so sign-in succeeds but every session list/create fails. Set it to the control plane's
+  value.
 - `NEXT_PUBLIC_WS_URL` defaults to `ws://localhost:8787` when unset.
 - Access control: sign-in is **denied** when both `ALLOWED_USERS` and `ALLOWED_EMAIL_DOMAINS` are
   empty, unless `UNSAFE_ALLOW_ALL_USERS=true`. For solo dev, set `UNSAFE_ALLOW_ALL_USERS=true`;
@@ -158,16 +164,28 @@ The control plane runs under **Wrangler + Miniflare**, which provides local **D1
 KV, and R2** — no Cloudflare account needed for local dev.
 
 ```bash
-# 1. Local secrets
+# 1. Build @open-inspect/shared first — wrangler bundles it from dist/ (gitignored),
+#    and running this dev script directly skips turbo's ^build.
+pnpm --filter @open-inspect/shared build
+
+# 2. Local secrets
 cp packages/control-plane/.dev.vars.example packages/control-plane/.dev.vars
 # edit packages/control-plane/.dev.vars and fill in the values you need
 
-# 2. Start the worker
+# 3. Apply the D1 schema to the LOCAL database — Miniflare's D1 starts empty, and
+#    session routes write to `sessions`, `users`, etc. One-time setup:
+(cd packages/control-plane && for f in ../../terraform/d1/migrations/*.sql; do
+  pnpm exec wrangler d1 execute open-inspect-test --local --file "$f" --yes
+done)
+
+# 4. Start the worker
 pnpm --filter @open-inspect/control-plane dev
 ```
 
 The `dev` script is `wrangler dev`. It uses the checked-in `packages/control-plane/wrangler.jsonc`
-(a **test-only** config) for its bindings. Default local URL: <http://localhost:8787>.
+(a **test-only** config) for its bindings. Default local URL: <http://localhost:8787>. The local D1
+state persists in `packages/control-plane/.wrangler/`, so step 3 is one-time — re-run it when new
+migrations land under `terraform/d1/migrations/`.
 
 When running the full loop, the orto and control-plane secrets must agree:
 
@@ -183,20 +201,19 @@ From the repo root:
 pnpm dev
 ```
 
-This is `turbo run dev`. The `dev` task in `turbo.json` is
+This runs `turbo run dev --filter=!@orthogonal/landing`. The `dev` task in `turbo.json` is
 `{ cache: false, persistent: true, dependsOn: ["^build"] }`, so workspace dependencies (notably
-`@open-inspect/shared`) build before the dev servers start. Only packages that **define a `dev`
-task** are launched:
+`@open-inspect/shared`) build before the dev servers start. It launches:
 
-| Service       | Package                       | Command (filter)                                | Local URL                 |
-| ------------- | ----------------------------- | ----------------------------------------------- | ------------------------- |
-| Web app       | `@orthogonal/orto`            | `pnpm --filter @orthogonal/orto dev`            | <http://localhost:3000>   |
-| Landing site  | `@orthogonal/landing`         | `pnpm --filter @orthogonal/landing dev`         | <http://localhost:3000>\* |
-| Storybook     | `@orthogonal/storybook`       | `pnpm --filter @orthogonal/storybook dev`       | <http://localhost:6006>   |
-| Control plane | `@open-inspect/control-plane` | `pnpm --filter @open-inspect/control-plane dev` | <http://localhost:8787>   |
+| Service       | Package                       | Command (filter)                                | Local URL               |
+| ------------- | ----------------------------- | ----------------------------------------------- | ----------------------- |
+| Web app       | `@orthogonal/orto`            | `pnpm --filter @orthogonal/orto dev`            | <http://localhost:3000> |
+| Storybook     | `@orthogonal/storybook`       | `pnpm --filter @orthogonal/storybook dev`       | <http://localhost:6006> |
+| Control plane | `@open-inspect/control-plane` | `pnpm --filter @open-inspect/control-plane dev` | <http://localhost:8787> |
 
-\* `orto` and `landing` both default to Next.js port `3000`; run them one at a time, or pass
-`next dev --port <port>` to one of them.
+`apps/landing` also defines a `dev` task but is **excluded** from `pnpm dev` — it is a separate
+Next.js app that would otherwise collide with `orto` on port `3000`. Run it on its own when needed:
+`pnpm --filter @orthogonal/landing dev` (add `next dev --port <port>` if orto is already running).
 
 ---
 
@@ -228,6 +245,9 @@ A sandbox running in Modal's cloud cannot reach `http://localhost:8787`. To clos
 
 1. Expose `:8787` with a tunnel (`cloudflared` or `ngrok`).
 2. Add the tunnel's host to `ALLOWED_CONTROL_PLANE_HOSTS` in `modal-infra`.
+3. Set the control plane's `WORKER_URL` (in `packages/control-plane/.dev.vars`) to the public tunnel
+   URL. The sandbox calls back to `WORKER_URL`, so leaving it `http://localhost:8787` makes the
+   cloud sandbox connect to its own localhost instead of yours.
 
 Without a tunnel, point the control plane at an already-deployed Modal app instead.
 
