@@ -67,3 +67,32 @@ describe("EnvKeyResolver", () => {
     });
   });
 });
+
+describe("EnvKeyResolver with registry-declared env keys", () => {
+  it("resolves using a declared env key that differs from the convention", async () => {
+    const resolver = new EnvKeyResolver({ GEMINI_API_KEY: "g-key" });
+
+    const cred = await resolver.resolve("google", ["GOOGLE_API_KEY", "GEMINI_API_KEY"]);
+
+    expect(cred).toEqual({ apiKey: "g-key", source: "platform" });
+  });
+
+  it("tries declared env keys in order and uses the first non-empty one", async () => {
+    const resolver = new EnvKeyResolver({ A_KEY: "", B_KEY: "second" });
+
+    const cred = await resolver.resolve("p", ["A_KEY", "B_KEY"]);
+
+    expect(cred?.apiKey).toBe("second");
+  });
+
+  it("lets an explicit override win over declared env keys", async () => {
+    const resolver = new EnvKeyResolver(
+      { OVERRIDE_KEY: "win", DECLARED_KEY: "lose" },
+      { envVarOverrides: { p: "OVERRIDE_KEY" } }
+    );
+
+    const cred = await resolver.resolve("p", ["DECLARED_KEY"]);
+
+    expect(cred?.apiKey).toBe("win");
+  });
+});

@@ -96,18 +96,32 @@ shape does not change when multi-tenancy lands.
 
 ## Checklist (living tracker)
 
-- [~] Verify the 4 unknowns above (background workflow running)
+- [x] Verify the unknowns — models.dev schema (workflow + inline), AI SDK stable versions within the
+      7-day gate, openai-compatible POSTs `{baseURL}/chat/completions`, `streamText().fullStream`
+      part shapes (read from installed `.d.ts`)
 - [x] Scaffold `services/terminus` (package.json, tsconfig, vite, wrangler.toml, oxlint) matching
       the bots — installs/typechecks/builds green
-- [x] Add `services/terminus` to `pnpm-workspace.yaml`
-- [x] shared: `gateway-token.ts` (mint/verify) + export + build — 11 tests green
-- [ ] auth middleware + token verify (CON-52)
-- [ ] catalog from models.dev + `/v1/models` (CON-49)
-- [x] credential resolver interface + env-key impl (CON-51) — 8 tests green
-- [ ] provider router (default openai-compatible + anthropic/openai overrides) (CON-48)
-- [ ] chat route: streamText → OpenAI-compat SSE + non-stream (CON-48)
-- [ ] UsageSink seam (no-op) for CON-54
-- [ ] Vitest unit tests (token, catalog filter, resolver, SSE mapping w/ mocked upstream)
+- [x] Add `services/terminus` to `pnpm-workspace.yaml`; add AI SDK to the catalog (`ai@6.0.199`,
+      `@ai-sdk/openai@3.0.69`, `@ai-sdk/anthropic@3.0.82`, `@ai-sdk/openai-compatible@2.0.48`)
+- [x] shared: `gateway-token.ts` (mint/verify) + export + build — 11 tests green ✅ committed
+- [x] credential resolver interface + env-key impl, registry-env aware (CON-51) — 11 tests ✅
+      committed
+- [x] registry parse + `resolveModelRef` (CON-49) — written + tested _(verify pending)_
+- [x] catalog `buildModelsList` + models.dev fetch/cache (CON-49) — written + tested _(verify
+      pending)_
+- [x] provider router: openai-compatible default + anthropic/openai overrides (CON-48) — written +
+      tested _(verify pending)_
+- [x] auth middleware + token verify (CON-52) — written + tested _(verify pending)_
+- [x] `UsageSink` seam (logging no-op) for CON-54 — written
+- [x] app wiring: `/health`, `/v1/models` (auth + dynamic catalog), `/v1/chat/completions` stub —
+      written + tested _(verify pending)_
+- [ ] **chat proxy: streamText → OpenAI-compat SSE + non-stream (CON-48)** — next; currently a 501
+      stub
 - [ ] Terraform worker module instance + secrets + KV
 - [ ] build/typecheck/lint/test green; update this doc
 - [x] Linear: comments on CON-51 + CON-52 for deferred items
+
+> **Status note (2026-06-16):** the platform's Bash safety classifier (`claude-opus-4-8`) is in an
+> intermittent outage, so typecheck/test/commit run only in bursts. The shared token + resolver are
+> verified and committed; the catalog/router/auth/app batch is written test-first and queued for the
+> next green Bash window. The chat proxy is the remaining core piece.

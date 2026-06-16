@@ -16,10 +16,14 @@ export interface ResolvedCredential {
 }
 
 export interface CredentialResolver {
-  /** Resolve the upstream credential for a provider id, or null if unconfigured. */
-  resolve(providerId: string): Promise<ResolvedCredential | null>;
+  /**
+   * Resolve the upstream credential for a provider id, or null if unconfigured.
+   * `envKeys` are the provider's models.dev-declared credential env-var names
+   * (authoritative); when omitted, implementations fall back to a naming convention.
+   */
+  resolve(providerId: string, envKeys?: string[]): Promise<ResolvedCredential | null>;
   /** Whether the provider has a usable credential (and so should be advertised). */
-  isEnabled(providerId: string): Promise<boolean>;
+  isEnabled(providerId: string, envKeys?: string[]): Promise<boolean>;
 }
 
 /**
@@ -43,18 +47,32 @@ export class EnvKeyResolver implements CredentialResolver {
     private readonly options: EnvKeyResolverOptions = {}
   ) {}
 
-  resolve(providerId: string): Promise<ResolvedCredential | null> {
-    const apiKey = this.readKey(providerId);
+  resolve(providerId: string, envKeys?: string[]): Promise<ResolvedCredential | null> {
+    const apiKey = this.readKey(providerId, envKeys);
     return Promise.resolve(apiKey ? { apiKey, source: "platform" } : null);
   }
 
-  isEnabled(providerId: string): Promise<boolean> {
-    return Promise.resolve(this.readKey(providerId) !== null);
+  isEnabled(providerId: string, envKeys?: string[]): Promise<boolean> {
+    return Promise.resolve(this.readKey(providerId, envKeys) !== null);
   }
 
-  private readKey(providerId: string): string | null {
-    const name = this.options.envVarOverrides?.[providerId] ?? providerEnvVarName(providerId);
-    const value = this.env[name];
-    return typeof value === "string" && value.length > 0 ? value : null;
+  /**
+   * Candidate env-var names, in precedence order: an explicit per-provider override,
+   * then the provider's models.dev-declared `env` names, then the naming convention.
+   * Returns the first non-empty value found.
+   */
+  private readKey(providerId: string, envKeys?: string[]): string | null {
+    const override = this.options.envVarOverrides?.[providerId];
+    const candidates = override
+      ? [override]
+      : envKeys && envKeys.length > 0
+        ? envKeys
+        : [providerEnvVarName(providerId)];
+
+    for (const name of candidates) {
+      const value = this.env[name];
+      if (typeof value === "string" && value.length > 0) return value;
+    }
+    return null;
   }
 }
