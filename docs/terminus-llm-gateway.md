@@ -111,15 +111,19 @@ shape does not change when multi-tenancy lands.
 - [x] provider router: openai-compatible default + anthropic/openai overrides (CON-48) — tested ✅
       committed
 - [x] auth middleware + token verify (CON-52) — tested ✅ committed
-- [x] `UsageSink` seam (logging no-op) for CON-54 — committed
+- [x] **CON-54 (scoped)** — `UsageSink` seam + **gateway-priced cost** (`costUsd` from models.dev)
+      on every emitted record; logging sink is the emission boundary. **Durable store intentionally
+      deferred** (Nejc: a timeseries metrics DB is chosen later) — 5 pricing tests + e2e cost
+      assertion ✅ committed
 - [x] app wiring: `/health`, `/v1/models` (auth + dynamic catalog), chat route — tested ✅ committed
 - [x] **chat proxy: streamText → OpenAI-compat SSE + non-stream (CON-48)** —
       `openai/{protocol,messages}` + `routes/chat.ts`; ChatML↔ModelMessage,
       tools/tool-calls/tool-results, streaming SSE + JSON, usage emit — tested ✅ committed
 - [x] Terraform worker module instance + secrets + KV (`enable_terminus`, gated off by default) + CI
       `ts` filter
-- [x] build/typecheck/lint/test green — typecheck clean, **67 tests** pass (incl. proxy happy-path:
-      non-stream + streaming SSE end-to-end via `MockLanguageModelV3`), build 273 kB gzip
+- [x] build/typecheck/lint/test green — typecheck clean, **72 tests** pass (incl. proxy happy-path:
+      non-stream + streaming SSE end-to-end via `MockLanguageModelV3`; + cost pricing), build 273 kB
+      gzip
 - [x] Linear: comments on CON-51 + CON-52 for deferred items
 
 ## Status — foundation spine complete
@@ -133,3 +137,65 @@ CON-50 (Codex OAuth), CON-53 (control-plane minting + OpenCode plugin), CON-54 (
 upstream wiring; wire `services/terminus/**` into `coverage.yml`.
 
 Not yet pushed — awaiting the go-ahead to open the PR (then move CON-41 to In Review).
+
+---
+
+## CON-50 — Codex/ChatGPT OAuth brokering (server-side) — plan
+
+**Goal:** Terminus serves Codex (ChatGPT Pro/Plus) models without sandboxes ever holding Codex
+creds. Sandboxes hold only the gateway JWT (`sid`); Terminus mints the upstream request server-side.
+
+### Determinations (verified, not forks)
+
+1. **Token source = control-plane is sole refresher; Terminus receives access tokens only.** The
+   refresh service rotates and writes back the single-use `refresh_token` on every refresh
+   (`openai-token-refresh-service.ts:125`) and already handles concurrent rotation. A second
+   refresher would clobber the refresh token → 401 storms. So Terminus must NOT hold the refresh
+   token. It calls the existing `/sessions/:id/openai-token-refresh` handler
+   (`sandbox.handler.ts:170`), which already returns exactly
+   `{access_token, expires_in, account_id}`. Transport = a Cloudflare **service binding**
+   `CONTROL_PLANE` (same pattern as `workers-github.tf:34`), gated by `enable_service_bindings`.
+   Terminus pulls per-request, caches the access token in-isolate keyed by `sid` until `expires_in`
+   minus a buffer.
+
+2. **Router builds Codex via the AI SDK Responses API — no bespoke adapter.** Verified from the
+   compiled `@ai-sdk/openai@3.0.69`: `createOpenAI({ apiKey, baseURL, headers, fetch })` sets
+   `Authorization: Bearer <apiKey>` then spreads `...options.headers` (so account-id rides in
+   headers); `.responses(modelId)` POSTs `{baseURL}/responses`. So
+   `createOpenAI({ apiKey: access, baseURL: "https://chatgpt.com/backend-api/codex", headers: { "ChatGPT-Account-Id": accountId, originator: "opencode", session_id: sid } }).responses(modelId)`
+   hits exactly `chatgpt.com/backend-api/codex/responses` — replicate the working plugin headers
+   exactly (`codex-auth-plugin.js:13,209,231`): `ChatGPT-Account-Id`, `originator:"opencode"`,
+   `session_id`. Do NOT invent a new `originator` string — a wrong value is a plausible 400 cause.
+
+### Identification + enablement seam (the 5-file codex spine)
+
+`resolveModelRef` only knows models.dev providers (no chatgpt-backend entry), so without new wiring
+the router can never produce a codex ref. Concrete spine:
+
+1. `catalog/registry.ts` — inject synthetic codex models (source = plugin `ALLOWED_MODELS`,
+   `codex-auth-plugin.js:17-27`) under a `codex/*` provider id; add `credentialMode:"codex-oauth"` +
+   `responsesApi:true` + chatgpt baseURL to `ResolvedModelRef`.
+2. `catalog/catalog.ts` (`/v1/models`) — advertise codex models (see fork below).
+3. `credentials/resolver.ts` — a codex credential branch keyed by `sid` (calls control-plane), NOT
+   `EnvKeyResolver` (reads worker `env`).
+4. `providers/router.ts` — branch `buildLanguageModel` on `credentialMode==="codex-oauth"`, not
+   `npm`.
+5. `routes/chat.ts` — route the codex credential path + thread `sid`.
+
+**Fork — codex enablement is per-session (D1 repo secret), not a worker secret**, so
+`EnvKeyResolver.isEnabled` structurally cannot answer "is codex available." Default:
+**advertise-always in `/v1/models`, fail-at-call-time (502)** — matches the
+empty-`allowed_models`=all posture, avoids a per-catalog round-trip to control-plane.
+
+3. **Login flow already exists; CON-50 reuses it.** The human logs in locally via OpenCode
+   (`/connect setup` → browser OAuth, loopback) and pastes `refresh` + `accountId` into repo secrets
+   (`docs/OPENAI_MODELS.md:28-56`). A Cloud Worker cannot bind the `localhost:1455` loopback
+   redirect the OAuth client requires, so no dashboard OAuth callback is built now. Optional later:
+   a device-code flow in the control-plane (reference `openai-auth.ts:97-144`).
+
+### Headline uncertainty (spike first)
+
+The **request body** the AI SDK responses model emits may not satisfy `backend-api/codex/responses`
+(needs `store:false`, `originator` header, reasoning/instructions quirks). Capture the outgoing
+request via `createOpenAI({fetch})` and diff against a known-good request from the working sandbox
+plugin path before wiring upstream.
