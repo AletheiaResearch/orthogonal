@@ -235,12 +235,41 @@ variable "linear_api_key" {
 }
 
 # =============================================================================
+# Terminus LLM Gateway (CON-41)
+# =============================================================================
+
+variable "enable_terminus" {
+  description = "Enable the Terminus LLM gateway worker. Requires terminus_jwt_secret."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = var.enable_terminus == false || length(var.terminus_jwt_secret) > 0
+    error_message = "When enable_terminus is true, terminus_jwt_secret must be non-empty."
+  }
+}
+
+variable "terminus_jwt_secret" {
+  description = "HS256 secret Terminus uses to verify sandbox gateway tokens (generate with: openssl rand -base64 32)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+# =============================================================================
 # API Keys
 # =============================================================================
 
 variable "anthropic_api_key" {
   description = "Anthropic API key for Claude"
   type        = string
+  sensitive   = true
+}
+
+variable "openai_api_key" {
+  description = "OpenAI platform API key (optional; enables openai/* models at the Terminus gateway)"
+  type        = string
+  default     = ""
   sensitive   = true
 }
 

@@ -106,22 +106,29 @@ shape does not change when multi-tenancy lands.
 - [x] shared: `gateway-token.ts` (mint/verify) + export + build — 11 tests green ✅ committed
 - [x] credential resolver interface + env-key impl, registry-env aware (CON-51) — 11 tests ✅
       committed
-- [x] registry parse + `resolveModelRef` (CON-49) — written + tested _(verify pending)_
-- [x] catalog `buildModelsList` + models.dev fetch/cache (CON-49) — written + tested _(verify
-      pending)_
-- [x] provider router: openai-compatible default + anthropic/openai overrides (CON-48) — written +
-      tested _(verify pending)_
-- [x] auth middleware + token verify (CON-52) — written + tested _(verify pending)_
-- [x] `UsageSink` seam (logging no-op) for CON-54 — written
-- [x] app wiring: `/health`, `/v1/models` (auth + dynamic catalog), `/v1/chat/completions` stub —
-      written + tested _(verify pending)_
-- [ ] **chat proxy: streamText → OpenAI-compat SSE + non-stream (CON-48)** — next; currently a 501
-      stub
-- [ ] Terraform worker module instance + secrets + KV
-- [ ] build/typecheck/lint/test green; update this doc
+- [x] registry parse + `resolveModelRef` (CON-49) — tested ✅ committed
+- [x] catalog `buildModelsList` + models.dev fetch/cache (CON-49) — tested ✅ committed
+- [x] provider router: openai-compatible default + anthropic/openai overrides (CON-48) — tested ✅
+      committed
+- [x] auth middleware + token verify (CON-52) — tested ✅ committed
+- [x] `UsageSink` seam (logging no-op) for CON-54 — committed
+- [x] app wiring: `/health`, `/v1/models` (auth + dynamic catalog), chat route — tested ✅ committed
+- [x] **chat proxy: streamText → OpenAI-compat SSE + non-stream (CON-48)** —
+      `openai/{protocol,messages}` + `routes/chat.ts`; ChatML↔ModelMessage,
+      tools/tool-calls/tool-results, streaming SSE + JSON, usage emit — tested ✅ committed
+- [x] Terraform worker module instance + secrets + KV (`enable_terminus`, gated off by default) + CI
+      `ts` filter
+- [x] build/typecheck/lint/test green — typecheck clean, **65 tests** pass, build 273 kB gzip
 - [x] Linear: comments on CON-51 + CON-52 for deferred items
 
-> **Status note (2026-06-16):** the platform's Bash safety classifier (`claude-opus-4-8`) is in an
-> intermittent outage, so typecheck/test/commit run only in bursts. The shared token + resolver are
-> verified and committed; the catalog/router/auth/app batch is written test-first and queued for the
-> next green Bash window. The chat proxy is the remaining core piece.
+## Status — foundation spine complete
+
+CON-48 (proxy), CON-49 (`/v1/models`), CON-51 (credential resolution), CON-52 (token auth) are
+implemented, tested (65 tests), and committed on `worktree-con-41-llm-gateway`. Deferred per scope:
+CON-50 (Codex OAuth), CON-53 (control-plane minting + OpenCode plugin), CON-54 (durable metering).
+
+**Follow-ups noted in code/Linear:** D1/KV dashboard key store (CON-51 comment); per-tenant
+`allowed_models` (CON-52 comment); incremental tool-arg streaming + SSE error frames; `opencode/*`
+upstream wiring; wire `services/terminus/**` into `coverage.yml`.
+
+Not yet pushed — awaiting the go-ahead to open the PR (then move CON-41 to In Review).
