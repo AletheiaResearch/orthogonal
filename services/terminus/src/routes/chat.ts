@@ -100,10 +100,6 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       maxOutputTokens: body.max_completion_tokens ?? body.max_tokens,
       stopSequences: typeof body.stop === "string" ? [body.stop] : body.stop,
       abortSignal: c.req.raw.signal,
-      // The gateway owns resilience via cross-candidate fallback (CON-71), so disable
-      // the AI SDK's same-target retry — it would otherwise add hidden backoff latency
-      // before we fall back. SDK same-target retry is a separate routing-policy knob later.
-      maxRetries: 0,
       // Codex (ChatGPT-backend Responses) requires store:false + encrypted-reasoning options.
       ...(ref.credentialMode === "codex-oauth"
         ? { providerOptions: codexProviderOptions(claims.sid) }
@@ -176,7 +172,10 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
         sessionId: claims.sid,
       });
       try {
-        const result = await generateText(callOptionsFor(model));
+        // The gateway owns resilience here via cross-candidate fallback, so disable the
+        // SDK's same-target retry (it would add hidden backoff before we fall back).
+        // Streaming has no gateway fallback in v1 (CON-74), so it keeps the SDK default.
+        const result = await generateText({ ...callOptionsFor(model), maxRetries: 0 });
         background(deps.credentials.recordSuccess?.(candidate.id));
         await emit(result.totalUsage);
         return Response.json(
