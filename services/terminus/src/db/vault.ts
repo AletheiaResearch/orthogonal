@@ -7,7 +7,7 @@
  * credentials are the same rows, distinguished by `owner` (the Helicone model).
  */
 import { decryptSecret, encryptSecret } from "@open-inspect/shared";
-import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
+import { and, eq, isNull, lte, or, sql } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 
 import {
@@ -405,7 +405,7 @@ export class CredentialVault {
         and(
           eq(providerCredentials.provider, CODEX_PROVIDER),
           eq(providerCredentials.enabled, true),
-          or(isNull(providerCredentials.expiresAt), lt(providerCredentials.expiresAt, thresholdMs))
+          or(isNull(providerCredentials.expiresAt), lte(providerCredentials.expiresAt, thresholdMs))
         )
       );
   }

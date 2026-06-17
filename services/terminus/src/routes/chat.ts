@@ -150,14 +150,28 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
     // only after the SSE Response commits, so cross-candidate fallback for streaming
     // is a separate redesign (CON-74); v1 keeps today's behavior.
     if (body.stream) {
-      const cred = await candidates[0].resolve();
+      const candidate = candidates[0];
+      const cred = await candidate.resolve();
       if (!cred) return errorResponse(providerUnconfigured(ref.providerId));
       const model = buildModel(ref, cred.apiKey, {
         accountId: cred.accountId,
         sessionId: claims.sid,
       });
       const result = streamText(callOptionsFor(model));
-      const sse = toOpenAIChatStream(result.fullStream, meta, (usage) => void emit(usage));
+      // No mid-stream fallback in v1 (CON-74), but still cool down the credential on a
+      // stream error so the NEXT request selects a different live candidate.
+      const sse = toOpenAIChatStream(
+        result.fullStream,
+        meta,
+        (usage) => void emit(usage),
+        (err) =>
+          background(
+            deps.credentials.recordFailure?.(
+              candidate.id,
+              cooldownUntilFromError(err, deps.now?.() ?? Date.now(), candidate.failureCount)
+            )
+          )
+      );
       return new Response(asReadable(sse), {
         headers: {
           "content-type": "text/event-stream; charset=utf-8",
@@ -194,10 +208,12 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       } catch (err) {
         if (!isRetryableUpstreamError(err)) throw err;
         lastError = err;
+        // Use a fresh clock at failure time (not request-start nowMs): a slow failure
+        // would otherwise write a cooldown that is already in the past.
         background(
           deps.credentials.recordFailure?.(
             candidate.id,
-            cooldownUntilFromError(err, nowMs, candidate.failureCount)
+            cooldownUntilFromError(err, deps.now?.() ?? Date.now(), candidate.failureCount)
           )
         );
       }

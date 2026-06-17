@@ -198,5 +198,7 @@ describe("CredentialVault — pool + admin (CON-71 / CON-70)", () => {
     const near = await vault.listCodexRowsNearExpiry(2000);
     expect(near.map((r) => `${r.ownerType}:${r.ownerId}`)).toEqual(["platform:"]);
     expect((await vault.listCodexRowsNearExpiry(60000)).length).toBe(2);
+    // Boundary: a row whose expiry equals the threshold is included (at/under).
+    expect((await vault.listCodexRowsNearExpiry(1000)).length).toBe(1);
   });
 });

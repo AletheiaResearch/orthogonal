@@ -450,4 +450,32 @@ describe("terminus chat — credential pool fallback (CON-71)", () => {
     await res.text();
     expect(seen).toEqual(["k1"]);
   });
+
+  it("cools down the credential when a streaming request errors (no fallback, next request rotates)", async () => {
+    const { provider, fail } = poolProvider();
+    const chunks = [
+      { type: "stream-start", warnings: [] },
+      {
+        type: "error",
+        error: new APICallError({
+          message: "rate limited",
+          url: "https://up/v1",
+          requestBodyValues: {},
+          statusCode: 429,
+          isRetryable: true,
+        }),
+      },
+    ];
+    const res = await chat(
+      provider,
+      () =>
+        new MockLanguageModelV3({
+          doStream: { stream: simulateReadableStream({ chunks }) },
+        } as unknown as MockArgs),
+      true
+    );
+    expect(res.status).toBe(200);
+    await res.text(); // drain so the error part is consumed
+    expect(fail).toEqual(["c1"]);
+  });
 });
