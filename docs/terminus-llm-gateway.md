@@ -425,6 +425,15 @@ ingestion + owner-scoped storage land now.
 fan-out to BYO observability destinations, under CON-41), **CON-74** (streaming-request fallback /
 peek-first-chunk redesign, deferred from CON-71).
 
+**PR1 landed (2026-06-17), TDD, all green — 109 unit + 37 D1-integration:** pool columns +
+label-keyed unique (one clean migration); pure `orderCandidates`; vault candidate read/decrypt +
+best-effort health writers + admin CRUD + codex-near-expiry; retry/cooldown classification;
+`forModelCandidates` + non-streaming fallback loop (streaming stays single-candidate → CON-74);
+codex cron refreshes every owner; `/admin/credentials` ingestion API behind `TERMINUS_ADMIN_SECRET`
+(+ terraform). Closes **CON-70**; advances **CON-71** (PR2 = L2 routing policy + RBAC guardrails).
+Task 11 (catalog owner-threading) deferred — no present value while the tenant claim is null. Not
+yet pushed/PR'd (awaiting go-ahead; never merge).
+
 ## Continuation prompt (paste into a fresh session) — post-PR-#13
 
 > Continue Linear epic **CON-41** (Terminus LLM gateway). **Work in a git worktree off the

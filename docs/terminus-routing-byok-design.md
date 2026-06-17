@@ -313,6 +313,22 @@ Streaming keeps today's single-candidate path until CON-74.
 `pnpm --filter @orthogonal/terminus typecheck && test && test:integration` → `pnpm fmt:check` →
 `pnpm lint` → `tofu fmt -check` for any `.tf`. Advisor before declaring done.
 
+## 11b. Implementation status — PR1 landed (2026-06-17)
+
+PR1 (CON-70 + CON-71 L1) is implemented on `nejc/con-71-con-70-gateway-routing-byok`, TDD, all
+green: **109 unit + 37 D1-integration** tests; typecheck / `fmt:check` / `tofu fmt` clean; lint
+warnings-only (consistent with the repo's existing `no-await-in-loop` set — the fallback loop is
+correct-by-design sequential). Shipped: pool columns + label-keyed unique (one clean migration);
+`orderCandidates`; vault candidate read/decrypt + health writers + admin CRUD + codex-near-expiry;
+retry/cooldown classification; `forModelCandidates` + non-streaming fallback (`maxRetries:0` on that
+path only — streaming keeps the SDK default); codex cron refreshes every owner; `/admin/credentials`
+ingestion API (+ `TERMINUS_ADMIN_SECRET` worker secret / terraform).
+
+**Deferred from PR1 (no present value in v1):** catalog owner-threading (Task 11) — the tenant claim
+is null, so the catalog is already correctly platform-scoped; owner-threading lands with
+multi-tenancy when it's actually exercised. **PR2** = L2 routing policy + RBAC guardrails (plan
+unchanged).
+
 ## 12. Open / to confirm at review
 
 - Priority semantics: **higher = preferred** (documented in `schema.ts`). Confirm vs "lower =
