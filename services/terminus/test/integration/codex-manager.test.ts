@@ -112,4 +112,31 @@ describe("CodexTokenManager", () => {
       refreshToken: "rt2",
     });
   });
+
+  it("refreshIfNearExpiry refreshes every owner's near-expiry token (cron, multi-owner)", async () => {
+    await vault.putCodexCredential({
+      refreshToken: "rt-plat",
+      accessToken: "at-old",
+      expiresAtMs: 1000,
+    });
+    await vault.putCodexCredential({
+      refreshToken: "rt-tenant",
+      accessToken: "at-old-t",
+      expiresAtMs: 1000,
+      owner: { type: "tenant", id: "t1" },
+    });
+    const refreshed: string[] = [];
+    const refresh = vi.fn(async (rt: string) => {
+      refreshed.push(rt);
+      return { accessToken: `new-${rt}`, refreshToken: `rot-${rt}`, expiresInSeconds: 3600 };
+    });
+
+    await manager(refresh, () => 10_000).refreshIfNearExpiry();
+
+    expect(refreshed.toSorted()).toEqual(["rt-plat", "rt-tenant"]);
+    expect(await vault.getCredential("codex")).toMatchObject({ refreshToken: "rot-rt-plat" });
+    expect(await vault.getCredential("codex", { type: "tenant", id: "t1" })).toMatchObject({
+      refreshToken: "rot-rt-tenant",
+    });
+  });
 });
