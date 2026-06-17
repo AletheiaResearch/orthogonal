@@ -465,9 +465,20 @@ in the JSON blob (not columns; validated + stored but read by no v1 code). (3) *
 policy load** — policy-absent → pass-through; policy-configured-but-unloadable → 5xx. (5)
 `applyGuardrails` splits `provider/model` identically to `resolveModelRef` (no bypass/phantom-403).
 
-**Next:** writing-plans → TDD (`policy/{blob,guardrails,store}.ts` + `chat.ts` wiring + policy admin
-endpoints + `policies`/`policy_versions` migration + `TERMINUS_GATEWAY_POLICY` seed). Verify gate
-per repo rules; open PR base `terminus`; never merge.
+**Landed (TDD, all green — 151 unit + 56 D1-integration):** `policy/blob.ts` (discriminated-union
+validator), `splitModelId` extracted from `resolveModelRef` (shared provider split), `policyDenied`
+403 + `policyUnavailable` 503 errors, `policy/guardrails.ts` (`applyGuardrails` gate + token clamp,
+fail-closed on unparseable id), `policies`/`policy_versions` schema (one clean regened migration),
+`policy/store.ts` (active-version lookup + module-level TTL cache incl. null + lazy seed + admin
+CRUD via `db.batch`), `chat.ts` enforcement before resolve (defense-in-depth on
+`claims.allowed_models`), policy admin API (`/admin/policies…`), `index.ts`/`env.ts` wiring
+(`TERMINUS_GATEWAY_POLICY`, `env.DB`-guarded default store), terraform binding, end-to-end
+real-store enforcement test. Verify gate clean (typecheck / fmt:check / `tofu fmt` on touched files;
+lint warnings-only). **PR open (base `terminus`; never merge).** Closes **CON-71**.
+
+Deferred to the BYOK PR (gated on multi-tenancy; see spec §3b): `forced`/`unforced` column on
+`provider_credentials`, per-tenant owner derivation in `forModelCandidates`, the BYOK→platform
+fallback edge, reading `credentialScope`, service-fee accounting.
 
 ## Continuation prompt (paste into a fresh session) — post-PR-#13
 
