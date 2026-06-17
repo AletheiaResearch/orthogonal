@@ -13,7 +13,6 @@ import { Hono } from "hono";
 
 import { CODEX_PROVIDER, CredentialVault } from "../db/vault";
 import type { Env } from "../env";
-import { parsePolicy } from "../policy/blob";
 import { PolicyStore } from "../policy/store";
 
 export interface AdminDeps {
