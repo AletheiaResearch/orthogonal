@@ -10,6 +10,7 @@ import { withCodexProvider } from "../catalog/codex";
 import type { fetchRegistry } from "../catalog/models-dev";
 import { type ModelCost, type ResolvedModelRef, resolveModelRef } from "../catalog/registry";
 import type { CredentialProvider } from "../credentials/provider";
+import { cooldownUntilFromError, isRetryableUpstreamError } from "../credentials/retry";
 import {
   badRequest,
   errorResponse,
@@ -79,13 +80,9 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
     const ref = resolveModelRef(registry, body.model);
     if (!ref) return errorResponse(unknownModel(body.model));
 
-    const credential = await deps.credentials.forModel(ref, claims.sid);
-    if (!credential) return errorResponse(providerUnconfigured(ref.providerId));
+    const candidates = await deps.credentials.forModelCandidates(ref, claims.sid);
+    if (candidates.length === 0) return errorResponse(providerUnconfigured(ref.providerId));
 
-    const model = (deps.buildModel ?? buildLanguageModel)(ref, credential.apiKey, {
-      accountId: credential.accountId,
-      sessionId: claims.sid,
-    });
     const nowMs = deps.now?.() ?? Date.now();
     const meta: ChunkMeta = {
       id: `chatcmpl-${deps.newId?.() ?? crypto.randomUUID()}`,
@@ -93,7 +90,8 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       model: body.model,
     };
 
-    const callOptions = {
+    const buildModel = deps.buildModel ?? buildLanguageModel;
+    const callOptionsFor = (model: ReturnType<typeof buildLanguageModel>) => ({
       model,
       messages: toModelMessages(body.messages),
       tools: toToolSet(body.tools),
@@ -102,11 +100,15 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       maxOutputTokens: body.max_completion_tokens ?? body.max_tokens,
       stopSequences: typeof body.stop === "string" ? [body.stop] : body.stop,
       abortSignal: c.req.raw.signal,
+      // The gateway owns resilience via cross-candidate fallback (CON-71), so disable
+      // the AI SDK's same-target retry — it would otherwise add hidden backoff latency
+      // before we fall back. SDK same-target retry is a separate routing-policy knob later.
+      maxRetries: 0,
       // Codex (ChatGPT-backend Responses) requires store:false + encrypted-reasoning options.
       ...(ref.credentialMode === "codex-oauth"
         ? { providerOptions: codexProviderOptions(claims.sid) }
         : {}),
-    };
+    });
 
     const emit = (usage: LanguageModelUsage): Promise<void> => {
       // Metering is best-effort: a sink rejection must never fail a successful
@@ -132,8 +134,28 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       return record;
     };
 
+    // Best-effort health writes, off the hot path: never fail a good completion.
+    const background = (p: Promise<void> | undefined): void => {
+      if (!p) return;
+      const guarded = p.catch(() => {});
+      try {
+        c.executionCtx.waitUntil(guarded);
+      } catch {
+        // no ExecutionContext (unit tests); the write still runs to completion
+      }
+    };
+
+    // Streaming: single candidate, fail-fast. A mid-stream upstream error surfaces
+    // only after the SSE Response commits, so cross-candidate fallback for streaming
+    // is a separate redesign (CON-74); v1 keeps today's behavior.
     if (body.stream) {
-      const result = streamText(callOptions);
+      const cred = await candidates[0].resolve();
+      if (!cred) return errorResponse(providerUnconfigured(ref.providerId));
+      const model = buildModel(ref, cred.apiKey, {
+        accountId: cred.accountId,
+        sessionId: claims.sid,
+      });
+      const result = streamText(callOptionsFor(model));
       const sse = toOpenAIChatStream(result.fullStream, meta, (usage) => void emit(usage));
       return new Response(asReadable(sse), {
         headers: {
@@ -143,16 +165,37 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       });
     }
 
-    const result = await generateText(callOptions);
-    await emit(result.totalUsage);
-    return Response.json(
-      toOpenAIChatCompletion(meta, {
-        content: result.text,
-        toolCalls: result.toolCalls,
-        finishReason: result.finishReason,
-        usage: result.totalUsage,
-      })
-    );
+    // Non-streaming: try candidates in priority/weight order; on a retryable upstream
+    // error cool the candidate down and fall back to the next. Fail closed if all fail.
+    let lastError: unknown;
+    for (const candidate of candidates) {
+      const cred = await candidate.resolve();
+      if (!cred) continue;
+      const model = buildModel(ref, cred.apiKey, {
+        accountId: cred.accountId,
+        sessionId: claims.sid,
+      });
+      try {
+        const result = await generateText(callOptionsFor(model));
+        background(deps.credentials.recordSuccess?.(candidate.id));
+        await emit(result.totalUsage);
+        return Response.json(
+          toOpenAIChatCompletion(meta, {
+            content: result.text,
+            toolCalls: result.toolCalls,
+            finishReason: result.finishReason,
+            usage: result.totalUsage,
+          })
+        );
+      } catch (err) {
+        if (!isRetryableUpstreamError(err)) throw err;
+        lastError = err;
+        background(
+          deps.credentials.recordFailure?.(candidate.id, cooldownUntilFromError(err, nowMs))
+        );
+      }
+    }
+    throw lastError ?? new Error("all upstream candidates failed");
   } catch (err) {
     return errorResponse(toGatewayError(err));
   }

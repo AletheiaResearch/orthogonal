@@ -24,7 +24,7 @@ export interface CredentialOwner {
   id: string;
 }
 
-const PLATFORM_OWNER: CredentialOwner = { type: "platform", id: "" };
+export const PLATFORM_OWNER: CredentialOwner = { type: "platform", id: "" };
 
 /** A decrypted credential, discriminated by how its secret is shaped. */
 export type DecryptedCredential =
