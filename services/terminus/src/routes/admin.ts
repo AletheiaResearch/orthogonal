@@ -72,7 +72,7 @@ export function buildAdminApp(deps: AdminDeps = {}) {
     const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
     const provider = str(body?.provider);
     const apiKey = str(body?.apiKey);
-    if (!provider || !apiKey) {
+    if (!body || !provider || !apiKey) {
       return c.json(
         { error: { message: "provider and apiKey (strings) are required", type: "bad_request" } },
         400
@@ -90,15 +90,33 @@ export function buildAdminApp(deps: AdminDeps = {}) {
         400
       );
     }
+    // Reject present-but-mistyped optional fields instead of silently applying defaults
+    // (e.g. {"enabled":"false"} must not create an enabled key).
+    if (
+      (body.label !== undefined && typeof body.label !== "string") ||
+      (body.priority !== undefined && typeof body.priority !== "number") ||
+      (body.weight !== undefined && typeof body.weight !== "number") ||
+      (body.enabled !== undefined && typeof body.enabled !== "boolean")
+    ) {
+      return c.json(
+        {
+          error: {
+            message: "label, priority, weight, and enabled must have the correct type when present",
+            type: "bad_request",
+          },
+        },
+        400
+      );
+    }
     const vault = buildVault(c.env);
     try {
       const { id } = await vault.createCredential({
         provider,
         apiKey,
-        label: str(body?.label),
-        priority: num(body?.priority),
-        weight: num(body?.weight),
-        enabled: bool(body?.enabled),
+        label: str(body.label),
+        priority: num(body.priority),
+        weight: num(body.weight),
+        enabled: bool(body.enabled),
       });
       return c.json({ id }, 201);
     } catch (err) {

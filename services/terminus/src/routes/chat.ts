@@ -15,6 +15,7 @@ import {
   badRequest,
   errorResponse,
   forbiddenModel,
+  providerCooledDown,
   providerUnconfigured,
   toGatewayError,
   unknownModel,
@@ -81,7 +82,15 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
     if (!ref) return errorResponse(unknownModel(body.model));
 
     const candidates = await deps.credentials.forModelCandidates(ref, claims.sid);
-    if (candidates.length === 0) return errorResponse(providerUnconfigured(ref.providerId));
+    if (candidates.length === 0) {
+      // Distinguish "no credential at all" (502) from "credentials exist but all are
+      // cooling down" (503 transient) — a rate-limit/health window must not read as
+      // misconfiguration to clients/alerts.
+      const configured = await deps.credentials.isEnabled(ref.providerId, ref.envKeys);
+      return errorResponse(
+        configured ? providerCooledDown(ref.providerId) : providerUnconfigured(ref.providerId)
+      );
+    }
 
     const nowMs = deps.now?.() ?? Date.now();
     const meta: ChunkMeta = {
@@ -158,19 +167,25 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
         sessionId: claims.sid,
       });
       const result = streamText(callOptionsFor(model));
-      // No mid-stream fallback in v1 (CON-74), but still cool down the credential on a
-      // stream error so the NEXT request selects a different live candidate.
+      // No mid-stream fallback in v1 (CON-74), but keep pool health correct: clear the
+      // candidate's failure state on a successful finish, and cool it down on a
+      // *retryable* stream error so the NEXT request rotates to a live candidate.
       const sse = toOpenAIChatStream(
         result.fullStream,
         meta,
-        (usage) => void emit(usage),
-        (err) =>
+        (usage) => {
+          void emit(usage);
+          background(deps.credentials.recordSuccess?.(candidate.id));
+        },
+        (err) => {
+          if (!isRetryableUpstreamError(err)) return;
           background(
             deps.credentials.recordFailure?.(
               candidate.id,
               cooldownUntilFromError(err, deps.now?.() ?? Date.now(), candidate.failureCount)
             )
-          )
+          );
+        }
       );
       return new Response(asReadable(sse), {
         headers: {

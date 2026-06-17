@@ -426,7 +426,7 @@ describe("terminus chat — credential pool fallback (CON-71)", () => {
   });
 
   it("streaming uses only the first candidate (no fallback in v1)", async () => {
-    const { provider } = poolProvider();
+    const { provider, ok } = poolProvider();
     const seen: string[] = [];
     const chunks = [
       { type: "stream-start", warnings: [] },
@@ -449,6 +449,45 @@ describe("terminus chat — credential pool fallback (CON-71)", () => {
     expect(res.headers.get("content-type")).toContain("text/event-stream");
     await res.text();
     expect(seen).toEqual(["k1"]);
+    expect(ok).toEqual(["c1"]); // a successful stream clears the candidate's health state
+  });
+
+  it("returns 503 (transient) when every candidate is cooling down", async () => {
+    const provider: CredentialProvider = {
+      forModel: () => Promise.resolve(null),
+      forModelCandidates: () => Promise.resolve([]), // all cooled → filtered to empty
+      isEnabled: () => Promise.resolve(true), // ...but credentials DO exist
+    };
+    const res = await chat(provider, () => new MockLanguageModelV3(success("x")));
+    expect(res.status).toBe(503);
+  });
+
+  it("does NOT cool down a streaming credential on a terminal (non-retryable) error", async () => {
+    const { provider, fail } = poolProvider();
+    const chunks = [
+      { type: "stream-start", warnings: [] },
+      {
+        type: "error",
+        error: new APICallError({
+          message: "bad request",
+          url: "https://up/v1",
+          requestBodyValues: {},
+          statusCode: 400,
+          isRetryable: false,
+        }),
+      },
+    ];
+    const res = await chat(
+      provider,
+      () =>
+        new MockLanguageModelV3({
+          doStream: { stream: simulateReadableStream({ chunks }) },
+        } as unknown as MockArgs),
+      true
+    );
+    expect(res.status).toBe(200);
+    await res.text();
+    expect(fail).toEqual([]);
   });
 
   it("cools down the credential when a streaming request errors (no fallback, next request rotates)", async () => {

@@ -89,6 +89,15 @@ describe("admin credential ingestion API (CON-70)", () => {
     expect(await db.select().from(providerCredentials)).toEqual([]);
   });
 
+  it("rejects mistyped optional fields with 400 (no silent default)", async () => {
+    const res = await req("/credentials", {
+      method: "POST",
+      body: JSON.stringify({ provider: "openai", apiKey: "k", enabled: "false" }),
+    });
+    expect(res.status).toBe(400);
+    expect(await db.select().from(providerCredentials)).toEqual([]);
+  });
+
   it("returns 409 on a duplicate provider+label", async () => {
     const make = () =>
       req("/credentials", {
