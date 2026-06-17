@@ -244,13 +244,46 @@ variable "enable_terminus" {
   default     = false
 
   validation {
-    condition     = var.enable_terminus == false || length(trimspace(var.terminus_jwt_secret)) > 0
-    error_message = "When enable_terminus is true, terminus_jwt_secret must be non-empty."
+    condition = var.enable_terminus == false || (
+      length(trimspace(var.terminus_jwt_secret)) > 0 &&
+      length(trimspace(var.terminus_credentials_encryption_key)) > 0
+    )
+    error_message = "When enable_terminus is true, terminus_jwt_secret and terminus_credentials_encryption_key must be non-empty."
   }
 }
 
 variable "terminus_jwt_secret" {
   description = "HS256 secret Terminus uses to verify sandbox gateway tokens (generate with: openssl rand -base64 32)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "terminus_credentials_encryption_key" {
+  description = "Base64 AES-256 key encrypting Terminus credential-vault secrets at rest (generate with: openssl rand -base64 32)"
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  validation {
+    # Empty when the gateway is off; otherwise a base64-encoded 32-byte key (44 chars).
+    condition = (
+      var.terminus_credentials_encryption_key == "" ||
+      can(regex("^[A-Za-z0-9+/]{43}=$", var.terminus_credentials_encryption_key))
+    )
+    error_message = "terminus_credentials_encryption_key must be a base64-encoded 32-byte key (openssl rand -base64 32)."
+  }
+}
+
+variable "codex_oauth_refresh_token" {
+  description = "ChatGPT/Codex OAuth refresh token seeded into the Terminus vault (optional; from a local OpenCode login)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "codex_oauth_account_id" {
+  description = "ChatGPT account id paired with codex_oauth_refresh_token (optional)"
   type        = string
   default     = ""
   sensitive   = true

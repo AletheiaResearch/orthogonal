@@ -17,6 +17,9 @@ function createHandler() {
   const getSession = vi.fn<() => SessionRow | null>();
   const refreshOpenAIToken = vi.fn();
   const isOpenAISecretsConfigured = vi.fn();
+  const isGatewayConfigured = vi.fn();
+  const isSessionGatewayEnabled = vi.fn(() => true);
+  const mintGatewayToken = vi.fn();
   const getScmCredentials = vi.fn();
   const broadcast = vi.fn();
   const generateId = vi.fn(() => "participant-1");
@@ -38,6 +41,9 @@ function createHandler() {
     getSession,
     refreshOpenAIToken,
     isOpenAISecretsConfigured,
+    isGatewayConfigured,
+    isSessionGatewayEnabled,
+    mintGatewayToken,
     getScmCredentials,
     broadcast,
     generateId,
@@ -54,6 +60,9 @@ function createHandler() {
     getSession,
     refreshOpenAIToken,
     isOpenAISecretsConfigured,
+    isGatewayConfigured,
+    isSessionGatewayEnabled,
+    mintGatewayToken,
     getScmCredentials,
     broadcast,
     generateId,
@@ -395,6 +404,77 @@ describe("createSandboxHandler", () => {
       account_id: "acct_123",
     });
     expect(refreshOpenAIToken).toHaveBeenCalledWith(session);
+  });
+
+  it("returns 404 when gateway token refresh has no session", async () => {
+    const { handler, getSession, mintGatewayToken } = createHandler();
+    getSession.mockReturnValue(null);
+
+    const response = await handler.gatewayToken();
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "No session" });
+    expect(mintGatewayToken).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 when gateway is not configured", async () => {
+    const { handler, getSession, isGatewayConfigured, mintGatewayToken } = createHandler();
+    getSession.mockReturnValue({ id: "session-1" } as SessionRow);
+    isGatewayConfigured.mockReturnValue(false);
+
+    const response = await handler.gatewayToken();
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "Gateway not configured" });
+    expect(mintGatewayToken).not.toHaveBeenCalled();
+  });
+
+  it("returns gateway token payload on success", async () => {
+    const { handler, getSession, isGatewayConfigured, mintGatewayToken } = createHandler();
+    const session = { id: "session-1" } as SessionRow;
+    getSession.mockReturnValue(session);
+    isGatewayConfigured.mockReturnValue(true);
+    mintGatewayToken.mockResolvedValue({
+      token: "gateway-token",
+      base_url: "https://gateway.example.com",
+      expires_in: 900,
+    });
+
+    const response = await handler.gatewayToken();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(await response.json()).toEqual({
+      token: "gateway-token",
+      base_url: "https://gateway.example.com",
+      expires_in: 900,
+    });
+    expect(mintGatewayToken).toHaveBeenCalledWith(session);
+  });
+
+  it("returns 403 when the session did not enable the gateway", async () => {
+    const { handler, getSession, isGatewayConfigured, isSessionGatewayEnabled, mintGatewayToken } =
+      createHandler();
+    getSession.mockReturnValue({ id: "session-1" } as SessionRow);
+    isGatewayConfigured.mockReturnValue(true);
+    isSessionGatewayEnabled.mockReturnValue(false);
+
+    const response = await handler.gatewayToken();
+
+    expect(response.status).toBe(403);
+    expect(mintGatewayToken).not.toHaveBeenCalled();
+  });
+
+  it("returns a structured 500 when minting throws", async () => {
+    const { handler, getSession, isGatewayConfigured, mintGatewayToken } = createHandler();
+    getSession.mockReturnValue({ id: "session-1" } as SessionRow);
+    isGatewayConfigured.mockReturnValue(true);
+    mintGatewayToken.mockRejectedValue(new Error("boom"));
+
+    const response = await handler.gatewayToken();
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "Failed to mint gateway token" });
   });
 
   it("returns 404 when scm credentials have no session", async () => {

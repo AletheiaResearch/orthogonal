@@ -73,6 +73,8 @@ catalog:
   cmdk: 1.1.1
   cron-parser: 5.5.0
   diff: 8.0.3
+  drizzle-kit: 0.31.10
+  drizzle-orm: 0.45.2
   hono: 4.12.23
   husky: 9.1.7
   jsdom: 28.1.0

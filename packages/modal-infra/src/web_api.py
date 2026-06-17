@@ -194,6 +194,8 @@ async def api_create_sandbox(
             code_server_enabled=bool(request.get("code_server_enabled", False)),
             agent_slack_notify_enabled=bool(request.get("agent_slack_notify_enabled", False)),
             settings=request.get("sandbox_settings") or None,
+            gateway_token=request.get("gateway_token"),
+            gateway_base_url=request.get("gateway_base_url"),
         )
 
         handle = await manager.create_sandbox(config)
@@ -499,6 +501,8 @@ async def api_restore_sandbox(
             code_server_enabled=code_server_enabled,
             agent_slack_notify_enabled=agent_slack_notify_enabled,
             settings=sandbox_settings,
+            gateway_token=request.get("gateway_token"),
+            gateway_base_url=request.get("gateway_base_url"),
         )
 
         return {

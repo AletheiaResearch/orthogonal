@@ -7,8 +7,12 @@
  * enriched with catalog metadata (context window, modalities, pricing) so clients
  * discover the full catalog from one endpoint.
  */
-import type { CredentialResolver } from "../credentials/resolver";
 import type { ModelsDevRegistry } from "./registry";
+
+/** Minimal seam the catalog needs: which providers have a usable credential. */
+export interface ProviderEnablement {
+  isEnabled(providerId: string, envKeys?: string[]): Promise<boolean>;
+}
 
 export interface CatalogModel {
   id: string;
@@ -33,7 +37,7 @@ export interface ModelsListResponse {
  */
 export async function buildModelsList(
   registry: ModelsDevRegistry,
-  resolver: CredentialResolver,
+  resolver: ProviderEnablement,
   allowedModels: string[]
 ): Promise<ModelsListResponse> {
   const allowAll = allowedModels.length === 0;

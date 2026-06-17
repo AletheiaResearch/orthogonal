@@ -70,6 +70,8 @@ export interface CreateSandboxRequest {
   mcpServers?: McpServerConfig[];
   sandboxSettings?: SandboxSettings;
   githubAppInstallationId?: string;
+  gatewayToken?: string;
+  gatewayBaseUrl?: string;
 }
 
 export interface CreateSandboxResponse {
@@ -101,6 +103,8 @@ export interface RestoreSandboxRequest {
   mcpServers?: McpServerConfig[];
   sandboxSettings?: SandboxSettings;
   githubAppInstallationId?: string;
+  gatewayToken?: string;
+  gatewayBaseUrl?: string;
 }
 
 export interface RestoreSandboxResponse {
@@ -253,6 +257,8 @@ export class ModalClient {
           repo_name: request.repoName,
           control_plane_url: request.controlPlaneUrl,
           sandbox_auth_token: request.sandboxAuthToken,
+          gateway_token: request.gatewayToken || null,
+          gateway_base_url: request.gatewayBaseUrl || null,
           snapshot_id: request.snapshotId || null,
           opencode_session_id: request.opencodeSessionId || null,
           provider: request.provider || "anthropic",
@@ -341,6 +347,8 @@ export class ModalClient {
           sandbox_id: request.sandboxId,
           control_plane_url: request.controlPlaneUrl,
           sandbox_auth_token: request.sandboxAuthToken,
+          gateway_token: request.gatewayToken || null,
+          gateway_base_url: request.gatewayBaseUrl || null,
           user_env_vars: request.userEnvVars || null,
           timeout_seconds: request.timeoutSeconds || null,
           code_server_enabled: request.codeServerEnabled ?? false,

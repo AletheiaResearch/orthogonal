@@ -235,6 +235,12 @@ export const sessionRuntimeProxyRoutes: Route[] = [
   }),
   simpleProxyRoute({
     method: "POST",
+    routePath: "/sessions/:id/gateway-token",
+    internalPath: SessionInternalPaths.gatewayTokenRefresh,
+    runtimeMethod: "POST",
+  }),
+  simpleProxyRoute({
+    method: "POST",
     routePath: "/sessions/:id/scm-credentials",
     internalPath: SessionInternalPaths.scmCredentials,
     runtimeMethod: "POST",

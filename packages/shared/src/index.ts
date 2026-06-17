@@ -5,6 +5,7 @@
 export * from "./types";
 export * from "./git";
 export * from "./auth";
+export * from "./crypto";
 export * from "./gateway-token";
 export * from "./models";
 export * from "./cron";

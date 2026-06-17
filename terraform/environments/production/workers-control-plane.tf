@@ -70,6 +70,8 @@ module "control_plane_worker" {
     { name = "MODAL_WORKSPACE", value = var.modal_workspace },
     { name = "MODAL_ENVIRONMENT", value = var.modal_environment },
     { name = "MODAL_ENVIRONMENT_WEB_SUFFIX", value = var.modal_environment_web_suffix },
+    # Terminus LLM gateway base URL (CON-53); always a valid URL string.
+    { name = "TERMINUS_GATEWAY_URL", value = local.terminus_url },
   ]
 
   secrets = concat(
@@ -86,6 +88,10 @@ module "control_plane_worker" {
       { name = "MODAL_TOKEN_ID", value = var.modal_token_id },
       { name = "MODAL_TOKEN_SECRET", value = var.modal_token_secret },
       { name = "MODAL_API_SECRET", value = var.modal_api_secret },
+      # HS256 secret the control plane uses to mint gateway tokens that Terminus
+      # verifies (CON-53). Shares the variable with the terminus worker. When
+      # empty (gateway disabled) the cloudflare-worker module skips this binding.
+      { name = "TERMINUS_JWT_SECRET", value = var.terminus_jwt_secret },
     ],
     # Slack bot token enables the agent-initiated `slack-notify` endpoint.
     # Shares the variable with the slack-bot worker; bound here so the same

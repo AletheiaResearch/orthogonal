@@ -122,4 +122,84 @@ describe("ModalClient", () => {
       mcp_servers: [{ id: "mcp-1", name: "Tool", type: "local", enabled: true }],
     });
   });
+
+  it("sends gateway_token and gateway_base_url in the create body when provided", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: { sandbox_id: "sb-1", status: "ok", created_at: 1 },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    );
+
+    const client = createModalClient("secret", "acme", "prod-web");
+    await client.createSandbox({
+      sessionId: "session-123",
+      repoOwner: "testowner",
+      repoName: "testrepo",
+      controlPlaneUrl: "https://control-plane.test",
+      sandboxAuthToken: "auth-token",
+      gatewayToken: "gw-token",
+      gatewayBaseUrl: "https://gateway.test",
+    });
+
+    const body = JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit).body as string);
+    expect(body.gateway_token).toBe("gw-token");
+    expect(body.gateway_base_url).toBe("https://gateway.test");
+  });
+
+  it("sends null gateway fields in the create body when omitted", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: { sandbox_id: "sb-1", status: "ok", created_at: 1 },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    );
+
+    const client = createModalClient("secret", "acme", "prod-web");
+    await client.createSandbox({
+      sessionId: "session-123",
+      repoOwner: "testowner",
+      repoName: "testrepo",
+      controlPlaneUrl: "https://control-plane.test",
+      sandboxAuthToken: "auth-token",
+    });
+
+    const body = JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit).body as string);
+    expect(body.gateway_token).toBeNull();
+    expect(body.gateway_base_url).toBeNull();
+  });
+
+  it("sends gateway_token and gateway_base_url in the restore body when provided", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ success: true, data: { sandbox_id: "sb-1" } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    const client = createModalClient("secret", "acme", "prod-web");
+    await client.restoreSandbox({
+      snapshotImageId: "img-1",
+      sessionId: "session-123",
+      sandboxId: "sandbox-456",
+      sandboxAuthToken: "auth-token",
+      controlPlaneUrl: "https://control-plane.test",
+      repoOwner: "testowner",
+      repoName: "testrepo",
+      provider: "anthropic",
+      model: "anthropic/claude-sonnet-4-5",
+      gatewayToken: "gw-token",
+      gatewayBaseUrl: "https://gateway.test",
+    });
+
+    const body = JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit).body as string);
+    expect(body.gateway_token).toBe("gw-token");
+    expect(body.gateway_base_url).toBe("https://gateway.test");
+  });
 });

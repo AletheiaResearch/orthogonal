@@ -6,8 +6,10 @@
   "scripts": {
     "build": "vite build",
     "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -17,11 +19,14 @@
     "@cloudflare/workers-types": "catalog:",
     "@open-inspect/shared": "workspace:*",
     "ai": "catalog:",
+    "drizzle-orm": "catalog:",
     "hono": "catalog:"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "catalog:",
     "@orthogonal/tooling-configs": "workspace:*",
     "@vitest/coverage-v8": "catalog:",
+    "drizzle-kit": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",

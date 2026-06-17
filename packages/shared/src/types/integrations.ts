@@ -61,6 +61,12 @@ export interface SandboxSettings {
   tunnelPorts?: number[];
   /** Enable a browser-based terminal (ttyd) in sandbox sessions. */
   terminalEnabled?: boolean;
+  /**
+   * Route the sandbox's LLM traffic through the Terminus gateway. When enabled,
+   * the control plane mints a short-lived gateway token instead of injecting raw
+   * provider API keys into the sandbox.
+   */
+  llmGatewayEnabled?: boolean;
   /** Maximum active agent-spawned child sessions per parent session. */
   maxConcurrentChildSessions?: number;
   /** Maximum total agent-spawned child sessions per parent session. */

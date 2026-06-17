@@ -135,6 +135,12 @@ catalogs:
     diff:
       specifier: 8.0.3
       version: 8.0.3
+    drizzle-kit:
+      specifier: 0.31.10
+      version: 0.31.10
+    drizzle-orm:
+      specifier: 0.45.2
+      version: 0.45.2
     hono:
       specifier: 4.12.23
       version: 4.12.23
@@ -911,16 +917,25 @@ importers:
       ai:
         specifier: 'catalog:'
         version: 6.0.199(zod@3.25.76)
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.2(@cloudflare/workers-types@4.20241230.0)(@opentelemetry/api@1.9.1)(@types/pg@8.11.6)(@vercel/postgres@0.10.0)(pg@8.20.0)
       hono:
         specifier: 'catalog:'
         version: 4.12.23
     devDependencies:
+      '@cloudflare/vitest-pool-workers':
+        specifier: 'catalog:'
+        version: 0.16.11(@cloudflare/workers-types@4.20241230.0)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(bufferutil@4.1.0)(vitest@4.1.8)
       '@orthogonal/tooling-configs':
         specifier: workspace:*
         version: link:../../packages/tooling-configs
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.8(vitest@4.1.8)
+      drizzle-kit:
+        specifier: 'catalog:'
+        version: 0.31.10
       typescript:
         specifier: 'catalog:'
         version: 5.7.2
@@ -5284,6 +5299,10 @@ packages:
   dotenv@17.4.2:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
     engines: {node: '>=12'}
+
+  drizzle-kit@0.31.10:
+    resolution: {integrity: sha512-7OZcmQUrdGI+DUNNsKBn1aW8qSoKuTH7d0mYgSP8bAzdFzKoovxEFnoGQp2dVs82EOJeYycqRtciopszwUf8bw==}
+    hasBin: true
 
   drizzle-kit@0.31.7:
     resolution: {integrity: sha512-hOzRGSdyKIU4FcTSFYGKdXEjFsncVwHZ43gY3WU5Bz9j5Iadp6Rh6hxLSQ1IWXpKLBKt/d5y1cpSPcV+FcoQ1A==}
@@ -12627,6 +12646,13 @@ snapshots:
 
   dotenv@17.4.2: {}
 
+  drizzle-kit@0.31.10:
+    dependencies:
+      '@drizzle-team/brocli': 0.10.2
+      '@esbuild-kit/esm-loader': 2.6.5
+      esbuild: 0.25.4
+      tsx: 4.21.0
+
   drizzle-kit@0.31.7:
     dependencies:
       '@drizzle-team/brocli': 0.10.2
@@ -15742,7 +15768,7 @@ snapshots:
   tsx@4.21.0:
     dependencies:
       esbuild: 0.27.3
-      get-tsconfig: 4.8.1
+      get-tsconfig: 4.14.0
     optionalDependencies:
       fsevents: 2.3.3
 

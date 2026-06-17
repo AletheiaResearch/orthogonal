@@ -6,9 +6,10 @@
  */
 import { type LanguageModelUsage, generateText, streamText } from "ai";
 
+import { withCodexProvider } from "../catalog/codex";
 import type { fetchRegistry } from "../catalog/models-dev";
 import { type ModelCost, type ResolvedModelRef, resolveModelRef } from "../catalog/registry";
-import { EnvKeyResolver } from "../credentials/resolver";
+import type { CredentialProvider } from "../credentials/provider";
 import {
   badRequest,
   errorResponse,
@@ -25,15 +26,25 @@ import {
   toOpenAIChatCompletion,
   toOpenAIChatStream,
 } from "../openai/protocol";
-import { buildLanguageModel } from "../providers/router";
+import {
+  type BuildLanguageModelOptions,
+  buildLanguageModel,
+  codexProviderOptions,
+} from "../providers/router";
 import { computeCostUsd } from "../usage/pricing";
 import type { UsageRecord, UsageSink } from "../usage/sink";
 
 export interface ChatDeps {
   loadRegistry: typeof fetchRegistry;
   usageSink: UsageSink;
+  /** Resolves the upstream credential for a model + session (vault-backed in prod). */
+  credentials: CredentialProvider;
   /** Injectable for tests; defaults to the real provider router. */
-  buildModel?: (ref: ResolvedModelRef, apiKey: string) => ReturnType<typeof buildLanguageModel>;
+  buildModel?: (
+    ref: ResolvedModelRef,
+    apiKey: string,
+    opts?: BuildLanguageModelOptions
+  ) => ReturnType<typeof buildLanguageModel>;
   /** Injectable clock (epoch ms) for deterministic tests. */
   now?: () => number;
   /** Injectable id source for deterministic tests. */
@@ -64,15 +75,17 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
   }
 
   try {
-    const registry = await deps.loadRegistry(c.env);
+    const registry = withCodexProvider(await deps.loadRegistry(c.env));
     const ref = resolveModelRef(registry, body.model);
     if (!ref) return errorResponse(unknownModel(body.model));
 
-    const resolver = new EnvKeyResolver(c.env);
-    const credential = await resolver.resolve(ref.providerId, ref.envKeys);
+    const credential = await deps.credentials.forModel(ref, claims.sid);
     if (!credential) return errorResponse(providerUnconfigured(ref.providerId));
 
-    const model = (deps.buildModel ?? buildLanguageModel)(ref, credential.apiKey);
+    const model = (deps.buildModel ?? buildLanguageModel)(ref, credential.apiKey, {
+      accountId: credential.accountId,
+      sessionId: claims.sid,
+    });
     const nowMs = deps.now?.() ?? Date.now();
     const meta: ChunkMeta = {
       id: `chatcmpl-${deps.newId?.() ?? crypto.randomUUID()}`,
@@ -89,6 +102,10 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       maxOutputTokens: body.max_completion_tokens ?? body.max_tokens,
       stopSequences: typeof body.stop === "string" ? [body.stop] : body.stop,
       abortSignal: c.req.raw.signal,
+      // Codex (ChatGPT-backend Responses) requires store:false + encrypted-reasoning options.
+      ...(ref.credentialMode === "codex-oauth"
+        ? { providerOptions: codexProviderOptions(claims.sid) }
+        : {}),
     };
 
     const emit = (usage: LanguageModelUsage): Promise<void> => {

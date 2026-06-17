@@ -200,7 +200,154 @@ The **request body** the AI SDK responses model emits may not satisfy `backend-a
 request via `createOpenAI({fetch})` and diff against a known-good request from the working sandbox
 plugin path before wiring upstream.
 
-## CON-53 — OpenCode wiring — plan
+## CON-50 — REVISED: Terminus credential vault (supersedes determination #1)
+
+> Through design review (Nejc, 2026-06-17) CON-50 grew from "broker Codex tokens from control-plane"
+> into **Terminus owns its credentials end-to-end** — the self-contained,
+> OpenRouter/LiteLLM/Helicone-shaped gateway it was always meant to be. The original "control-plane
+> is the sole refresher" determination (#1 below) was over-broad: the real invariant is **one
+> refresher per refresh token**. Terminus owning its _own_ ChatGPT account (distinct from the legacy
+> per-repo sandbox creds) satisfies that cleanly. The control-plane refresh path stays for the
+> legacy raw-key sandbox flow — additive, on distinct tokens, no conflict.
+
+### Locked decisions (Nejc, 2026-06-17)
+
+- **Terminus owns all provider credentials** in its **own D1** database (not a DO; not
+  control-plane). _D1 over DO_ because: the credential+routing model is relational (Helicone-style);
+  the codebase already does encrypted secrets **and** single-use OAuth rotation on D1
+  (`repo-secrets.ts`, `openai-token-refresh-service.ts`); and the scheduled-refresh model makes the
+  request path **read-only**, so the DO's rotation-serialization isn't needed (a D1 conditional
+  update guards the rare race).
+- **Encryption at rest = AES-256-GCM**, key from a Worker secret (`CREDENTIALS_ENCRYPTION_KEY`).
+  Lift control-plane's `auth/crypto.ts` into `@open-inspect/shared` so both workers encrypt/decrypt
+  identically; extend it with an optional **AAD = owner id** (Helicone binds ciphertext to `org_id`
+  so a row can't be decrypted under another owner). Decrypt **only in-isolate**; **never** KV.
+- **Unified credential entity** (Helicone `provider_keys`): platform and BYOK are the **same row**,
+  distinguished by `owner`; routing/authorization — not table identity — gates who uses which key.
+  CON-50 ships `owner = platform` only (the gateway token's `tenant` is `null` today).
+- **Codex = a credential row** whose encrypted secret holds the 4 OAuth components (`refresh`,
+  `access`, `account_id`, `expires_at`). Terminus is the **sole refresher for its own account**
+  (ports control-plane's `refreshOpenAIToken` — a plain HTTPS POST; no loopback needed).
+- **Refresh = cron `scheduled()`** handler (refreshes near-expiry, ~10 min buffer) **+ lazy
+  refresh-on-read fallback** for the post-seed window. Concurrent rotation is handled by porting
+  control-plane's proven pattern: attempt the OpenAI refresh; on a `401` (the single-use token was
+  already rotated by a concurrent writer) re-read the freshly-rotated row from D1 and use it. (The
+  refresh token lives _inside_ `secret_encrypted`, so it can't be a SQL `WHERE` predicate; an
+  optional optimistic guard is an opaque `secret_encrypted` compare or a `version` column.) Request
+  path is read-only.
+- **Seeding via Terraform/Worker secret** (the human still logs in locally via OpenCode and pastes
+  the Codex refresh token + provider keys into Terraform-managed secrets); the D1 table is the
+  runtime source of truth; ingestion via an admin API / Orto BYOK comes later.
+- **Scope:** CON-50 migrates **all** provider keys into the vault (per Nejc) + Codex OAuth + cron
+  refresh. **Deferred → new CON-41 sub-issues:** (a) BYOK / per-tenant ingestion API + admin panel
+  (blocked on multi-tenancy; `tenant` is `null` today), (b) LiteLLM/Helicone-style **LB & routing**
+  (multi-key per provider, weights, fallbacks, cooldowns) as a versioned routing-config blob.
+
+### Already built + verified (source-agnostic spine — stands regardless of the source)
+
+`registry.ts` `credentialMode` + synthetic `codex/*` provider (`catalog/codex.ts`); router
+`.responses()` Codex branch + the 4 OAuth headers (`ChatGPT-Account-Id`, `originator:"opencode"`,
+`session_id`) + `codexProviderOptions` (`store:false`, `include:["reasoning.encrypted_content"]`,
+`reasoningSummary:"auto"`, `prompt_cache_key`); and the **request-contract spike** — verified
+against `@ai-sdk/openai@3.0.69`, cross-checked vs `openai/codex` (Rust) + OpenCode core. 91 tests.
+
+### Data model — Terminus D1 `provider_credentials`
+
+One unified table (mirrors Helicone's single `provider_keys`):
+
+| Column                      | Meaning                                                                                       |
+| --------------------------- | --------------------------------------------------------------------------------------------- |
+| `id TEXT PK`                | credential id                                                                                 |
+| `owner_type TEXT`           | `platform` \| `tenant` (CON-50: `platform` only)                                              |
+| `owner_id TEXT`             | tenant id for BYOK; `''`/sentinel for platform. Used as the AES-GCM **AAD**                   |
+| `provider TEXT`             | models.dev provider id, or `codex`                                                            |
+| `credential_mode`           | `api_key` \| `codex-oauth`                                                                    |
+| `secret_encrypted`          | AES-256-GCM base64 — `api_key`: the key; `codex-oauth`: encrypted JSON of the 4 components    |
+| `expires_at INT`            | access-token expiry (ms); **plaintext** so the cron finds near-expiry rows without decrypting |
+| `enabled INT`               | advertise/serve this credential                                                               |
+| `config TEXT`               | provider-specific JSON (baseURL/region overrides) — Helicone `config` analog (nullable)       |
+| `created_at/updated_at INT` | epoch ms                                                                                      |
+
+`UNIQUE(owner_type, owner_id, provider)` for now (single key per owner+provider; relaxed when
+multi-key LB lands). Routing/LB config + per-key limits are **deferred** (the LB sub-issue).
+
+### Request flow (gateway ON)
+
+```text
+verify gateway token → resolve credential by (owner=platform, provider) from D1
+  → decrypt in-isolate (AAD=owner_id) → buildLanguageModel (codex .responses() branch or provider)
+  → streamText/generateText → OpenAI-compat SSE → usage sink
+```
+
+In-isolate read-through cache of decrypted creds (ephemeral, per-isolate — not KV). `/v1/models`
+advertises the providers/models with an `enabled` credential row (Codex included when seeded).
+
+### Refresh flow (Codex)
+
+```text
+cron tick → SELECT codex rows WHERE expires_at < now + buffer
+  → POST OpenAI token endpoint (ported refreshOpenAIToken) → rotated {refresh, access, expires}
+  → UPDATE … WHERE refresh_token = <old>  (conditional; re-read on miss = concurrent rotation)
+```
+
+### Open / live-verify
+
+- Separate Terminus D1 (recommended, self-contained) vs sharing control-plane's D1 — **separate**.
+- Smoke (real creds): Codex upstream body acceptance; OAuth refresh-endpoint behavior from a Worker.
+
+### Build progress (branch `nejc/con-50-codex-opencode`, base `terminus`)
+
+Committed + pushed, TDD, all green (86 unit + 13 D1-integration tests):
+
+- ✅ **Spine** — `registry.ts` `credentialMode`; synthetic `codex/*` provider (`catalog/codex.ts`);
+  router `.responses()` branch + 4 OAuth headers + `codexProviderOptions`; request-contract
+  **spike** verified vs `@ai-sdk/openai@3.0.69` + cross-checked vs openai/codex (Rust) + OpenCode
+  core.
+- ✅ **Shared crypto** — `@open-inspect/shared` `encryptSecret`/`decryptSecret` (AES-256-GCM,
+  optional owner-AAD); additive, control-plane crypto untouched.
+- ✅ **Vault** — own D1 + Drizzle (`drizzle-orm@0.45.2`/`drizzle-kit@0.31.10`);
+  `provider_credentials` schema + generated migration; `CredentialVault` (put/get api-key + Codex,
+  list-enabled, owner-scoped upsert); Miniflare-D1 integration harness.
+- ✅ **Codex token manager** — `CodexTokenManager` (cached read → rotate via ported
+  `refreshCodexToken` → persist rotated single-use token); `refreshIfNearExpiry` (cron path) + lazy
+  fallback; 401-reread concurrency.
+
+CON-50 — now complete (committed + pushed):
+
+- ✅ **Vault-backed `CredentialProvider`** — `chat.ts` + `/v1/models` resolve through it; Codex via
+  the token manager, other providers from the vault with lazy env-seed; in-isolate-cached
+  enablement.
+- ✅ **`env.ts`** — `DB` (D1) + `CREDENTIALS_ENCRYPTION_KEY`; cron `scheduled()` →
+  `refreshIfNearExpiry`.
+- ✅ **Terraform** — separate Terminus D1 + drizzle-migration runner + DB binding + AES key +
+  Codex/provider seed secrets + `*/5` cron (gated on `enable_terminus`).
+
+## CON-53 — OpenCode wiring — DONE (behind default-off `llmGatewayEnabled`)
+
+Implemented + tested (1214 control-plane + 12 modal tests; typecheck/fmt green):
+
+- **Control plane** — per-session `llmGatewayEnabled`; `doSpawn`/`restoreFromSnapshot` mint a
+  short-TTL gateway token + inject `GATEWAY_TOKEN`/`GATEWAY_BASE_URL` (snake_case to Modal); minting
+  is non-fatal. New sandbox-authed `POST /sessions/:id/gateway-token` refresh route.
+  `TERMINUS_JWT_SECRET` + `TERMINUS_GATEWAY_URL` added to control-plane Env + terraform.
+- **Modal** — threads the gateway vars into both create + restore and **drops `llm_secrets`** when
+  the gateway is on (raw keys never enter a gateway-enabled sandbox — the security win).
+- **Sandbox-runtime** — `gateway-plugin.js` (config-hook openai-compatible provider + token-refresh
+  fetch interceptor) copied by `entrypoint.py` when `GATEWAY_TOKEN` is set.
+
+### ⚠️ Live-verify gaps (NOT CI-testable — required before flipping the toggle ON)
+
+1. **OpenCode config-hook provider registration is UNVERIFIED** on the pinned runtime
+   (opencode-ai@1.14.41) — flagged in `gateway-plugin.js` with explicit smoke-test items.
+2. **Default-model routing** — the sandbox default model isn't re-keyed to the `gateway/` provider
+   yet, so a gateway-ON session won't route through Terminus by default until that's wired.
+3. **`@ai-sdk/openai-compatible` availability** in the sandbox — may need pre-staging in
+   `modal-infra/src/images/base.py` (no runtime npm).
+4. **Codex upstream body** at `chatgpt.com/backend-api/codex/responses` — needs real Codex creds.
+5. **User-injected LLM keys** — `getUserEnvVars()` still sends user secrets unconditionally; only
+   the platform `llm_secrets` are dropped. Gating user-supplied LLM keys is a follow-up.
+
+## CON-53 — OpenCode wiring — original plan
 
 Two halves:
 
@@ -244,49 +391,66 @@ proves the auth/fetch-interceptor mechanism, NOT `config()`-registers-a-provider
 `packages/sandbox-runtime/src/sandbox_runtime/{entrypoint.py, plugins/gateway-plugin.js}`,
 `terraform/environments/production/{workers-control-plane.tf, locals.tf}`.
 
-## Continuation prompt (paste into a fresh session in this worktree)
+## Continuation prompt (paste into a fresh session) — post-PR-#13
 
-> Continue Linear issue **CON-41** (Terminus LLM gateway) in this worktree. Read
-> `docs/terminus-llm-gateway.md` end-to-end first — it is the design + tracking doc and contains the
-> committed CON-50 and CON-53 plans.
+> Continue Linear epic **CON-41** (Terminus LLM gateway). **Work in a git worktree off the
+> `terminus` branch.** Read this doc (`docs/terminus-llm-gateway.md`) first — it is the design +
+> living tracker (shown live in the cmux markdown viewer); keep it updated as you go.
 >
-> **State:** the foundation spine (CON-48 proxy, CON-49 `/v1/models`, CON-51 credential resolution,
-> CON-52 token auth) and **CON-54-scoped** (cost-priced usage emission; durable store deferred) are
-> done, tested (72 tests), and committed on branch `worktree-con-41-llm-gateway`. **Remaining:
-> CON-50 then CON-53** (plans + locked decisions in this doc).
+> **State:** CON-50 (Codex OAuth + Terminus-owned credential vault) and CON-53 (OpenCode gateway
+> wiring) are implemented and fully reviewed in **PR #13** (branch `nejc/con-50-codex-opencode`,
+> base **`terminus`** — NOT main). All bot review is resolved (Codex adversarial pass + 2 CodeRabbit
+> rounds). It ships **gated default-OFF** (per-session `llmGatewayEnabled`) and is **NOT merged** —
+> never merge yourself.
 >
-> **Workspace/PR rules:** work in this worktree; push with
-> `git push origin HEAD:nejc/con-41-llm-gateway-model-routing-chatgptcodex-oauth-vercel-ai-sdk`
-> (flows into **PR #12**, base **`terminus`** — an integration branch). **Do NOT merge to `main` and
-> do NOT change the PR base.** PR #12 is the whole-epic PR; it merges only when all sub-issues are
-> in.
+> **⚠️ The gate before the toggle can go ON = a LIVE smoke test on a pinned-OpenCode sandbox.** Two
+> pieces have zero CI coverage and are flagged UNVERIFIED in-code/doc: (1) the config-hook provider
+> registration in `sandbox-runtime/.../plugins/gateway-plugin.js`, and (2) the
+> `gateway/<provider>/<model>` default-model routing in `entrypoint.py`. Do not flip the default ON
+> until both are proven on a real sandbox. See "live-verify gaps" above + the CON-53 comment.
+>
+> **Architecture (locked, see the CON-50 REVISED section):** Terminus owns provider creds in its
+> **own D1** via **Drizzle** (parameterized — no hand-rolled SQL); one unified
+> `provider_credentials` table (platform/BYOK distinguished by `owner`); AES-256-GCM at rest (key =
+> Worker secret, owner-AAD), decrypted only in-isolate. Codex = a vault row (4 OAuth components);
+> `CodexTokenManager` refreshes (cron `scheduled()` + lazy + 401-reread); Terminus is the sole
+> refresher of its _own_ ChatGPT account (control-plane's refresh stays for the legacy raw-key
+> sandbox path). CON-53: control-plane mints a short-TTL gateway token, injects
+> `GATEWAY_TOKEN`/`GATEWAY_BASE_URL`, **drops raw `llm_secrets` when ON (fail-closed)**; the refresh
+> route is gated on the session's `llmGatewayEnabled` (403 otherwise).
+>
+> **Roadmap (Nejc), in order:** (1) finish/iron out PR #13 ← _likely where you start_ (any new
+> review, the smoke test, routing fixes); (2) the deferred sub-issues: **CON-70** (BYOK/per-tenant +
+> ingestion API), **CON-71** (LiteLLM/Helicone LB & routing), **CON-72** (gateway rollout: don't
+> drop `llm_secrets` for pre-gateway snapshot images + gate user-injected LLM keys) — **CON-54**
+> (durable metering store) is also still open; (3) the dashboard issue (natural home for CON-70's
+> ingestion API + admin surface); (4) a PR `terminus → main`; (5) try, iron out, merge.
+>
+> **Branch/PR rules:** stay on `nejc/con-50-codex-opencode` for PR #13 work; for a NEW sub-issue,
+> branch off `terminus` with a name that does **NOT** contain `con-41` (it would auto-close the
+> epic) and open a PR with base **`terminus`**. Push with `git push origin HEAD:<branch>`.
 >
 > **Repo rules:** build `@open-inspect/shared` first; conventional commits; **sole author Nejc
-> Drobnič — never add a Co-Authored-By trailer or any AI-attribution footer to commits or the PR**;
-> pnpm catalog is `strict` with a 7-day `minimumReleaseAge` gate (pin versions published ≥7 days
-> ago); **TDD** (test first, watch it fail); **verify before claiming done**
-> (`pnpm --filter @orthogonal/terminus typecheck && test && build`, `pnpm fmt:check`, `pnpm lint`);
-> call the `advisor` before committing to an approach and before declaring done; use **Workflows**
-> for parallel research/impl; keep this doc updated (it's shown live via the cmux markdown viewer).
+> Drobnič — never add a Co-Authored-By or any AI-attribution footer**; pnpm catalog is `strict` with
+> a 7-day `minimumReleaseAge` (pin versions published ≥7 days ago); **TDD** (test first, watch it
+> fail); **verify before claiming done** — `pnpm --filter <pkg> typecheck && test`; terminus +
+> control-plane also `run test:integration` (workerd/Miniflare D1); modal:
+> `cd packages/modal-infra && uv run --extra dev pytest tests/ -v && ruff check && ruff format --check`;
+> then `pnpm fmt:check`, `pnpm lint`, `tofu fmt -check` for any `.tf`. Call the **advisor** before
+> committing to an approach and before declaring done; use **Workflows** for parallel research/impl.
 >
-> **Linear:** keep sub-issue states current (move to **In Review** + link PR #12 when implemented);
-> CON-41 is In Review; **CON-54 stays open** to track the durable timeseries-DB store (deferred per
-> Nejc). Comment durable decisions on the relevant issue.
+> **Linear:** move each sub-issue through its own lifecycle (In Progress when you start → In
+> Review + link the PR when implemented); comment durable decisions on the relevant issue; reply to
+> **CodeRabbit** threads tagging **@coderabbitai** formatted to record durable Learnings (other
+> bots' threads don't count). Keep **CON-41 In Progress** — don't let it auto-close until the whole
+> epic lands.
 >
-> **Locked decisions:** CON-53 ships behind a **default-OFF `llmGatewayEnabled`** toggle (raw-key
-> injection stays; flip ON after a live smoke test) with a **short-TTL token + plugin refresh** and
-> **plugin** (not inline) delivery; CON-50 reuses **control-plane as the sole token refresher**
-> (Terminus pulls access tokens over a `CONTROL_PLANE` service binding — never holds the refresh
-> token) and builds Codex via `@ai-sdk/openai` `.responses()` + `ChatGPT-Account-Id` with a
-> synthetic `codex/*` provider; CON-54 has **no durable store** (a timeseries metrics DB is chosen
-> later).
->
-> **Live-verify gaps (implement + unit-test here; flag a deploy-time smoke test):** CON-50's
-> upstream body contract at `chatgpt.com/backend-api/codex/responses` (needs real Codex creds);
-> CON-53's OpenCode config-hook baseURL repoint (needs a live pinned-OpenCode sandbox).
->
-> Suggested order for CON-50: (1) spike the Codex request body via `createOpenAI({ fetch })`; (2)
-> terminus identification seam (`codex/*` → `ResolvedModelRef.credentialMode`); (3) router
-> Codex-Responses branch; (4) control-plane service-auth on the token-refresh route + a Terminus
-> `CodexCredentialResolver` over the service binding; (5) wire `chat.ts`; (6) advertise-always in
-> `/v1/models`. TDD each; commit + push as you go.
+> **Gotchas from the prior session:** (a) Workflow subagents sometimes resolve **absolute paths to
+> the original repo root instead of the worktree** — give them the explicit worktree path and
+> `git status` the worktree after to catch stray writes. (b) The **pre-commit hook (lint-staged)
+> OOM-kills** on large staged sets — after independently verifying `pnpm fmt:check` + `pnpm lint`
+> are clean, commit with `--no-verify`. (c) Drizzle migration regen (table not deployed yet, so keep
+> it one clean file): edit `services/terminus/src/db/schema.ts`, then
+> `rm -rf services/terminus/migrations && pnpm --filter @orthogonal/terminus db:generate`. (d)
+> terminus D1 tests run via the Miniflare-D1 harness; migrations apply through `readD1Migrations`
+> (tests) and `scripts/d1-migrate.sh` (terraform).

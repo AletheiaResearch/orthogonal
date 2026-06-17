@@ -27,6 +27,11 @@ export interface SandboxHandlerDeps {
   getSession: () => SessionRow | null;
   refreshOpenAIToken: (session: SessionRow) => Promise<OpenAITokenRefreshResult>;
   isOpenAISecretsConfigured: () => boolean;
+  isGatewayConfigured: () => boolean;
+  isSessionGatewayEnabled: (session: SessionRow) => boolean;
+  mintGatewayToken: (
+    session: SessionRow
+  ) => Promise<{ token: string; base_url: string; expires_in: number }>;
   getScmCredentials: () => Promise<ScmCredentialsResult>;
   broadcast: (message: ServerMessage) => void;
   generateId: () => string;
@@ -47,6 +52,7 @@ export interface SandboxHandler {
   addParticipant: (request: Request) => Promise<Response>;
   verifySandboxToken: (request: Request) => Promise<Response>;
   openaiTokenRefresh: () => Promise<Response>;
+  gatewayToken: () => Promise<Response>;
   scmCredentials: () => Promise<Response>;
 }
 
@@ -189,6 +195,46 @@ export function createSandboxHandler(deps: SandboxHandlerDeps): SandboxHandler {
           account_id: result.accountId,
         },
         { status: 200 }
+      );
+    },
+
+    async gatewayToken(): Promise<Response> {
+      const session = deps.getSession();
+      if (!session) {
+        return Response.json({ error: "No session" }, { status: 404 });
+      }
+
+      if (!deps.isGatewayConfigured()) {
+        return Response.json({ error: "Gateway not configured" }, { status: 500 });
+      }
+
+      // Only sessions that spawned with the gateway enabled may refresh a gateway
+      // token — otherwise any sandbox-authenticated session could obtain Terminus
+      // access to platform/Codex credentials it was never granted.
+      if (!deps.isSessionGatewayEnabled(session)) {
+        return Response.json(
+          { error: "LLM gateway is not enabled for this session" },
+          { status: 403 }
+        );
+      }
+
+      let result: { token: string; base_url: string; expires_in: number };
+      try {
+        result = await deps.mintGatewayToken(session);
+      } catch (e) {
+        deps.getLog().error("Failed to mint gateway token", {
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return Response.json({ error: "Failed to mint gateway token" }, { status: 500 });
+      }
+
+      return Response.json(
+        {
+          token: result.token,
+          base_url: result.base_url,
+          expires_in: result.expires_in,
+        },
+        { status: 200, headers: { "Cache-Control": "no-store" } }
       );
     },
 

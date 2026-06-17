@@ -52,6 +52,14 @@ export function normalizeSandboxSettings(
     }
   }
 
+  if (settings.llmGatewayEnabled !== undefined) {
+    if (typeof settings.llmGatewayEnabled !== "boolean") {
+      reject("llmGatewayEnabled must be a boolean");
+    } else {
+      result.llmGatewayEnabled = settings.llmGatewayEnabled;
+    }
+  }
+
   if (settings.tunnelPorts !== undefined) {
     normalizeTunnelPorts(settings.tunnelPorts, reject, result);
   }

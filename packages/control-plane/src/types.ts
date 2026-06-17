@@ -63,6 +63,10 @@ export interface Env {
   INTERNAL_CALLBACK_SECRET?: string; // For signing callbacks to slack-bot
   SLACK_BOT_TOKEN?: string; // Slack bot token for agent-initiated chat.postMessage calls
 
+  // Terminus LLM gateway (CON-52/CON-53)
+  TERMINUS_JWT_SECRET?: string; // HS256 secret for minting gateway tokens
+  TERMINUS_GATEWAY_URL?: string; // Base URL of the Terminus LLM gateway
+
   // GitHub App secrets (for git operations)
   GITHUB_APP_ID?: string;
   GITHUB_APP_PRIVATE_KEY?: string;
