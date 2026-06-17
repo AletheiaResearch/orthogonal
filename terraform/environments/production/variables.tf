@@ -282,6 +282,13 @@ variable "terminus_admin_secret" {
   sensitive   = true
 }
 
+variable "terminus_gateway_policy" {
+  description = "Seed JSON for the Terminus platform guardrail policy (CON-71 L2). Optional — empty means no policy (pass-through); validated + lazy-seeded as platform-default v1 on first read, then managed via the admin API."
+  type        = string
+  default     = ""
+  sensitive   = false
+}
+
 variable "codex_oauth_refresh_token" {
   description = "ChatGPT/Codex OAuth refresh token seeded into the Terminus vault (optional; from a local OpenCode login)"
   type        = string

@@ -41,6 +41,9 @@ module "terminus_worker" {
 
   plain_text_bindings = [
     { name = "DEPLOYMENT_NAME", value = var.deployment_name },
+    # Guardrail policy seed (CON-71 L2; not a secret). Empty = no policy (pass-through);
+    # else validated + lazy-seeded as platform-default v1, then managed via the admin API.
+    { name = "TERMINUS_GATEWAY_POLICY", value = var.terminus_gateway_policy },
   ]
 
   # TERMINUS_JWT_SECRET + CREDENTIALS_ENCRYPTION_KEY are required. TERMINUS_ADMIN_SECRET
