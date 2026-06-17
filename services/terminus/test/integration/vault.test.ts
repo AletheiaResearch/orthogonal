@@ -115,3 +115,88 @@ describe("CredentialVault (D1, encrypted at rest)", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("CredentialVault — pool + admin (CON-71 / CON-70)", () => {
+  const rowById = async (id: string) =>
+    (await db.select().from(providerCredentials).where(eq(providerCredentials.id, id)))[0];
+
+  it("createCredential supports multiple labeled rows per (owner, provider)", async () => {
+    await vault.createCredential({
+      provider: "openai",
+      apiKey: "k-a",
+      label: "a",
+      priority: 5,
+      weight: 2,
+    });
+    await vault.createCredential({ provider: "openai", apiKey: "k-b", label: "b", priority: 1 });
+    const rows = await vault.getCredentials("openai");
+    expect(rows.map((r) => r.label).toSorted()).toEqual(["a", "b"]);
+    expect(rows.find((r) => r.label === "a")?.priority).toBe(5);
+    expect(rows.find((r) => r.label === "a")?.weight).toBe(2);
+  });
+
+  it("getCredentials returns only enabled rows and does not decrypt", async () => {
+    await vault.createCredential({ provider: "openai", apiKey: "k-a", label: "a" });
+    await vault.createCredential({ provider: "openai", apiKey: "k-b", label: "b", enabled: false });
+    const rows = await vault.getCredentials("openai");
+    expect(rows.map((r) => r.label)).toEqual(["a"]);
+    expect(rows[0].secretEncrypted).not.toContain("k-a");
+  });
+
+  it("decryptById: plaintext for the matching owner; null for wrong owner or disabled", async () => {
+    const { id } = await vault.createCredential({ provider: "openai", apiKey: "k-a", label: "a" });
+    expect(await vault.decryptById(id, { type: "platform", id: "" })).toEqual({
+      mode: "api_key",
+      apiKey: "k-a",
+    });
+    expect(await vault.decryptById(id, { type: "tenant", id: "x" })).toBeNull();
+    await vault.setEnabled(id, false);
+    expect(await vault.decryptById(id, { type: "platform", id: "" })).toBeNull();
+  });
+
+  it("recordFailure sets cooldown + increments; recordSuccess clears", async () => {
+    const { id } = await vault.createCredential({ provider: "openai", apiKey: "k", label: "a" });
+    await vault.recordFailure(id, 9999);
+    expect(await rowById(id)).toMatchObject({ cooldownUntil: 9999, failureCount: 1 });
+    await vault.recordFailure(id, 12000);
+    expect(await rowById(id)).toMatchObject({ cooldownUntil: 12000, failureCount: 2 });
+    await vault.recordSuccess(id);
+    expect(await rowById(id)).toMatchObject({ cooldownUntil: null, failureCount: 0 });
+  });
+
+  it("listForOwner returns public fields only — never the secret", async () => {
+    await vault.createCredential({ provider: "openai", apiKey: "k-secret", label: "a" });
+    const list = await vault.listForOwner();
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({
+      provider: "openai",
+      label: "a",
+      credentialMode: "api_key",
+      enabled: true,
+    });
+    expect(JSON.stringify(list[0])).not.toContain("k-secret");
+    expect("secretEncrypted" in list[0]).toBe(false);
+  });
+
+  it("setEnabled and deleteCredential are owner-scoped and report whether a row matched", async () => {
+    const { id } = await vault.createCredential({ provider: "openai", apiKey: "k", label: "a" });
+    expect(await vault.setEnabled(id, false, { type: "tenant", id: "other" })).toBe(false);
+    expect(await vault.setEnabled(id, false)).toBe(true);
+    expect(await vault.getCredentials("openai")).toEqual([]);
+    expect(await vault.deleteCredential(id)).toBe(true);
+    expect(await vault.deleteCredential(id)).toBe(false);
+  });
+
+  it("listCodexRowsNearExpiry returns codex rows (any owner) at/under threshold or null expiry", async () => {
+    await vault.putCodexCredential({ refreshToken: "rt-plat", expiresAtMs: 1000 });
+    await vault.putCodexCredential({
+      refreshToken: "rt-t",
+      expiresAtMs: 50000,
+      owner: { type: "tenant", id: "t1" },
+    });
+    await vault.putApiKey({ provider: "openai", apiKey: "k" });
+    const near = await vault.listCodexRowsNearExpiry(2000);
+    expect(near.map((r) => `${r.ownerType}:${r.ownerId}`)).toEqual(["platform:"]);
+    expect((await vault.listCodexRowsNearExpiry(60000)).length).toBe(2);
+  });
+});
