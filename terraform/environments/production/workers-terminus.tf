@@ -31,21 +31,39 @@ module "terminus_worker" {
     }
   ]
 
+  # Credential vault (CON-50) — Terminus owns provider/Codex credentials in its own D1.
+  d1_databases = [
+    {
+      binding_name = "DB"
+      database_id  = cloudflare_d1_database.terminus[0].id
+    }
+  ]
+
   plain_text_bindings = [
     { name = "DEPLOYMENT_NAME", value = var.deployment_name },
   ]
 
-  # Provider keys are optional: the gateway enables a provider only when its key is
-  # non-empty (dynamic, OpenRouter-style). Add more provider keys here as needed —
-  # e.g. { name = "OPENROUTER_API_KEY", value = var.openrouter_api_key }.
+  # TERMINUS_JWT_SECRET + CREDENTIALS_ENCRYPTION_KEY are required. Provider keys are
+  # optional seeds (the vault enables a provider only when its key is non-empty —
+  # dynamic, OpenRouter-style); CODEX_OAUTH_* seeds the platform Codex account.
   secrets = [
     { name = "TERMINUS_JWT_SECRET", value = var.terminus_jwt_secret },
+    { name = "CREDENTIALS_ENCRYPTION_KEY", value = var.terminus_credentials_encryption_key },
     { name = "ANTHROPIC_API_KEY", value = var.anthropic_api_key },
     { name = "OPENAI_API_KEY", value = var.openai_api_key },
+    { name = "CODEX_OAUTH_REFRESH_TOKEN", value = var.codex_oauth_refresh_token },
+    { name = "CODEX_OAUTH_ACCOUNT_ID", value = var.codex_oauth_account_id },
   ]
+
+  # Proactively refresh the Codex access token before it expires (scheduled handler).
+  cron_triggers = ["*/5 * * * *"]
 
   compatibility_date  = "2024-09-23"
   compatibility_flags = ["nodejs_compat"]
 
-  depends_on = [null_resource.terminus_build[0], module.terminus_kv[0]]
+  depends_on = [
+    null_resource.terminus_build[0],
+    module.terminus_kv[0],
+    null_resource.terminus_d1_migrations[0],
+  ]
 }
