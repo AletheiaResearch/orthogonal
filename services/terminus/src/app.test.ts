@@ -305,6 +305,34 @@ describe("terminus app", () => {
   });
 });
 
+// A two-candidate pool (c1→k1, c2→k2) that records success/failure by id.
+function poolProvider(): { provider: CredentialProvider; ok: string[]; fail: string[] } {
+  const ok: string[] = [];
+  const fail: string[] = [];
+  const provider: CredentialProvider = {
+    forModel: () => Promise.resolve(null),
+    forModelCandidates: (ref) =>
+      Promise.resolve(
+        ref.providerId === "anthropic"
+          ? [
+              { id: "c1", resolve: () => Promise.resolve({ apiKey: "k1" }) },
+              { id: "c2", resolve: () => Promise.resolve({ apiKey: "k2" }) },
+            ]
+          : []
+      ),
+    isEnabled: () => Promise.resolve(true),
+    recordSuccess: (id) => {
+      ok.push(id);
+      return Promise.resolve();
+    },
+    recordFailure: (id) => {
+      fail.push(id);
+      return Promise.resolve();
+    },
+  };
+  return { provider, ok, fail };
+}
+
 describe("terminus chat — credential pool fallback (CON-71)", () => {
   const success = (text: string): MockArgs =>
     ({
@@ -330,34 +358,6 @@ describe("terminus chat — credential pool fallback (CON-71)", () => {
           })
         ),
     }) as unknown as MockArgs;
-
-  // A two-candidate pool (c1→k1, c2→k2) that records success/failure by id.
-  function poolProvider(): { provider: CredentialProvider; ok: string[]; fail: string[] } {
-    const ok: string[] = [];
-    const fail: string[] = [];
-    const provider: CredentialProvider = {
-      forModel: () => Promise.resolve(null),
-      forModelCandidates: (ref) =>
-        Promise.resolve(
-          ref.providerId === "anthropic"
-            ? [
-                { id: "c1", resolve: () => Promise.resolve({ apiKey: "k1" }) },
-                { id: "c2", resolve: () => Promise.resolve({ apiKey: "k2" }) },
-              ]
-            : []
-        ),
-      isEnabled: () => Promise.resolve(true),
-      recordSuccess: (id) => {
-        ok.push(id);
-        return Promise.resolve();
-      },
-      recordFailure: (id) => {
-        fail.push(id);
-        return Promise.resolve();
-      },
-    };
-    return { provider, ok, fail };
-  }
 
   async function chat(
     provider: CredentialProvider,
