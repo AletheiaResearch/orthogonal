@@ -6,7 +6,10 @@ import { describe, expect, it } from "vitest";
 import type { ModelsDevRegistry, ResolvedModelRef } from "./catalog/registry";
 import type { CredentialProvider } from "./credentials/provider";
 import type { Env } from "./env";
+import { policyUnavailable } from "./errors";
 import { createApp } from "./index";
+import { type GuardrailPolicy, parsePolicy } from "./policy/blob";
+import type { PolicyStore } from "./policy/store";
 import type { UsageRecord, UsageSink } from "./usage/sink";
 
 type MockArgs = ConstructorParameters<typeof MockLanguageModelV3>[0];
@@ -516,5 +519,125 @@ describe("terminus chat — credential pool fallback (CON-71)", () => {
     expect(res.status).toBe(200);
     await res.text(); // drain so the error part is consumed
     expect(fail).toEqual(["c1"]);
+  });
+});
+
+describe("terminus chat — guardrail policy (CON-71 L2)", () => {
+  const okModel = () =>
+    new MockLanguageModelV3({
+      doGenerate: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "ok" }],
+          finishReason: "stop",
+          usage: LL_USAGE,
+          warnings: [],
+        }),
+    } as unknown as MockArgs);
+
+  // A minimal fake of the store's chat-facing surface (the admin methods are unused here).
+  const policyStore = (policy: GuardrailPolicy | null, opts?: { fail?: boolean }) =>
+    ({
+      getActivePolicy: () =>
+        opts?.fail ? Promise.reject(policyUnavailable()) : Promise.resolve(policy),
+    }) as unknown as PolicyStore;
+
+  async function chatWith(deps: Parameters<typeof createApp>[0], body?: unknown) {
+    return createApp(deps).request(
+      "/v1/chat/completions",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${await token()}`, "content-type": "application/json" },
+        body: JSON.stringify(
+          body ?? {
+            model: "anthropic/claude-opus-4-5",
+            messages: [{ role: "user", content: "hi" }],
+          }
+        ),
+      },
+      env
+    );
+  }
+
+  it("is a pass-through when the active policy is null (behavior unchanged)", async () => {
+    const res = await chatWith({
+      loadRegistry: () => Promise.resolve(REGISTRY),
+      buildCredentials: () => credentials,
+      buildPolicyStore: () => policyStore(null),
+      chat: { buildModel: () => okModel() },
+    });
+    expect(res.status).toBe(200);
+    expect(
+      ((await res.json()) as { choices: { message: { content: string } }[] }).choices[0].message
+        .content
+    ).toBe("ok");
+  });
+
+  it("blocks a denied model with 403 before any credential lookup", async () => {
+    const seen: string[] = [];
+    const spy: CredentialProvider = {
+      forModel: () => Promise.resolve(null),
+      forModelCandidates: (ref) => {
+        seen.push(ref.providerId);
+        return Promise.resolve([]);
+      },
+      isEnabled: () => Promise.resolve(true),
+    };
+    const res = await chatWith({
+      loadRegistry: () => Promise.resolve(REGISTRY),
+      buildCredentials: () => spy,
+      buildPolicyStore: () =>
+        policyStore(
+          parsePolicy({
+            schemaVersion: 1,
+            guardrails: { deniedModels: ["anthropic/claude-opus-4-5"] },
+          })
+        ),
+      chat: { buildModel: () => okModel() },
+    });
+    expect(res.status).toBe(403);
+    expect(seen).toEqual([]); // guardrail short-circuits before credential resolution
+  });
+
+  it("clamps max_tokens to the policy cap before the upstream call", async () => {
+    let capturedMax: number | undefined;
+    const res = await chatWith(
+      {
+        loadRegistry: () => Promise.resolve(REGISTRY),
+        buildCredentials: () => credentials,
+        buildPolicyStore: () =>
+          policyStore(parsePolicy({ schemaVersion: 1, guardrails: { maxOutputTokensCap: 256 } })),
+        chat: {
+          buildModel: () =>
+            new MockLanguageModelV3({
+              doGenerate: (options: { maxOutputTokens?: number }) => {
+                capturedMax = options.maxOutputTokens;
+                return Promise.resolve({
+                  content: [{ type: "text", text: "ok" }],
+                  finishReason: "stop",
+                  usage: LL_USAGE,
+                  warnings: [],
+                });
+              },
+            } as unknown as MockArgs),
+        },
+      },
+      {
+        model: "anthropic/claude-opus-4-5",
+        messages: [{ role: "user", content: "hi" }],
+        max_tokens: 9999,
+      }
+    );
+    expect(res.status).toBe(200);
+    expect(capturedMax).toBe(256);
+  });
+
+  it("fails closed with 503 when the policy store errors", async () => {
+    const res = await chatWith({
+      loadRegistry: () => Promise.resolve(REGISTRY),
+      buildCredentials: () => credentials,
+      buildPolicyStore: () => policyStore(null, { fail: true }),
+      chat: { buildModel: () => okModel() },
+    });
+    expect(res.status).toBe(503);
   });
 });

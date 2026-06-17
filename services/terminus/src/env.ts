@@ -20,6 +20,13 @@ export interface Env {
   /** Bearer secret for the platform credential ingestion/admin API (CON-70). */
   TERMINUS_ADMIN_SECRET?: string;
 
+  /**
+   * Seed JSON for the platform guardrail policy (CON-71 L2). Validated + lazy-seeded
+   * as `platform-default` version 1 on first read when no policy row exists; unset =
+   * no policy (pass-through). The admin API manages versions thereafter.
+   */
+  TERMINUS_GATEWAY_POLICY?: string;
+
   /** KV namespace caching the fetched models.dev registry (CON-49). */
   MODELS_CACHE?: KVNamespace;
 

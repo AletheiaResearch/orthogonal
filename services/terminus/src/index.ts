@@ -19,6 +19,7 @@ import { CredentialVault } from "./db/vault";
 import type { Env } from "./env";
 import { errorResponse, toGatewayError } from "./errors";
 import { gatewayAuth, type TerminusVars } from "./middleware/auth";
+import { PolicyStore } from "./policy/store";
 import { buildAdminApp } from "./routes/admin";
 import { type ChatDeps, chatCompletions } from "./routes/chat";
 import { LoggingUsageSink } from "./usage/sink";
@@ -32,6 +33,8 @@ export interface AppDeps {
   buildCredentials?: (env: Env) => CredentialProvider;
   /** Injectable vault factory for the admin API (tests); defaults to the D1 vault. */
   buildVault?: (env: Env) => CredentialVault;
+  /** Per-request guardrail policy store factory (CON-71 L2); defaults to the D1 store. */
+  buildPolicyStore?: (env: Env) => PolicyStore;
   /** Test-only chat overrides (model builder, clock, id source). */
   chat?: Pick<ChatDeps, "buildModel" | "now" | "newId">;
 }
@@ -46,6 +49,12 @@ export function createApp(deps: AppDeps = {}) {
   const loadRegistry = deps.loadRegistry ?? fetchRegistry;
   const usageSink = deps.usageSink ?? new LoggingUsageSink();
   const buildCredentials = deps.buildCredentials ?? vaultCredentials;
+  // Guardrail policy store (CON-71 L2): the injected factory in tests, else the real D1 store
+  // when a DB is bound. No DB (DB-less unit envs) → undefined → chat treats it as no policy.
+  const policyStoreFor = (env: Env): PolicyStore | undefined => {
+    if (deps.buildPolicyStore) return deps.buildPolicyStore(env);
+    return env.DB ? new PolicyStore(drizzle(env.DB), env) : undefined;
+  };
   const app = new Hono<{ Bindings: Env; Variables: TerminusVars }>();
 
   app.get("/health", (c) => c.json({ status: "healthy", service: "terminus" }));
@@ -74,6 +83,7 @@ export function createApp(deps: AppDeps = {}) {
       loadRegistry,
       usageSink,
       credentials: buildCredentials(c.env),
+      policy: policyStoreFor(c.env),
       ...deps.chat,
     })
   );
