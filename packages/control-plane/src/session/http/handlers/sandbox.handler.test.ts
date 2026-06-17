@@ -18,6 +18,7 @@ function createHandler() {
   const refreshOpenAIToken = vi.fn();
   const isOpenAISecretsConfigured = vi.fn();
   const isGatewayConfigured = vi.fn();
+  const isSessionGatewayEnabled = vi.fn(() => true);
   const mintGatewayToken = vi.fn();
   const getScmCredentials = vi.fn();
   const broadcast = vi.fn();
@@ -41,6 +42,7 @@ function createHandler() {
     refreshOpenAIToken,
     isOpenAISecretsConfigured,
     isGatewayConfigured,
+    isSessionGatewayEnabled,
     mintGatewayToken,
     getScmCredentials,
     broadcast,
@@ -59,6 +61,7 @@ function createHandler() {
     refreshOpenAIToken,
     isOpenAISecretsConfigured,
     isGatewayConfigured,
+    isSessionGatewayEnabled,
     mintGatewayToken,
     getScmCredentials,
     broadcast,
@@ -447,6 +450,31 @@ describe("createSandboxHandler", () => {
       expires_in: 900,
     });
     expect(mintGatewayToken).toHaveBeenCalledWith(session);
+  });
+
+  it("returns 403 when the session did not enable the gateway", async () => {
+    const { handler, getSession, isGatewayConfigured, isSessionGatewayEnabled, mintGatewayToken } =
+      createHandler();
+    getSession.mockReturnValue({ id: "session-1" } as SessionRow);
+    isGatewayConfigured.mockReturnValue(true);
+    isSessionGatewayEnabled.mockReturnValue(false);
+
+    const response = await handler.gatewayToken();
+
+    expect(response.status).toBe(403);
+    expect(mintGatewayToken).not.toHaveBeenCalled();
+  });
+
+  it("returns a structured 500 when minting throws", async () => {
+    const { handler, getSession, isGatewayConfigured, mintGatewayToken } = createHandler();
+    getSession.mockReturnValue({ id: "session-1" } as SessionRow);
+    isGatewayConfigured.mockReturnValue(true);
+    mintGatewayToken.mockRejectedValue(new Error("boom"));
+
+    const response = await handler.gatewayToken();
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "Failed to mint gateway token" });
   });
 
   it("returns 404 when scm credentials have no session", async () => {

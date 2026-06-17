@@ -126,7 +126,10 @@ function isSandboxAuthRoute(path: string): boolean {
 function isScmAgnosticRoute(path: string): boolean {
   return (
     /^\/analytics\/(summary|timeseries|breakdown)$/.test(path) ||
-    /^\/provider-identities\/github\/[^/]+$/.test(path)
+    /^\/provider-identities\/github\/[^/]+$/.test(path) ||
+    // The LLM gateway token refresh is provider-agnostic (no SCM involvement), so it
+    // must not be blocked by the GitLab SCM allowlist or sandboxes 501 on refresh.
+    /^\/sessions\/[^/]+\/gateway-token$/.test(path)
   );
 }
 

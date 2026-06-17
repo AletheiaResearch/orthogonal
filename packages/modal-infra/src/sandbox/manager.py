@@ -334,15 +334,26 @@ class SandboxManager:
         never enter a gateway-enabled container. Empty strings are treated the
         same as ``None``.
 
-        Returns ``True`` when the gateway is enabled (and the raw LLM secrets
-        must be dropped), ``False`` otherwise.
+        ``GATEWAY_TOKEN``/``GATEWAY_BASE_URL`` are reserved: any user-supplied values
+        are stripped first so a sandbox can't spoof gateway mode. Returns ``True`` when
+        the gateway is enabled (and the raw LLM secrets must be dropped), ``False``
+        otherwise. Raises if a token is supplied without a base URL (a misconfigured
+        gateway request must not silently drop raw keys and leave no usable provider).
         """
+        # Reserved keys — never honor user-supplied values.
+        env_vars.pop("GATEWAY_TOKEN", None)
+        env_vars.pop("GATEWAY_BASE_URL", None)
+
         token = (gateway_token or "").strip()
         if not token:
             return False
 
+        base_url = (gateway_base_url or "").strip()
+        if not base_url:
+            raise ValueError("gateway_token supplied without a non-empty gateway_base_url")
+
         env_vars["GATEWAY_TOKEN"] = token
-        env_vars["GATEWAY_BASE_URL"] = (gateway_base_url or "").strip()
+        env_vars["GATEWAY_BASE_URL"] = base_url
         return True
 
     async def create_sandbox(

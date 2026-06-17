@@ -13,7 +13,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
 import type { ResolvedModelRef } from "../catalog/registry";
-import { missingBaseURL, unsupportedProvider } from "../errors";
+import { codexAccountMissing, missingBaseURL, unsupportedProvider } from "../errors";
 
 export interface BuildLanguageModelOptions {
   /** Codex OAuth account id → `ChatGPT-Account-Id` request header. */
@@ -55,11 +55,14 @@ export function buildLanguageModel(
   // plugin's headers exactly. Required body deviations come from codexProviderOptions.
   if (ref.credentialMode === "codex-oauth") {
     if (!ref.baseURL) throw missingBaseURL(ref.providerId);
+    // Codex/responses rejects requests without the account header — fail fast on an
+    // incomplete credential rather than proxying a guaranteed-400 upstream request.
+    if (!opts.accountId) throw codexAccountMissing();
     return createOpenAI({
       apiKey,
       baseURL: ref.baseURL,
       headers: {
-        ...(opts.accountId ? { "ChatGPT-Account-Id": opts.accountId } : {}),
+        "ChatGPT-Account-Id": opts.accountId,
         originator: "opencode",
         ...(opts.sessionId ? { session_id: opts.sessionId } : {}),
       },

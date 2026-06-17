@@ -2232,20 +2232,19 @@ describe("SandboxLifecycleManager", () => {
       expect(call?.gatewayBaseUrl).toBeUndefined();
     });
 
-    it("does not mint when Terminus secrets are not configured", async () => {
+    it("fails closed (no sandbox) when enabled but Terminus secrets are missing", async () => {
       const { manager, provider } = buildManager({
         session: gatewayEnabledSession(),
-        // No terminus secrets in config.
+        // No terminus secrets in config → gateway requested but unprovisionable.
       });
 
       await manager.spawnSandbox();
 
-      const call = vi.mocked(provider.createSandbox).mock.calls[0]?.[0];
-      expect(call?.gatewayToken).toBeUndefined();
-      expect(call?.gatewayBaseUrl).toBeUndefined();
+      // Never spawn with raw keys when the gateway was requested but can't be provided.
+      expect(provider.createSandbox).not.toHaveBeenCalled();
     });
 
-    it("still spawns (non-fatal) when minting throws", async () => {
+    it("fails closed (no raw-key sandbox) when minting throws", async () => {
       const mintSpy = vi
         .spyOn(shared, "mintGatewayToken")
         .mockRejectedValue(new Error("mint failed"));
@@ -2258,10 +2257,7 @@ describe("SandboxLifecycleManager", () => {
         await manager.spawnSandbox();
 
         expect(mintSpy).toHaveBeenCalled();
-        expect(provider.createSandbox).toHaveBeenCalled();
-        const call = vi.mocked(provider.createSandbox).mock.calls[0]?.[0];
-        expect(call?.gatewayToken).toBeUndefined();
-        expect(call?.gatewayBaseUrl).toBeUndefined();
+        expect(provider.createSandbox).not.toHaveBeenCalled();
       } finally {
         mintSpy.mockRestore();
       }

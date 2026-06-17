@@ -10,6 +10,9 @@
 const OPENAI_TOKEN_URL = "https://auth.openai.com/oauth/token";
 const OPENAI_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
 
+/** Bound the refresh so a stalled upstream can't pin a request or the cron invocation. */
+const CODEX_REFRESH_TIMEOUT_MS = 10_000;
+
 /** Thrown on a 401 — the refresh token was already rotated (e.g. by a concurrent writer). */
 export class CodexRefreshUnauthorizedError extends Error {}
 
@@ -41,6 +44,7 @@ export async function refreshCodexToken(
       refresh_token: refreshToken,
       client_id: OPENAI_CLIENT_ID,
     }).toString(),
+    signal: AbortSignal.timeout(CODEX_REFRESH_TIMEOUT_MS),
   });
 
   if (response.status === 401) {

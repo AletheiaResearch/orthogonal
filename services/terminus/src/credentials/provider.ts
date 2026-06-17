@@ -39,6 +39,7 @@ export interface VaultCredentialProviderDeps {
 export class VaultCredentialProvider implements CredentialProvider {
   private readonly envResolver: EnvKeyResolver;
   private enabledCache?: Promise<Set<string>>;
+  private allCache?: Promise<Set<string>>;
 
   constructor(private readonly deps: VaultCredentialProviderDeps) {
     this.envResolver = new EnvKeyResolver(deps.env);
@@ -54,7 +55,9 @@ export class VaultCredentialProvider implements CredentialProvider {
     const existing = await this.deps.vault.getCredential(ref.providerId);
     if (existing?.mode === "api_key") return { apiKey: existing.apiKey };
 
-    // Lazy-seed from a Worker secret on first use; the vault is authoritative after.
+    // A row that exists but is disabled is terminal — never resurrect it from a
+    // Worker secret. Lazy-seed from env only when the vault has no row at all.
+    if ((await this.all()).has(ref.providerId)) return null;
     const fromEnv = await this.envResolver.resolve(ref.providerId, ref.envKeys);
     if (!fromEnv) return null;
     await this.deps.vault.putApiKey({ provider: ref.providerId, apiKey: fromEnv.apiKey });
@@ -63,9 +66,12 @@ export class VaultCredentialProvider implements CredentialProvider {
 
   async isEnabled(providerId: string, envKeys?: string[]): Promise<boolean> {
     if (providerId === CODEX_PROVIDER) {
-      return (await this.enabled()).has(CODEX_PROVIDER) || this.codexSeedable();
+      if ((await this.enabled()).has(CODEX_PROVIDER)) return true;
+      if ((await this.all()).has(CODEX_PROVIDER)) return false; // disabled codex row is terminal
+      return this.codexSeedable();
     }
     if ((await this.enabled()).has(providerId)) return true;
+    if ((await this.all()).has(providerId)) return false; // disabled row — no env fallback
     return this.envResolver.isEnabled(providerId, envKeys);
   }
 
@@ -74,18 +80,33 @@ export class VaultCredentialProvider implements CredentialProvider {
     return this.enabledCache;
   }
 
-  private codexSeedable(): boolean {
-    const value = this.deps.env[CODEX_REFRESH_TOKEN_ENV];
-    return typeof value === "string" && value.length > 0;
+  private all(): Promise<Set<string>> {
+    this.allCache ??= this.deps.vault.listAllProviders().then((ids) => new Set(ids));
+    return this.allCache;
   }
 
+  /** Trimmed Codex refresh-token seed from a Worker secret, or undefined when unset. */
+  private codexRefreshToken(): string | undefined {
+    return trimmedEnv(this.deps.env[CODEX_REFRESH_TOKEN_ENV]);
+  }
+
+  private codexSeedable(): boolean {
+    return this.codexRefreshToken() !== undefined;
+  }
+
+  /** Insert-if-absent seed; idempotent, so it never clobbers a concurrently-rotated token. */
   private async ensureCodexSeeded(): Promise<void> {
-    if (!this.codexSeedable()) return;
-    if (await this.deps.vault.getCredential(CODEX_PROVIDER)) return;
-    const accountIdValue = this.deps.env[CODEX_ACCOUNT_ID_ENV];
-    await this.deps.vault.putCodexCredential({
-      refreshToken: this.deps.env[CODEX_REFRESH_TOKEN_ENV] as string,
-      accountId: typeof accountIdValue === "string" ? accountIdValue : undefined,
+    const refreshToken = this.codexRefreshToken();
+    if (!refreshToken) return;
+    await this.deps.vault.seedCodexCredential({
+      refreshToken,
+      accountId: trimmedEnv(this.deps.env[CODEX_ACCOUNT_ID_ENV]),
     });
   }
+}
+
+function trimmedEnv(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }

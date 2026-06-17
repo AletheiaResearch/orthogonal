@@ -65,6 +65,8 @@ const GATEWAY_PROVIDER_NPM = "@ai-sdk/openai-compatible";
 const REFRESH_BUFFER_MS = 5 * 60 * 1000; // refresh 5 minutes before expiry
 const CATALOG_TIMEOUT_MS = 10_000; // bound the startup catalog fetch so an
 // unreachable gateway can't stall OpenCode server readiness indefinitely.
+const TOKEN_REFRESH_TIMEOUT_MS = 10_000; // the refresh runs on the model request
+// path — a stalled control plane must not hang completions indefinitely.
 
 // In-memory token state (reset on sandbox restart; reseeded from env below).
 let cachedToken = null;
@@ -129,6 +131,7 @@ async function refreshViaControlPlane() {
     headers: {
       Authorization: `Bearer ${authToken}`,
     },
+    signal: AbortSignal.timeout(TOKEN_REFRESH_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -184,7 +187,13 @@ async function fetchCatalog(baseUrl, token) {
 async function gatewayFetch(requestInput, init) {
   const { token } = await ensureGatewayToken();
 
-  const headers = new Headers(init?.headers || undefined);
+  // Per the Fetch spec, init.headers override but must not discard a Request's own
+  // headers (e.g. content-type). Start from the Request's headers when one was
+  // passed, layer init.headers on top, then stamp the fresh gateway token.
+  const headers = new Headers(requestInput instanceof Request ? requestInput.headers : undefined);
+  if (init?.headers) {
+    new Headers(init.headers).forEach((value, key) => headers.set(key, value));
+  }
   headers.set("authorization", `Bearer ${token}`);
 
   return fetch(requestInput, { ...init, headers });

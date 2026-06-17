@@ -18,6 +18,7 @@ function manager(refresh: () => Promise<unknown>, now: () => number = () => 0) {
   return new CodexTokenManager(vault, {
     refresh: refresh as never,
     now,
+    rereadDelayMs: 0,
   });
 }
 

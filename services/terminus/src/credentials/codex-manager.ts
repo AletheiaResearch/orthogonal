@@ -26,16 +26,22 @@ export interface CodexAccessToken {
   accountId?: string;
 }
 
+/** Grace before the 401 re-read, to let a concurrent writer's rotation commit to D1. */
+const CONCURRENT_ROTATION_GRACE_MS = 500;
+
 export interface CodexTokenManagerOptions {
   /** Refresh implementation (injectable for tests); defaults to the live OpenAI call. */
   refresh?: (refreshToken: string) => Promise<CodexRefreshResult>;
   /** Injectable clock (epoch ms). */
   now?: () => number;
+  /** Delay before the 401 re-read (injectable; tests pass 0 to stay fast). */
+  rereadDelayMs?: number;
 }
 
 export class CodexTokenManager {
   private readonly refresh: (refreshToken: string) => Promise<CodexRefreshResult>;
   private readonly now: () => number;
+  private readonly rereadDelayMs: number;
 
   constructor(
     private readonly vault: CredentialVault,
@@ -43,6 +49,7 @@ export class CodexTokenManager {
   ) {
     this.refresh = options.refresh ?? refreshCodexToken;
     this.now = options.now ?? (() => Date.now());
+    this.rereadDelayMs = options.rereadDelayMs ?? CONCURRENT_ROTATION_GRACE_MS;
   }
 
   /** A live Codex access token + account id, or null when Codex isn't configured. */
@@ -77,6 +84,10 @@ export class CodexTokenManager {
     } catch (err) {
       if (err instanceof CodexRefreshUnauthorizedError) {
         // The single-use token was already rotated — adopt the concurrent writer's token.
+        // Brief grace first so its rotation has committed to D1 before we re-read.
+        if (this.rereadDelayMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, this.rereadDelayMs));
+        }
         const reread = await this.vault.getCredential(CODEX_PROVIDER);
         if (
           reread?.mode === "codex-oauth" &&

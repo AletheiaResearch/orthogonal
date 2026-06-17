@@ -1,4 +1,5 @@
 import { env } from "cloudflare:test";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -72,5 +73,45 @@ describe("CredentialVault (D1, encrypted at rest)", () => {
       mode: "api_key",
       apiKey: "sk",
     });
+  });
+
+  it("never serves a disabled credential (revocation is terminal)", async () => {
+    await vault.putApiKey({ provider: "openrouter", apiKey: "k", enabled: false });
+    expect(await vault.getCredential("openrouter")).toBeNull();
+    expect(await vault.listEnabledProviders()).toEqual([]);
+    expect(await vault.listAllProviders()).toEqual(["openrouter"]);
+  });
+
+  it("rejects empty secrets before persisting", async () => {
+    await expect(vault.putApiKey({ provider: "openai", apiKey: "" })).rejects.toThrow();
+    await expect(vault.putCodexCredential({ refreshToken: "" })).rejects.toThrow();
+    expect(await db.select().from(providerCredentials).all()).toEqual([]);
+  });
+
+  it("seedCodexCredential is insert-if-absent — never clobbers a rotated row", async () => {
+    await vault.putCodexCredential({
+      refreshToken: "rt-rotated",
+      accessToken: "at-rotated",
+      accountId: "acc",
+      expiresAtMs: 9_000_000,
+    });
+    // A late seed carrying the original (consumed) token must NOT overwrite the rotation.
+    await vault.seedCodexCredential({ refreshToken: "rt-seed-stale", accountId: "acc" });
+    expect(await vault.getCredential("codex")).toMatchObject({
+      refreshToken: "rt-rotated",
+      accessToken: "at-rotated",
+    });
+  });
+
+  it("binds ciphertext to its owner — a tampered owner row fails to decrypt", async () => {
+    await vault.putApiKey({ provider: "anthropic", apiKey: "sk-secret" });
+    // Move the row to a different owner without re-encrypting → AAD no longer matches.
+    await db
+      .update(providerCredentials)
+      .set({ ownerType: "tenant", ownerId: "attacker" })
+      .where(eq(providerCredentials.provider, "anthropic"));
+    await expect(
+      vault.getCredential("anthropic", { type: "tenant", id: "attacker" })
+    ).rejects.toThrow();
   });
 });

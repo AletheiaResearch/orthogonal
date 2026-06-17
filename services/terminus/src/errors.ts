@@ -56,6 +56,14 @@ export const missingBaseURL = (provider: string): GatewayError =>
     `Provider "${provider}" has no baseURL for the openai-compatible adapter`
   );
 
+export const codexAccountMissing = (): GatewayError =>
+  new GatewayError(
+    "provider_unconfigured",
+    502,
+    "invalid_request_error",
+    "Codex credential is missing the required ChatGPT account id"
+  );
+
 export const unsupportedProvider = (npm: string, provider: string): GatewayError =>
   new GatewayError(
     "unsupported_provider",

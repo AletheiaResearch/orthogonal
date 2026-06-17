@@ -28,6 +28,7 @@ export interface SandboxHandlerDeps {
   refreshOpenAIToken: (session: SessionRow) => Promise<OpenAITokenRefreshResult>;
   isOpenAISecretsConfigured: () => boolean;
   isGatewayConfigured: () => boolean;
+  isSessionGatewayEnabled: (session: SessionRow) => boolean;
   mintGatewayToken: (
     session: SessionRow
   ) => Promise<{ token: string; base_url: string; expires_in: number }>;
@@ -207,7 +208,25 @@ export function createSandboxHandler(deps: SandboxHandlerDeps): SandboxHandler {
         return Response.json({ error: "Gateway not configured" }, { status: 500 });
       }
 
-      const result = await deps.mintGatewayToken(session);
+      // Only sessions that spawned with the gateway enabled may refresh a gateway
+      // token — otherwise any sandbox-authenticated session could obtain Terminus
+      // access to platform/Codex credentials it was never granted.
+      if (!deps.isSessionGatewayEnabled(session)) {
+        return Response.json(
+          { error: "LLM gateway is not enabled for this session" },
+          { status: 403 }
+        );
+      }
+
+      let result: { token: string; base_url: string; expires_in: number };
+      try {
+        result = await deps.mintGatewayToken(session);
+      } catch (e) {
+        deps.getLog().error("Failed to mint gateway token", {
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return Response.json({ error: "Failed to mint gateway token" }, { status: 500 });
+      }
 
       return Response.json(
         {

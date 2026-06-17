@@ -59,6 +59,7 @@ export class CredentialVault {
     owner?: CredentialOwner;
     enabled?: boolean;
   }): Promise<void> {
+    if (!input.apiKey) throw new Error("CredentialVault.putApiKey: apiKey must be non-empty");
     await this.upsert({
       owner: input.owner ?? PLATFORM_OWNER,
       provider: input.provider,
@@ -78,6 +79,9 @@ export class CredentialVault {
     owner?: CredentialOwner;
     enabled?: boolean;
   }): Promise<void> {
+    if (!input.refreshToken) {
+      throw new Error("CredentialVault.putCodexCredential: refreshToken must be non-empty");
+    }
     const secret: CodexSecret = {
       refresh: input.refreshToken,
       access: input.accessToken,
@@ -93,7 +97,11 @@ export class CredentialVault {
     });
   }
 
-  /** Resolve + decrypt a credential for `(owner, provider)`, or null if unconfigured. */
+  /**
+   * Resolve + decrypt an **enabled** credential for `(owner, provider)`, or null.
+   * Disabled rows are terminal — they never serve a request and are never refreshed
+   * by the cron (revocation = set `enabled` false).
+   */
   async getCredential(
     provider: string,
     owner: CredentialOwner = PLATFORM_OWNER
@@ -105,7 +113,8 @@ export class CredentialVault {
         and(
           eq(providerCredentials.ownerType, owner.type),
           eq(providerCredentials.ownerId, owner.id),
-          eq(providerCredentials.provider, provider)
+          eq(providerCredentials.provider, provider),
+          eq(providerCredentials.enabled, true)
         )
       )
       .limit(1);
@@ -138,6 +147,64 @@ export class CredentialVault {
         )
       );
     return rows.map((r) => r.provider);
+  }
+
+  /** All provider ids with a row for `owner`, regardless of `enabled` — the env-seed guard. */
+  async listAllProviders(owner: CredentialOwner = PLATFORM_OWNER): Promise<string[]> {
+    const rows = await this.db
+      .select({ provider: providerCredentials.provider })
+      .from(providerCredentials)
+      .where(
+        and(
+          eq(providerCredentials.ownerType, owner.type),
+          eq(providerCredentials.ownerId, owner.id)
+        )
+      );
+    return rows.map((r) => r.provider);
+  }
+
+  /**
+   * Seed Codex creds only if no row exists yet (insert-if-absent). Idempotent and
+   * race-safe: a concurrent writer that already rotated the single-use token is never
+   * clobbered by a late seed carrying the original (now-consumed) refresh token.
+   */
+  async seedCodexCredential(input: {
+    refreshToken: string;
+    accountId?: string;
+    owner?: CredentialOwner;
+  }): Promise<void> {
+    if (!input.refreshToken) {
+      throw new Error("CredentialVault.seedCodexCredential: refreshToken must be non-empty");
+    }
+    const owner = input.owner ?? PLATFORM_OWNER;
+    const nowMs = this.now();
+    const secret: CodexSecret = { refresh: input.refreshToken, accountId: input.accountId };
+    const secretEncrypted = await encryptSecret(
+      JSON.stringify(secret),
+      this.encryptionKey,
+      ownerAad(owner)
+    );
+    await this.db
+      .insert(providerCredentials)
+      .values({
+        id: crypto.randomUUID(),
+        ownerType: owner.type,
+        ownerId: owner.id,
+        provider: CODEX_PROVIDER,
+        credentialMode: "codex-oauth",
+        secretEncrypted,
+        expiresAt: null,
+        enabled: true,
+        createdAt: nowMs,
+        updatedAt: nowMs,
+      })
+      .onConflictDoNothing({
+        target: [
+          providerCredentials.ownerType,
+          providerCredentials.ownerId,
+          providerCredentials.provider,
+        ],
+      });
   }
 
   private async upsert(args: {

@@ -41,6 +41,7 @@ import {
   type SlackAgentNotifyLookup,
 } from "../sandbox/lifecycle/manager";
 import { createModalProvider } from "../sandbox/providers/modal-provider";
+import { normalizeSandboxSettings } from "../sandbox/settings";
 import { DOFetcherAdapter } from "../scheduler/do-fetcher-adapter";
 import {
   createSourceControlProviderFromEnv,
@@ -393,7 +394,8 @@ export class SessionDO extends DurableObject<Env> {
         isOpenAISecretsConfigured: () =>
           Boolean(this.env.DB && this.env.REPO_SECRETS_ENCRYPTION_KEY),
         isGatewayConfigured: () =>
-          Boolean(this.env.TERMINUS_JWT_SECRET && this.env.TERMINUS_GATEWAY_URL),
+          isValidGatewayConfig(this.env.TERMINUS_JWT_SECRET, this.env.TERMINUS_GATEWAY_URL),
+        isSessionGatewayEnabled: (session) => sessionGatewayEnabled(session.sandbox_settings),
         mintGatewayToken: async (session) => {
           // sid must match the spawn-time sid (session_name || id) so the gateway
           // attributes refreshed tokens to the same session.
@@ -1849,5 +1851,29 @@ export class SessionDO extends DurableObject<Env> {
       });
       return null;
     }
+  }
+}
+
+/** The LLM gateway is configured only with a non-empty secret AND a valid https base URL. */
+function isValidGatewayConfig(secret: string | undefined, url: string | undefined): boolean {
+  if (!secret || !secret.trim()) return false;
+  if (!url || !url.trim()) return false;
+  try {
+    return new URL(url).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/** Whether a session's persisted sandbox settings opted into the LLM gateway. */
+function sessionGatewayEnabled(sandboxSettings: string | null): boolean {
+  if (!sandboxSettings) return false;
+  try {
+    return (
+      normalizeSandboxSettings(JSON.parse(sandboxSettings), { invalid: "omit" })
+        .llmGatewayEnabled === true
+    );
+  } catch {
+    return false;
   }
 }

@@ -198,3 +198,24 @@ async def test_restore_gateway_empty_token_treated_as_disabled(monkeypatch):
     assert "GATEWAY_TOKEN" not in env
     assert "GATEWAY_BASE_URL" not in env
     assert len(captured["secrets"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# _inject_gateway_env_vars helper (reserved keys + base-url requirement)
+# ---------------------------------------------------------------------------
+
+
+def test_inject_gateway_strips_user_supplied_reserved_vars():
+    """GATEWAY_* are reserved — user-supplied values are stripped, gateway stays off."""
+    env = {"GATEWAY_TOKEN": "user-spoof", "GATEWAY_BASE_URL": "https://evil", "OTHER": "x"}
+    enabled = SandboxManager._inject_gateway_env_vars(env, None, None)
+    assert enabled is False
+    assert "GATEWAY_TOKEN" not in env
+    assert "GATEWAY_BASE_URL" not in env
+    assert env["OTHER"] == "x"
+
+
+def test_inject_gateway_requires_base_url():
+    """A token without a base URL is a misconfiguration — must raise, not drop keys silently."""
+    with pytest.raises(ValueError):
+        SandboxManager._inject_gateway_env_vars({}, "real-token", "  ")

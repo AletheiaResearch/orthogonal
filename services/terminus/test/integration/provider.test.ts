@@ -106,4 +106,26 @@ describe("VaultCredentialProvider", () => {
     expect(await p.isEnabled("codex", [])).toBe(true);
     expect(await p.isEnabled("mistral", ["MISTRAL_API_KEY"])).toBe(false);
   });
+
+  it("treats a disabled provider as terminal — not served or reseeded from env", async () => {
+    await newVault().putApiKey({ provider: "anthropic", apiKey: "k", enabled: false });
+    const p = provider({ ANTHROPIC_API_KEY: "sk-env" });
+    expect(
+      await p.forModel(ref("anthropic", { envKeys: ["ANTHROPIC_API_KEY"] }), "sid")
+    ).toBeNull();
+    expect(await p.isEnabled("anthropic", ["ANTHROPIC_API_KEY"])).toBe(false);
+    // The disabled row is unchanged (not resurrected to enabled).
+    expect(await newVault().getCredential("anthropic")).toBeNull();
+  });
+
+  it("treats a whitespace-only Codex seed as unset", async () => {
+    const p = provider({ CODEX_OAUTH_REFRESH_TOKEN: "   " });
+    expect(await p.isEnabled("codex", [])).toBe(false);
+    const cred = await p.forModel(
+      ref("codex", { npm: "@ai-sdk/openai", credentialMode: "codex-oauth" }),
+      "sid"
+    );
+    expect(cred).toBeNull();
+    expect(await newVault().getCredential("codex")).toBeNull();
+  });
 });

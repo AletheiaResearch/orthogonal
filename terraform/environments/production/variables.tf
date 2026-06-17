@@ -264,6 +264,15 @@ variable "terminus_credentials_encryption_key" {
   type        = string
   default     = ""
   sensitive   = true
+
+  validation {
+    # Empty when the gateway is off; otherwise a base64-encoded 32-byte key (44 chars).
+    condition = (
+      var.terminus_credentials_encryption_key == "" ||
+      can(regex("^[A-Za-z0-9+/]{43}=$", var.terminus_credentials_encryption_key))
+    )
+    error_message = "terminus_credentials_encryption_key must be a base64-encoded 32-byte key (openssl rand -base64 32)."
+  }
 }
 
 variable "codex_oauth_refresh_token" {

@@ -96,6 +96,12 @@ describe("buildLanguageModel", () => {
     expect(m.modelId).toBe("gpt-5.3-codex");
     expect(m.specificationVersion).toBe("v3");
   });
+
+  it("throws when a Codex credential has no account id (would 400 upstream)", () => {
+    expect(() =>
+      buildLanguageModel(codexRef("gpt-5.3-codex"), "access-token", { sessionId: "sess-1" })
+    ).toThrow(/account/i);
+  });
 });
 
 // Spike (CON-50): capture the actual outgoing request the AI SDK emits for a Codex
@@ -134,6 +140,7 @@ describe("Codex request contract (spike)", () => {
 
     expect(captured).toBeDefined();
     expect(captured?.url).toBe("https://chatgpt.com/backend-api/codex/responses");
+    expect(captured?.init.method).toBe("POST");
 
     const headers = new Headers(captured?.init.headers as HeadersInit);
     expect(headers.get("ChatGPT-Account-Id")).toBe("acct-1");
