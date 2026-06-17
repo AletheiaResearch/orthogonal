@@ -431,9 +431,15 @@ best-effort health writers + admin CRUD + codex-near-expiry; retry/cooldown clas
 `forModelCandidates` + non-streaming fallback loop (streaming stays single-candidate → CON-74);
 codex cron refreshes every owner; `/admin/credentials` ingestion API behind `TERMINUS_ADMIN_SECRET`
 (+ terraform). Closes **CON-70**; advances **CON-71** (PR2 = L2 routing policy + RBAC guardrails).
-Task 11 (catalog owner-threading) deferred — no present value while the tenant claim is null.
-**Pushed** to `origin/nejc/con-71-con-70-gateway-routing-byok`; **PR not opened yet** (awaiting
-go-ahead — base `terminus`; never merge).
+Task 11 (catalog owner-threading) deferred — no present value while the tenant claim is null. **PR
+[#14](https://github.com/AletheiaResearch/orthogonal/pull/14)** open (base `terminus`; never merge).
+Bot review (CodeRabbit + Codex) addressed in `932bcd7`: `cooldownUntilMs` rename, fallback treats
+`GatewayError` as terminal + builds request options once, `failureCount` threaded into the cooldown,
+admin 409-only-on-unique-constraint, HTTP-date Retry-After test; `.toSorted()` kept
+(oxlint-enforced + workerd-supported — recorded as a CodeRabbit Learning). **Migration P1
+resolved:** the repo/terminus has never been deployed, so regenerating the single `0000` is correct
+(no persistent D1 to break); future post-deploy changes will be additive. Deferred follow-ups logged
+on CON-70 (delete-vs-env-reseed; admin api_key-only) + CON-71 (all-cooled-down → 503).
 
 ## Continuation prompt (paste into a fresh session) — post-PR-#13
 
