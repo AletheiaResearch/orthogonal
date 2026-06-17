@@ -312,17 +312,42 @@ Committed + pushed, TDD, all green (86 unit + 13 D1-integration tests):
   `refreshCodexToken` → persist rotated single-use token); `refreshIfNearExpiry` (cron path) + lazy
   fallback; 401-reread concurrency.
 
-Remaining for CON-50:
+CON-50 — now complete (committed + pushed):
 
-- ⬜ **Vault-backed `CredentialResolver`** — migrate the non-codex providers from `EnvKeyResolver`
-  to the vault behind the same interface (in-isolate-cached `listEnabledProviders` for the catalog).
-- ⬜ **Wire `chat.ts` / `/v1/models` / `env.ts`** — codex path via `CodexTokenManager` + the router
-  branch; non-codex via the vault; `env`: `DB` (D1) + `CREDENTIALS_ENCRYPTION_KEY`.
-- ⬜ **Cron `scheduled()`** handler → `CodexTokenManager.refreshIfNearExpiry`.
-- ⬜ **Terraform** — Terminus D1 + apply the Drizzle migration + `CREDENTIALS_ENCRYPTION_KEY`
-  secret + Codex/provider seed secrets + cron trigger.
+- ✅ **Vault-backed `CredentialProvider`** — `chat.ts` + `/v1/models` resolve through it; Codex via
+  the token manager, other providers from the vault with lazy env-seed; in-isolate-cached
+  enablement.
+- ✅ **`env.ts`** — `DB` (D1) + `CREDENTIALS_ENCRYPTION_KEY`; cron `scheduled()` →
+  `refreshIfNearExpiry`.
+- ✅ **Terraform** — separate Terminus D1 + drizzle-migration runner + DB binding + AES key +
+  Codex/provider seed secrets + `*/5` cron (gated on `enable_terminus`).
 
-## CON-53 — OpenCode wiring — plan
+## CON-53 — OpenCode wiring — DONE (behind default-off `llmGatewayEnabled`)
+
+Implemented + tested (1214 control-plane + 12 modal tests; typecheck/fmt green):
+
+- **Control plane** — per-session `llmGatewayEnabled`; `doSpawn`/`restoreFromSnapshot` mint a
+  short-TTL gateway token + inject `GATEWAY_TOKEN`/`GATEWAY_BASE_URL` (snake_case to Modal); minting
+  is non-fatal. New sandbox-authed `POST /sessions/:id/gateway-token` refresh route.
+  `TERMINUS_JWT_SECRET` + `TERMINUS_GATEWAY_URL` added to control-plane Env + terraform.
+- **Modal** — threads the gateway vars into both create + restore and **drops `llm_secrets`** when
+  the gateway is on (raw keys never enter a gateway-enabled sandbox — the security win).
+- **Sandbox-runtime** — `gateway-plugin.js` (config-hook openai-compatible provider + token-refresh
+  fetch interceptor) copied by `entrypoint.py` when `GATEWAY_TOKEN` is set.
+
+### ⚠️ Live-verify gaps (NOT CI-testable — required before flipping the toggle ON)
+
+1. **OpenCode config-hook provider registration is UNVERIFIED** on the pinned runtime
+   (opencode-ai@1.14.41) — flagged in `gateway-plugin.js` with explicit smoke-test items.
+2. **Default-model routing** — the sandbox default model isn't re-keyed to the `gateway/` provider
+   yet, so a gateway-ON session won't route through Terminus by default until that's wired.
+3. **`@ai-sdk/openai-compatible` availability** in the sandbox — may need pre-staging in
+   `modal-infra/src/images/base.py` (no runtime npm).
+4. **Codex upstream body** at `chatgpt.com/backend-api/codex/responses` — needs real Codex creds.
+5. **User-injected LLM keys** — `getUserEnvVars()` still sends user secrets unconditionally; only
+   the platform `llm_secrets` are dropped. Gating user-supplied LLM keys is a follow-up.
+
+## CON-53 — OpenCode wiring — original plan
 
 Two halves:
 
