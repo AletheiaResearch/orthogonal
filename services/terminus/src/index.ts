@@ -88,8 +88,11 @@ export function createApp(deps: AppDeps = {}) {
     })
   );
 
-  // CON-70 — platform credential ingestion/admin API (own bearer auth, not /v1).
-  app.route("/admin", buildAdminApp({ buildVault: deps.buildVault }));
+  // CON-70 + CON-71 — platform credential + policy admin API (own bearer auth, not /v1).
+  app.route(
+    "/admin",
+    buildAdminApp({ buildVault: deps.buildVault, buildPolicyStore: deps.buildPolicyStore })
+  );
 
   return app;
 }

@@ -13,14 +13,27 @@ import { Hono } from "hono";
 
 import { CODEX_PROVIDER, CredentialVault } from "../db/vault";
 import type { Env } from "../env";
+import { parsePolicy } from "../policy/blob";
+import { PolicyStore } from "../policy/store";
 
 export interface AdminDeps {
   /** Injectable vault factory (tests); defaults to the D1-backed vault. */
   buildVault?: (env: Env) => CredentialVault;
+  /** Injectable policy store factory (tests); defaults to the D1-backed store. */
+  buildPolicyStore?: (env: Env) => PolicyStore;
 }
 
 function defaultVault(env: Env): CredentialVault {
   return new CredentialVault(drizzle(env.DB), env.CREDENTIALS_ENCRYPTION_KEY);
+}
+
+function defaultPolicyStore(env: Env): PolicyStore {
+  return new PolicyStore(drizzle(env.DB), env);
+}
+
+/** A policy blob that fails validation (vs any other failure) — for a 400 vs 500 split. */
+function isPolicyValidationError(err: unknown): boolean {
+  return err instanceof Error && err.message.startsWith("invalid policy blob");
 }
 
 /** Constant-time string compare (avoids leaking the secret via timing). */
@@ -56,6 +69,7 @@ function isUniqueViolation(err: unknown): boolean {
 
 export function buildAdminApp(deps: AdminDeps = {}) {
   const buildVault = deps.buildVault ?? defaultVault;
+  const buildPolicyStore = deps.buildPolicyStore ?? defaultPolicyStore;
   const app = new Hono<{ Bindings: Env }>();
 
   // Bearer auth against TERMINUS_ADMIN_SECRET. Fail-closed when the secret is unset.
@@ -164,6 +178,64 @@ export function buildAdminApp(deps: AdminDeps = {}) {
   app.delete("/credentials/:id", async (c) => {
     const vault = buildVault(c.env);
     const ok = await vault.deleteCredential(c.req.param("id"));
+    return ok
+      ? c.body(null, 204)
+      : c.json({ error: { message: "not found", type: "not_found" } }, 404);
+  });
+
+  // CON-71 L2 — guardrail policy management (platform owner; versioned + rollback).
+  app.post("/policies", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
+    const name = str(body?.name);
+    if (body && body.name !== undefined && name === undefined) {
+      return c.json({ error: { message: "name must be a string", type: "bad_request" } }, 400);
+    }
+    const { id } = await buildPolicyStore(c.env).createPolicy({ name });
+    return c.json({ id }, 201);
+  });
+
+  app.get("/policies", async (c) => {
+    return c.json({ policies: await buildPolicyStore(c.env).listPolicies() });
+  });
+
+  app.post("/policies/:id/versions", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || body.config === undefined) {
+      return c.json({ error: { message: "config is required", type: "bad_request" } }, 400);
+    }
+    try {
+      const result = await buildPolicyStore(c.env).createVersion(
+        c.req.param("id"),
+        body.config,
+        body.activate === true
+      );
+      return c.json(result, 201);
+    } catch (err) {
+      // An invalid blob is a 400; any other failure (DB, …) is a 500.
+      if (isPolicyValidationError(err)) {
+        return c.json({ error: { message: "invalid policy blob", type: "bad_request" } }, 400);
+      }
+      return c.json(
+        { error: { message: "failed to create version", type: "internal_error" } },
+        500
+      );
+    }
+  });
+
+  app.get("/policies/:id/versions", async (c) => {
+    return c.json({ versions: await buildPolicyStore(c.env).listVersions(c.req.param("id")) });
+  });
+
+  app.patch("/policies/:id/versions/:version", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
+    if (body?.isActive !== true) {
+      return c.json({ error: { message: "isActive must be true", type: "bad_request" } }, 400);
+    }
+    const version = Number(c.req.param("version"));
+    if (!Number.isInteger(version)) {
+      return c.json({ error: { message: "version must be an integer", type: "bad_request" } }, 400);
+    }
+    const ok = await buildPolicyStore(c.env).setActiveVersion(c.req.param("id"), version);
     return ok
       ? c.body(null, 204)
       : c.json({ error: { message: "not found", type: "not_found" } }, 404);
