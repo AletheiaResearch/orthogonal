@@ -80,6 +80,15 @@ describe("admin credential ingestion API (CON-70)", () => {
     expect(res.status).toBe(400);
   });
 
+  it("rejects provider=codex on the api-key ingestion path with 400", async () => {
+    const res = await req("/credentials", {
+      method: "POST",
+      body: JSON.stringify({ provider: "codex", apiKey: "sk" }),
+    });
+    expect(res.status).toBe(400);
+    expect(await db.select().from(providerCredentials)).toEqual([]);
+  });
+
   it("returns 409 on a duplicate provider+label", async () => {
     const make = () =>
       req("/credentials", {

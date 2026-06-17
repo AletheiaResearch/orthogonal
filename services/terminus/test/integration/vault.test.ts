@@ -135,6 +135,13 @@ describe("CredentialVault — pool + admin (CON-71 / CON-70)", () => {
     expect(rows.find((r) => r.label === "a")?.weight).toBe(2);
   });
 
+  it("listEnabledProviders / listAllProviders dedupe a multi-credential pool", async () => {
+    await vault.createCredential({ provider: "openai", apiKey: "k-a", label: "a" });
+    await vault.createCredential({ provider: "openai", apiKey: "k-b", label: "b" });
+    expect(await vault.listEnabledProviders()).toEqual(["openai"]);
+    expect(await vault.listAllProviders()).toEqual(["openai"]);
+  });
+
   it("getCredentials returns only enabled rows and does not decrypt", async () => {
     await vault.createCredential({ provider: "openai", apiKey: "k-a", label: "a" });
     await vault.createCredential({ provider: "openai", apiKey: "k-b", label: "b", enabled: false });

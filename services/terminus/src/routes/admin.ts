@@ -11,7 +11,7 @@
 import { drizzle } from "drizzle-orm/d1";
 import { Hono } from "hono";
 
-import { CredentialVault } from "../db/vault";
+import { CODEX_PROVIDER, CredentialVault } from "../db/vault";
 import type { Env } from "../env";
 
 export interface AdminDeps {
@@ -75,6 +75,18 @@ export function buildAdminApp(deps: AdminDeps = {}) {
     if (!provider || !apiKey) {
       return c.json(
         { error: { message: "provider and apiKey (strings) are required", type: "bad_request" } },
+        400
+      );
+    }
+    // Codex is OAuth-only; it cannot be ingested as a plain api_key credential.
+    if (provider === CODEX_PROVIDER) {
+      return c.json(
+        {
+          error: {
+            message: "codex credentials cannot be created via the api-key ingestion path",
+            type: "bad_request",
+          },
+        },
         400
       );
     }

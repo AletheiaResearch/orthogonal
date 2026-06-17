@@ -214,7 +214,8 @@ export class CredentialVault {
           eq(providerCredentials.enabled, true)
         )
       );
-    return rows.map((r) => r.provider);
+    // Distinct: a provider can now have multiple rows (label pool); callers expect a set.
+    return [...new Set(rows.map((r) => r.provider))];
   }
 
   /** All provider ids with a row for `owner`, regardless of `enabled` — the env-seed guard. */
@@ -228,7 +229,8 @@ export class CredentialVault {
           eq(providerCredentials.ownerId, owner.id)
         )
       );
-    return rows.map((r) => r.provider);
+    // Distinct: a provider can now have multiple rows (label pool); callers expect a set.
+    return [...new Set(rows.map((r) => r.provider))];
   }
 
   /**
@@ -308,6 +310,14 @@ export class CredentialVault {
   }): Promise<{ id: string }> {
     if (!input.apiKey)
       throw new Error("CredentialVault.createCredential: apiKey must be non-empty");
+    // Codex creds are OAuth (4 components) and must go through putCodexCredential /
+    // seedCodexCredential — never the api_key path, which would write a codex-provider
+    // row the token manager can't refresh.
+    if (input.provider === CODEX_PROVIDER) {
+      throw new Error(
+        "CredentialVault.createCredential: codex credentials use the codex-oauth path, not api_key"
+      );
+    }
     const owner = input.owner ?? PLATFORM_OWNER;
     const nowMs = this.now();
     const id = crypto.randomUUID();
