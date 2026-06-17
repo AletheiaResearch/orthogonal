@@ -48,6 +48,14 @@ export const providerUnconfigured = (provider: string): GatewayError =>
     `No upstream credential configured for provider "${provider}"`
   );
 
+export const providerCooledDown = (provider: string): GatewayError =>
+  new GatewayError(
+    "upstream_error",
+    503,
+    "api_error",
+    `All credentials for provider "${provider}" are temporarily cooling down (rate-limited or unhealthy); retry shortly`
+  );
+
 export const missingBaseURL = (provider: string): GatewayError =>
   new GatewayError(
     "provider_unconfigured",

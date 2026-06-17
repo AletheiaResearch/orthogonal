@@ -128,4 +128,24 @@ describe("VaultCredentialProvider", () => {
     expect(cred).toBeNull();
     expect(await newVault().getCredential("codex")).toBeNull();
   });
+
+  it("forModelCandidates orders an enabled pool by priority and excludes cooled-down rows", async () => {
+    const v = newVault();
+    await v.createCredential({ provider: "openai", apiKey: "k-hi", label: "hi", priority: 10 });
+    await v.createCredential({ provider: "openai", apiKey: "k-lo", label: "lo", priority: 1 });
+    const { id: cool } = await v.createCredential({
+      provider: "openai",
+      apiKey: "k-cool",
+      label: "cool",
+      priority: 99,
+    });
+    await v.recordFailure(cool, 9_999_999_999_999); // far-future cooldown → excluded
+
+    const candidates = await provider({}).forModelCandidates(
+      ref("openai", { npm: "@ai-sdk/openai" }),
+      "sid"
+    );
+    const resolved = await Promise.all(candidates.map((c) => c.resolve()));
+    expect(resolved.map((r) => r?.apiKey)).toEqual(["k-hi", "k-lo"]);
+  });
 });

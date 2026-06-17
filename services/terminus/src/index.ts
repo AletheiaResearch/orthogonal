@@ -19,6 +19,7 @@ import { CredentialVault } from "./db/vault";
 import type { Env } from "./env";
 import { errorResponse, toGatewayError } from "./errors";
 import { gatewayAuth, type TerminusVars } from "./middleware/auth";
+import { buildAdminApp } from "./routes/admin";
 import { type ChatDeps, chatCompletions } from "./routes/chat";
 import { LoggingUsageSink } from "./usage/sink";
 
@@ -29,6 +30,8 @@ export interface AppDeps {
   usageSink?: ChatDeps["usageSink"];
   /** Per-request credential provider factory; defaults to the D1 vault. */
   buildCredentials?: (env: Env) => CredentialProvider;
+  /** Injectable vault factory for the admin API (tests); defaults to the D1 vault. */
+  buildVault?: (env: Env) => CredentialVault;
   /** Test-only chat overrides (model builder, clock, id source). */
   chat?: Pick<ChatDeps, "buildModel" | "now" | "newId">;
 }
@@ -74,6 +77,9 @@ export function createApp(deps: AppDeps = {}) {
       ...deps.chat,
     })
   );
+
+  // CON-70 — platform credential ingestion/admin API (own bearer auth, not /v1).
+  app.route("/admin", buildAdminApp({ buildVault: deps.buildVault }));
 
   return app;
 }

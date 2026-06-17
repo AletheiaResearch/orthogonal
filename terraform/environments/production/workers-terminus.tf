@@ -43,12 +43,14 @@ module "terminus_worker" {
     { name = "DEPLOYMENT_NAME", value = var.deployment_name },
   ]
 
-  # TERMINUS_JWT_SECRET + CREDENTIALS_ENCRYPTION_KEY are required. Provider keys are
-  # optional seeds (the vault enables a provider only when its key is non-empty —
-  # dynamic, OpenRouter-style); CODEX_OAUTH_* seeds the platform Codex account.
+  # TERMINUS_JWT_SECRET + CREDENTIALS_ENCRYPTION_KEY are required. TERMINUS_ADMIN_SECRET
+  # gates the credential ingestion/admin API (CON-70; empty disables it, fail-closed).
+  # Provider keys are optional seeds (the vault enables a provider only when its key is
+  # non-empty — dynamic, OpenRouter-style); CODEX_OAUTH_* seeds the platform Codex account.
   secrets = [
     { name = "TERMINUS_JWT_SECRET", value = var.terminus_jwt_secret },
     { name = "CREDENTIALS_ENCRYPTION_KEY", value = var.terminus_credentials_encryption_key },
+    { name = "TERMINUS_ADMIN_SECRET", value = var.terminus_admin_secret },
     { name = "ANTHROPIC_API_KEY", value = var.anthropic_api_key },
     { name = "OPENAI_API_KEY", value = var.openai_api_key },
     { name = "CODEX_OAUTH_REFRESH_TOKEN", value = var.codex_oauth_refresh_token },

@@ -275,6 +275,13 @@ variable "terminus_credentials_encryption_key" {
   }
 }
 
+variable "terminus_admin_secret" {
+  description = "Bearer secret for the Terminus credential ingestion/admin API (CON-70). Optional — empty disables the admin API (fail-closed). Generate with: openssl rand -base64 32"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "codex_oauth_refresh_token" {
   description = "ChatGPT/Codex OAuth refresh token seeded into the Terminus vault (optional; from a local OpenCode login)"
   type        = string

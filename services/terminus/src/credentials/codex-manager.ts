@@ -8,7 +8,12 @@
  * lazy fallback. Concurrent rotation is handled the proven way — on a 401 the
  * token was already rotated, so re-read the vault and use the fresh token.
  */
-import { CODEX_PROVIDER, type CredentialVault } from "../db/vault";
+import {
+  CODEX_PROVIDER,
+  type CredentialOwner,
+  type CredentialVault,
+  PLATFORM_OWNER,
+} from "../db/vault";
 import {
   type CodexRefreshResult,
   CodexRefreshUnauthorizedError,
@@ -52,22 +57,41 @@ export class CodexTokenManager {
     this.rereadDelayMs = options.rereadDelayMs ?? CONCURRENT_ROTATION_GRACE_MS;
   }
 
-  /** A live Codex access token + account id, or null when Codex isn't configured. */
-  async getAccessToken(): Promise<CodexAccessToken | null> {
-    const cred = await this.vault.getCredential(CODEX_PROVIDER);
+  /** A live Codex access token + account id for an owner, or null when unconfigured. */
+  async getAccessToken(owner: CredentialOwner = PLATFORM_OWNER): Promise<CodexAccessToken | null> {
+    const cred = await this.vault.getCredential(CODEX_PROVIDER, owner);
     if (!cred || cred.mode !== "codex-oauth") return null;
     if (cred.accessToken && this.isFresh(cred.expiresAtMs)) {
       return { accessToken: cred.accessToken, accountId: cred.accountId };
     }
-    return this.rotate(cred.refreshToken, cred.accountId);
+    return this.rotate(cred.refreshToken, cred.accountId, owner);
   }
 
-  /** Cron entry point: refresh the Codex token if it's missing or nearing expiry. */
+  /**
+   * Cron entry point: refresh every near-expiry Codex token across all owners.
+   * v1 holds at most one Codex row per owner (label "default"), so this refreshes
+   * once per owner; a per-owner failure is isolated (best-effort).
+   */
   async refreshIfNearExpiry(): Promise<void> {
-    const cred = await this.vault.getCredential(CODEX_PROVIDER);
+    const rows = await this.vault.listCodexRowsNearExpiry(this.now() + CODEX_REFRESH_BUFFER_MS);
+    const owners = new Map<string, CredentialOwner>();
+    for (const row of rows) {
+      owners.set(`${row.ownerType}:${row.ownerId}`, { type: row.ownerType, id: row.ownerId });
+    }
+    // Owners are independent and refreshOwner self-isolates failures, so refresh in parallel.
+    await Promise.all([...owners.values()].map((owner) => this.refreshOwner(owner)));
+  }
+
+  /** Refresh one owner's Codex token if missing/near-expiry; isolated best-effort. */
+  private async refreshOwner(owner: CredentialOwner): Promise<void> {
+    const cred = await this.vault.getCredential(CODEX_PROVIDER, owner);
     if (!cred || cred.mode !== "codex-oauth") return;
     if (cred.accessToken && this.isFresh(cred.expiresAtMs)) return;
-    await this.rotate(cred.refreshToken, cred.accountId);
+    try {
+      await this.rotate(cred.refreshToken, cred.accountId, owner);
+    } catch {
+      // One account's refresh failure must not block the others.
+    }
   }
 
   private isFresh(expiresAtMs: number | undefined): boolean {
@@ -76,7 +100,8 @@ export class CodexTokenManager {
 
   private async rotate(
     refreshToken: string,
-    fallbackAccountId: string | undefined
+    fallbackAccountId: string | undefined,
+    owner: CredentialOwner
   ): Promise<CodexAccessToken | null> {
     let result: CodexRefreshResult;
     try {
@@ -88,7 +113,7 @@ export class CodexTokenManager {
         if (this.rereadDelayMs > 0) {
           await new Promise((resolve) => setTimeout(resolve, this.rereadDelayMs));
         }
-        const reread = await this.vault.getCredential(CODEX_PROVIDER);
+        const reread = await this.vault.getCredential(CODEX_PROVIDER, owner);
         if (
           reread?.mode === "codex-oauth" &&
           reread.accessToken &&
@@ -106,6 +131,7 @@ export class CodexTokenManager {
       refreshToken: result.refreshToken,
       accessToken: result.accessToken,
       accountId,
+      owner,
       expiresAtMs:
         this.now() + (result.expiresInSeconds ?? CODEX_DEFAULT_EXPIRES_IN_SECONDS) * 1000,
     });

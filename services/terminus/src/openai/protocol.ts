@@ -125,12 +125,15 @@ function sse(payload: unknown): string {
 
 /**
  * Map an AI SDK `fullStream` to OpenAI `chat.completion.chunk` SSE frames.
- * `onUsage` fires once on finish (for the usage sink). Terminates with `[DONE]`.
+ * `onUsage` fires once on finish (for the usage sink); `onError` fires once if the
+ * upstream stream errors (so the caller can cool down the failed credential — there
+ * is no mid-stream fallback in v1). Terminates with `[DONE]`.
  */
 export async function* toOpenAIChatStream(
   fullStream: AsyncIterable<TextStreamPart<ToolSet>>,
   meta: ChunkMeta,
-  onUsage?: (usage: LanguageModelUsage) => void
+  onUsage?: (usage: LanguageModelUsage) => void,
+  onError?: (error: unknown) => void
 ): AsyncGenerator<string> {
   let roleSent = false;
   let toolIndex = 0;
@@ -161,6 +164,7 @@ export async function* toOpenAIChatStream(
       yield sse(chunkFrame(meta, {}, mapFinishReason(part.finishReason)));
       yield sse(usageFrame(meta, mapUsage(part.totalUsage)));
     } else if (part.type === "error") {
+      onError?.(part.error);
       yield sse({
         error: {
           message: part.error instanceof Error ? part.error.message : String(part.error),

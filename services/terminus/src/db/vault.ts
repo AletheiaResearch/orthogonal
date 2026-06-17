@@ -7,10 +7,14 @@
  * credentials are the same rows, distinguished by `owner` (the Helicone model).
  */
 import { decryptSecret, encryptSecret } from "@open-inspect/shared";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, lte, or, sql } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 
-import { type CredentialOwnerType, providerCredentials } from "./schema";
+import {
+  type CredentialOwnerType,
+  type ProviderCredentialRow,
+  providerCredentials,
+} from "./schema";
 
 /** Synthetic provider id under which Codex OAuth credentials are stored. */
 export const CODEX_PROVIDER = "codex";
@@ -20,7 +24,7 @@ export interface CredentialOwner {
   id: string;
 }
 
-const PLATFORM_OWNER: CredentialOwner = { type: "platform", id: "" };
+export const PLATFORM_OWNER: CredentialOwner = { type: "platform", id: "" };
 
 /** A decrypted credential, discriminated by how its secret is shaped. */
 export type DecryptedCredential =
@@ -32,6 +36,25 @@ export type DecryptedCredential =
       accountId?: string;
       expiresAtMs?: number;
     };
+
+/** Owner-visible credential metadata for the admin API — never includes the secret. */
+export type PublicCredentialRow = Pick<
+  ProviderCredentialRow,
+  | "id"
+  | "ownerType"
+  | "ownerId"
+  | "provider"
+  | "label"
+  | "credentialMode"
+  | "priority"
+  | "weight"
+  | "enabled"
+  | "cooldownUntilMs"
+  | "failureCount"
+  | "expiresAt"
+  | "createdAt"
+  | "updatedAt"
+>;
 
 /** The codex secret blob (encrypted as JSON in `secret_encrypted`). */
 interface CodexSecret {
@@ -119,7 +142,14 @@ export class CredentialVault {
       )
       .limit(1);
     if (!row) return null;
+    return this.decryptRow(row, owner);
+  }
 
+  /** Decrypt an already-fetched row under its owner AAD. */
+  private async decryptRow(
+    row: ProviderCredentialRow,
+    owner: CredentialOwner
+  ): Promise<DecryptedCredential> {
     const plaintext = await decryptSecret(row.secretEncrypted, this.encryptionKey, ownerAad(owner));
     if (row.credentialMode === "codex-oauth") {
       const secret = JSON.parse(plaintext) as CodexSecret;
@@ -134,6 +164,44 @@ export class CredentialVault {
     return { mode: "api_key", apiKey: plaintext };
   }
 
+  /**
+   * All enabled rows for `(owner, provider)` — the candidate pool for selection.
+   * No decryption (selection needs only priority/weight/cooldown metadata).
+   */
+  async getCredentials(
+    provider: string,
+    owner: CredentialOwner = PLATFORM_OWNER
+  ): Promise<ProviderCredentialRow[]> {
+    return this.db
+      .select()
+      .from(providerCredentials)
+      .where(
+        and(
+          eq(providerCredentials.ownerType, owner.type),
+          eq(providerCredentials.ownerId, owner.id),
+          eq(providerCredentials.provider, provider),
+          eq(providerCredentials.enabled, true)
+        )
+      );
+  }
+
+  /** Decrypt one chosen candidate by id (enabled + owner-scoped), or null. */
+  async decryptById(id: string, owner: CredentialOwner): Promise<DecryptedCredential | null> {
+    const [row] = await this.db
+      .select()
+      .from(providerCredentials)
+      .where(
+        and(
+          eq(providerCredentials.id, id),
+          eq(providerCredentials.ownerType, owner.type),
+          eq(providerCredentials.ownerId, owner.id),
+          eq(providerCredentials.enabled, true)
+        )
+      )
+      .limit(1);
+    return row ? this.decryptRow(row, owner) : null;
+  }
+
   /** Provider ids with an enabled credential for `owner` (no decryption — for the catalog). */
   async listEnabledProviders(owner: CredentialOwner = PLATFORM_OWNER): Promise<string[]> {
     const rows = await this.db
@@ -146,7 +214,8 @@ export class CredentialVault {
           eq(providerCredentials.enabled, true)
         )
       );
-    return rows.map((r) => r.provider);
+    // Distinct: a provider can now have multiple rows (label pool); callers expect a set.
+    return [...new Set(rows.map((r) => r.provider))];
   }
 
   /** All provider ids with a row for `owner`, regardless of `enabled` — the env-seed guard. */
@@ -160,7 +229,8 @@ export class CredentialVault {
           eq(providerCredentials.ownerId, owner.id)
         )
       );
-    return rows.map((r) => r.provider);
+    // Distinct: a provider can now have multiple rows (label pool); callers expect a set.
+    return [...new Set(rows.map((r) => r.provider))];
   }
 
   /**
@@ -203,8 +273,151 @@ export class CredentialVault {
           providerCredentials.ownerType,
           providerCredentials.ownerId,
           providerCredentials.provider,
+          providerCredentials.label,
         ],
       });
+  }
+
+  /** Best-effort: mark a candidate failed (set cooldown + increment failure count). */
+  async recordFailure(id: string, cooldownUntilMs: number | null): Promise<void> {
+    await this.db
+      .update(providerCredentials)
+      .set({
+        cooldownUntilMs,
+        failureCount: sql`${providerCredentials.failureCount} + 1`,
+        updatedAt: this.now(),
+      })
+      .where(eq(providerCredentials.id, id));
+  }
+
+  /** Best-effort: clear a candidate's failure state after a success. */
+  async recordSuccess(id: string): Promise<void> {
+    await this.db
+      .update(providerCredentials)
+      .set({ cooldownUntilMs: null, failureCount: 0, updatedAt: this.now() })
+      .where(eq(providerCredentials.id, id));
+  }
+
+  /** Admin ingestion: insert a new labeled API-key credential. Throws on a duplicate label. */
+  async createCredential(input: {
+    provider: string;
+    apiKey: string;
+    label?: string;
+    priority?: number;
+    weight?: number;
+    enabled?: boolean;
+    owner?: CredentialOwner;
+  }): Promise<{ id: string }> {
+    if (!input.apiKey)
+      throw new Error("CredentialVault.createCredential: apiKey must be non-empty");
+    // Codex creds are OAuth (4 components) and must go through putCodexCredential /
+    // seedCodexCredential — never the api_key path, which would write a codex-provider
+    // row the token manager can't refresh.
+    if (input.provider === CODEX_PROVIDER) {
+      throw new Error(
+        "CredentialVault.createCredential: codex credentials use the codex-oauth path, not api_key"
+      );
+    }
+    const owner = input.owner ?? PLATFORM_OWNER;
+    const nowMs = this.now();
+    const id = crypto.randomUUID();
+    const secretEncrypted = await encryptSecret(input.apiKey, this.encryptionKey, ownerAad(owner));
+    await this.db.insert(providerCredentials).values({
+      id,
+      ownerType: owner.type,
+      ownerId: owner.id,
+      provider: input.provider,
+      credentialMode: "api_key",
+      secretEncrypted,
+      expiresAt: null,
+      enabled: input.enabled ?? true,
+      label: input.label ?? "default",
+      priority: input.priority ?? 0,
+      weight: input.weight ?? 1,
+      createdAt: nowMs,
+      updatedAt: nowMs,
+    });
+    return { id };
+  }
+
+  /** Owner-scoped credential metadata for the admin API — never includes the secret. */
+  async listForOwner(owner: CredentialOwner = PLATFORM_OWNER): Promise<PublicCredentialRow[]> {
+    return this.db
+      .select({
+        id: providerCredentials.id,
+        ownerType: providerCredentials.ownerType,
+        ownerId: providerCredentials.ownerId,
+        provider: providerCredentials.provider,
+        label: providerCredentials.label,
+        credentialMode: providerCredentials.credentialMode,
+        priority: providerCredentials.priority,
+        weight: providerCredentials.weight,
+        enabled: providerCredentials.enabled,
+        cooldownUntilMs: providerCredentials.cooldownUntilMs,
+        failureCount: providerCredentials.failureCount,
+        expiresAt: providerCredentials.expiresAt,
+        createdAt: providerCredentials.createdAt,
+        updatedAt: providerCredentials.updatedAt,
+      })
+      .from(providerCredentials)
+      .where(
+        and(
+          eq(providerCredentials.ownerType, owner.type),
+          eq(providerCredentials.ownerId, owner.id)
+        )
+      );
+  }
+
+  /** Enable/disable a credential (owner-scoped). Returns whether a row matched. */
+  async setEnabled(
+    id: string,
+    enabled: boolean,
+    owner: CredentialOwner = PLATFORM_OWNER
+  ): Promise<boolean> {
+    const updated = await this.db
+      .update(providerCredentials)
+      .set({ enabled, updatedAt: this.now() })
+      .where(
+        and(
+          eq(providerCredentials.id, id),
+          eq(providerCredentials.ownerType, owner.type),
+          eq(providerCredentials.ownerId, owner.id)
+        )
+      )
+      .returning({ id: providerCredentials.id });
+    return updated.length > 0;
+  }
+
+  /** Delete a credential (owner-scoped). Returns whether a row matched. */
+  async deleteCredential(id: string, owner: CredentialOwner = PLATFORM_OWNER): Promise<boolean> {
+    const deleted = await this.db
+      .delete(providerCredentials)
+      .where(
+        and(
+          eq(providerCredentials.id, id),
+          eq(providerCredentials.ownerType, owner.type),
+          eq(providerCredentials.ownerId, owner.id)
+        )
+      )
+      .returning({ id: providerCredentials.id });
+    return deleted.length > 0;
+  }
+
+  /**
+   * Codex rows (across all owners) at/under the expiry threshold or with no recorded
+   * expiry — the cron's near-expiry refresh set. Sole refresher invariant unchanged.
+   */
+  async listCodexRowsNearExpiry(thresholdMs: number): Promise<ProviderCredentialRow[]> {
+    return this.db
+      .select()
+      .from(providerCredentials)
+      .where(
+        and(
+          eq(providerCredentials.provider, CODEX_PROVIDER),
+          eq(providerCredentials.enabled, true),
+          or(isNull(providerCredentials.expiresAt), lte(providerCredentials.expiresAt, thresholdMs))
+        )
+      );
   }
 
   private async upsert(args: {
@@ -240,6 +453,7 @@ export class CredentialVault {
           providerCredentials.ownerType,
           providerCredentials.ownerId,
           providerCredentials.provider,
+          providerCredentials.label,
         ],
         set: {
           secretEncrypted,

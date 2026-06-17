@@ -10,10 +10,12 @@ import { withCodexProvider } from "../catalog/codex";
 import type { fetchRegistry } from "../catalog/models-dev";
 import { type ModelCost, type ResolvedModelRef, resolveModelRef } from "../catalog/registry";
 import type { CredentialProvider } from "../credentials/provider";
+import { cooldownUntilFromError, isRetryableUpstreamError } from "../credentials/retry";
 import {
   badRequest,
   errorResponse,
   forbiddenModel,
+  providerCooledDown,
   providerUnconfigured,
   toGatewayError,
   unknownModel,
@@ -79,13 +81,17 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
     const ref = resolveModelRef(registry, body.model);
     if (!ref) return errorResponse(unknownModel(body.model));
 
-    const credential = await deps.credentials.forModel(ref, claims.sid);
-    if (!credential) return errorResponse(providerUnconfigured(ref.providerId));
+    const candidates = await deps.credentials.forModelCandidates(ref, claims.sid);
+    if (candidates.length === 0) {
+      // Distinguish "no credential at all" (502) from "credentials exist but all are
+      // cooling down" (503 transient) — a rate-limit/health window must not read as
+      // misconfiguration to clients/alerts.
+      const configured = await deps.credentials.isEnabled(ref.providerId, ref.envKeys);
+      return errorResponse(
+        configured ? providerCooledDown(ref.providerId) : providerUnconfigured(ref.providerId)
+      );
+    }
 
-    const model = (deps.buildModel ?? buildLanguageModel)(ref, credential.apiKey, {
-      accountId: credential.accountId,
-      sessionId: claims.sid,
-    });
     const nowMs = deps.now?.() ?? Date.now();
     const meta: ChunkMeta = {
       id: `chatcmpl-${deps.newId?.() ?? crypto.randomUUID()}`,
@@ -93,10 +99,16 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       model: body.model,
     };
 
-    const callOptions = {
+    const buildModel = deps.buildModel ?? buildLanguageModel;
+    // Build request-derived options ONCE, before the candidate loop: a malformed request
+    // (e.g. a tool message with no matching tool_call_id) must fail fast as a 400, not walk
+    // the whole credential pool cooling down healthy keys (GatewayError is terminal in retry).
+    const requestMessages = toModelMessages(body.messages);
+    const requestTools = toToolSet(body.tools);
+    const callOptionsFor = (model: ReturnType<typeof buildLanguageModel>) => ({
       model,
-      messages: toModelMessages(body.messages),
-      tools: toToolSet(body.tools),
+      messages: requestMessages,
+      tools: requestTools,
       temperature: body.temperature,
       topP: body.top_p,
       maxOutputTokens: body.max_completion_tokens ?? body.max_tokens,
@@ -106,7 +118,7 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       ...(ref.credentialMode === "codex-oauth"
         ? { providerOptions: codexProviderOptions(claims.sid) }
         : {}),
-    };
+    });
 
     const emit = (usage: LanguageModelUsage): Promise<void> => {
       // Metering is best-effort: a sink rejection must never fail a successful
@@ -132,9 +144,49 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       return record;
     };
 
+    // Best-effort health writes, off the hot path: never fail a good completion.
+    const background = (p: Promise<void> | undefined): void => {
+      if (!p) return;
+      const guarded = p.catch(() => {});
+      try {
+        c.executionCtx.waitUntil(guarded);
+      } catch {
+        // no ExecutionContext (unit tests); the write still runs to completion
+      }
+    };
+
+    // Streaming: single candidate, fail-fast. A mid-stream upstream error surfaces
+    // only after the SSE Response commits, so cross-candidate fallback for streaming
+    // is a separate redesign (CON-74); v1 keeps today's behavior.
     if (body.stream) {
-      const result = streamText(callOptions);
-      const sse = toOpenAIChatStream(result.fullStream, meta, (usage) => void emit(usage));
+      const candidate = candidates[0];
+      const cred = await candidate.resolve();
+      if (!cred) return errorResponse(providerUnconfigured(ref.providerId));
+      const model = buildModel(ref, cred.apiKey, {
+        accountId: cred.accountId,
+        sessionId: claims.sid,
+      });
+      const result = streamText(callOptionsFor(model));
+      // No mid-stream fallback in v1 (CON-74), but keep pool health correct: clear the
+      // candidate's failure state on a successful finish, and cool it down on a
+      // *retryable* stream error so the NEXT request rotates to a live candidate.
+      const sse = toOpenAIChatStream(
+        result.fullStream,
+        meta,
+        (usage) => {
+          void emit(usage);
+          background(deps.credentials.recordSuccess?.(candidate.id));
+        },
+        (err) => {
+          if (!isRetryableUpstreamError(err)) return;
+          background(
+            deps.credentials.recordFailure?.(
+              candidate.id,
+              cooldownUntilFromError(err, deps.now?.() ?? Date.now(), candidate.failureCount)
+            )
+          );
+        }
+      );
       return new Response(asReadable(sse), {
         headers: {
           "content-type": "text/event-stream; charset=utf-8",
@@ -143,16 +195,45 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       });
     }
 
-    const result = await generateText(callOptions);
-    await emit(result.totalUsage);
-    return Response.json(
-      toOpenAIChatCompletion(meta, {
-        content: result.text,
-        toolCalls: result.toolCalls,
-        finishReason: result.finishReason,
-        usage: result.totalUsage,
-      })
-    );
+    // Non-streaming: try candidates in priority/weight order; on a retryable upstream
+    // error cool the candidate down and fall back to the next. Fail closed if all fail.
+    let lastError: unknown;
+    for (const candidate of candidates) {
+      const cred = await candidate.resolve();
+      if (!cred) continue;
+      const model = buildModel(ref, cred.apiKey, {
+        accountId: cred.accountId,
+        sessionId: claims.sid,
+      });
+      try {
+        // The gateway owns resilience here via cross-candidate fallback, so disable the
+        // SDK's same-target retry (it would add hidden backoff before we fall back).
+        // Streaming has no gateway fallback in v1 (CON-74), so it keeps the SDK default.
+        const result = await generateText({ ...callOptionsFor(model), maxRetries: 0 });
+        background(deps.credentials.recordSuccess?.(candidate.id));
+        await emit(result.totalUsage);
+        return Response.json(
+          toOpenAIChatCompletion(meta, {
+            content: result.text,
+            toolCalls: result.toolCalls,
+            finishReason: result.finishReason,
+            usage: result.totalUsage,
+          })
+        );
+      } catch (err) {
+        if (!isRetryableUpstreamError(err)) throw err;
+        lastError = err;
+        // Use a fresh clock at failure time (not request-start nowMs): a slow failure
+        // would otherwise write a cooldown that is already in the past.
+        background(
+          deps.credentials.recordFailure?.(
+            candidate.id,
+            cooldownUntilFromError(err, deps.now?.() ?? Date.now(), candidate.failureCount)
+          )
+        );
+      }
+    }
+    throw lastError ?? new Error("all upstream candidates failed");
   } catch (err) {
     return errorResponse(toGatewayError(err));
   }

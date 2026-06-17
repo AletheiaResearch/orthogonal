@@ -339,8 +339,11 @@ Implemented + tested (1214 control-plane + 12 modal tests; typecheck/fmt green):
 
 1. **OpenCode config-hook provider registration is UNVERIFIED** on the pinned runtime
    (opencode-ai@1.14.41) — flagged in `gateway-plugin.js` with explicit smoke-test items.
-2. **Default-model routing** — the sandbox default model isn't re-keyed to the `gateway/` provider
-   yet, so a gateway-ON session won't route through Terminus by default until that's wired.
+2. **Default-model routing** — _wired_ (corrected 2026-06-17): `entrypoint.py:832-842` re-keys the
+   model to `gateway/<provider>/<model>` **when `gateway-plugin.js` is present** in the image. The
+   remaining risk is the asymmetry: Modal drops `llm_secrets` based only on `GATEWAY_TOKEN`, so a
+   session restored from a **pre-gateway snapshot** (no plugin) gets neither the gateway nor raw
+   keys → tracked as **CON-72**. Still UNVERIFIED end-to-end on a real sandbox (the smoke test).
 3. **`@ai-sdk/openai-compatible` availability** in the sandbox — may need pre-staging in
    `modal-infra/src/images/base.py` (no runtime npm).
 4. **Codex upstream body** at `chatgpt.com/backend-api/codex/responses` — needs real Codex creds.
@@ -390,6 +393,53 @@ proves the auth/fetch-interceptor mechanism, NOT `config()`-registers-a-provider
 `packages/modal-infra/src/{web_api.py, sandbox/manager.py}`,
 `packages/sandbox-runtime/src/sandbox_runtime/{entrypoint.py, plugins/gateway-plugin.js}`,
 `terraform/environments/production/{workers-control-plane.tf, locals.tf}`.
+
+## Session 2026-06-17 — post-PR-#13 merge; starting CON-71 + CON-70
+
+**PR #13 is MERGED into `terminus`** (the earlier "not yet pushed / awaiting go-ahead" notes above
+are historical). Merged scope: CON-50 (Codex OAuth + credential vault) + CON-53 (OpenCode wiring),
+on top of the foundation spine (CON-48/49/51/52/54-scoped) from PR #12. Sub-issue states now: CON-48
+/CON-50/CON-53 **Done**; CON-49/CON-51/CON-52 In Review (foundation, merged); CON-54/CON-70/CON-71
+/CON-72 open. The only remaining gate for flipping the toggle ON is the **live smoke test** (real
+infra/creds) — no codeable remainder in step (1).
+
+**Now in progress (this session):** CON-71 (LiteLLM/Helicone/OpenRouter-style LB + routing) + CON-70
+(BYOK/per-tenant rows + ingestion API), together — both evolve the same credential vault. Worktree:
+`.claude/worktrees/con-71-con-70-routing-byok` on branch `nejc/con-71-con-70-gateway-routing-byok`
+(off `terminus`). Baseline green before changes: 90 unit + 24 D1-integration tests pass.
+
+**Design + scope are locked** — full spec (source of truth) at
+[`docs/terminus-routing-byok-design.md`](terminus-routing-byok-design.md). Summary: two persisted
+layers — **L1** credential pool (`label`/`priority`/`weight`/`cooldown_until`/ `failure_count`
+columns; relax `UNIQUE → (owner_type,owner_id,provider,label)`) and **L2** a Helicone-style
+versioned routing policy (`routers` + `router_config_versions`) that does forced default routing **+
+RBAC guardrails** (force/clamp params server-side so a leaked gateway JWT can't escape —
+terminus-only, platform-default). **Node-graph interpreter deferred** to the dashboard phase (the
+CF-AI-Gateway node-builder authors this same policy later). **Phasing:** PR1 = CON-70 + CON-71 L1
+(vault columns + platform ingestion/admin API + owner plumbing + per-row selection + non-streaming
+fallback + Codex cron-iterate-all); PR2 = CON-71 L2 (policy + guardrail enforcement). CON-70 caveat:
+per-tenant _resolution_ blocked on multi-tenancy (tenant claim null; CON-52 follow-up) — platform
+ingestion + owner-scoped storage land now.
+
+**New sub-issues filed this session:** **CON-73** (Terminus Broadcast — OpenRouter-style trace
+fan-out to BYO observability destinations, under CON-41), **CON-74** (streaming-request fallback /
+peek-first-chunk redesign, deferred from CON-71).
+
+**PR1 landed (2026-06-17), TDD, all green — 109 unit + 37 D1-integration:** pool columns +
+label-keyed unique (one clean migration); pure `orderCandidates`; vault candidate read/decrypt +
+best-effort health writers + admin CRUD + codex-near-expiry; retry/cooldown classification;
+`forModelCandidates` + non-streaming fallback loop (streaming stays single-candidate → CON-74);
+codex cron refreshes every owner; `/admin/credentials` ingestion API behind `TERMINUS_ADMIN_SECRET`
+(+ terraform). Closes **CON-70**; advances **CON-71** (PR2 = L2 routing policy + RBAC guardrails).
+Task 11 (catalog owner-threading) deferred — no present value while the tenant claim is null. **PR
+[#14](https://github.com/AletheiaResearch/orthogonal/pull/14)** open (base `terminus`; never merge).
+Bot review (CodeRabbit + Codex) addressed in `932bcd7`: `cooldownUntilMs` rename, fallback treats
+`GatewayError` as terminal + builds request options once, `failureCount` threaded into the cooldown,
+admin 409-only-on-unique-constraint, HTTP-date Retry-After test; `.toSorted()` kept
+(oxlint-enforced + workerd-supported — recorded as a CodeRabbit Learning). **Migration P1
+resolved:** the repo/terminus has never been deployed, so regenerating the single `0000` is correct
+(no persistent D1 to break); future post-deploy changes will be additive. Deferred follow-ups logged
+on CON-70 (delete-vs-env-reseed; admin api_key-only) + CON-71 (all-cooled-down → 503).
 
 ## Continuation prompt (paste into a fresh session) — post-PR-#13
 

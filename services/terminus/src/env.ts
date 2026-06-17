@@ -17,6 +17,9 @@ export interface Env {
   /** Base64 AES-256 key encrypting vault secrets at rest (CON-50). */
   CREDENTIALS_ENCRYPTION_KEY: string;
 
+  /** Bearer secret for the platform credential ingestion/admin API (CON-70). */
+  TERMINUS_ADMIN_SECRET?: string;
+
   /** KV namespace caching the fetched models.dev registry (CON-49). */
   MODELS_CACHE?: KVNamespace;
 

@@ -1,8 +1,9 @@
 import { mintGatewayToken } from "@open-inspect/shared";
+import { APICallError } from "ai";
 import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
 import { describe, expect, it } from "vitest";
 
-import type { ModelsDevRegistry } from "./catalog/registry";
+import type { ModelsDevRegistry, ResolvedModelRef } from "./catalog/registry";
 import type { CredentialProvider } from "./credentials/provider";
 import type { Env } from "./env";
 import { createApp } from "./index";
@@ -67,6 +68,18 @@ const env = { TERMINUS_JWT_SECRET: SECRET } as unknown as Env;
 // env-key behavior) so node-env tests need no D1 vault.
 const credentials: CredentialProvider = {
   forModel: (ref) => Promise.resolve(ref.providerId === "anthropic" ? { apiKey: "sk-ant" } : null),
+  forModelCandidates: (ref) =>
+    Promise.resolve(
+      ref.providerId === "anthropic"
+        ? [
+            {
+              id: "anthropic-default",
+              failureCount: 0,
+              resolve: () => Promise.resolve({ apiKey: "sk-ant" }),
+            },
+          ]
+        : []
+    ),
   isEnabled: (providerId) => Promise.resolve(providerId === "anthropic"),
 };
 
@@ -295,5 +308,213 @@ describe("terminus app", () => {
     expect(usageChunk?.usage?.prompt_tokens).toBe(5);
     expect(usageChunk?.usage?.completion_tokens).toBe(2);
     expect(records[0]?.inputTokens).toBe(5);
+  });
+});
+
+// A two-candidate pool (c1→k1, c2→k2) that records success/failure by id.
+function poolProvider(): { provider: CredentialProvider; ok: string[]; fail: string[] } {
+  const ok: string[] = [];
+  const fail: string[] = [];
+  const provider: CredentialProvider = {
+    forModel: () => Promise.resolve(null),
+    forModelCandidates: (ref) =>
+      Promise.resolve(
+        ref.providerId === "anthropic"
+          ? [
+              { id: "c1", failureCount: 0, resolve: () => Promise.resolve({ apiKey: "k1" }) },
+              { id: "c2", failureCount: 0, resolve: () => Promise.resolve({ apiKey: "k2" }) },
+            ]
+          : []
+      ),
+    isEnabled: () => Promise.resolve(true),
+    recordSuccess: (id) => {
+      ok.push(id);
+      return Promise.resolve();
+    },
+    recordFailure: (id) => {
+      fail.push(id);
+      return Promise.resolve();
+    },
+  };
+  return { provider, ok, fail };
+}
+
+describe("terminus chat — credential pool fallback (CON-71)", () => {
+  const success = (text: string): MockArgs =>
+    ({
+      doGenerate: () =>
+        Promise.resolve({
+          content: [{ type: "text", text }],
+          finishReason: "stop",
+          usage: LL_USAGE,
+          warnings: [],
+        }),
+    }) as unknown as MockArgs;
+
+  const throwing = (statusCode: number, isRetryable: boolean): MockArgs =>
+    ({
+      doGenerate: () =>
+        Promise.reject(
+          new APICallError({
+            message: "upstream",
+            url: "https://up/v1",
+            requestBodyValues: {},
+            statusCode,
+            isRetryable,
+          })
+        ),
+    }) as unknown as MockArgs;
+
+  async function chat(
+    provider: CredentialProvider,
+    buildModel: (ref: ResolvedModelRef, apiKey: string) => MockLanguageModelV3,
+    stream = false
+  ) {
+    const gateway = createApp({
+      loadRegistry: () => Promise.resolve(REGISTRY),
+      buildCredentials: () => provider,
+      chat: { buildModel },
+    });
+    return gateway.request(
+      "/v1/chat/completions",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${await token()}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "anthropic/claude-opus-4-5",
+          messages: [{ role: "user", content: "hi" }],
+          ...(stream ? { stream: true } : {}),
+        }),
+      },
+      env
+    );
+  }
+
+  it("falls back to the next candidate on a retryable upstream error", async () => {
+    const { provider, ok, fail } = poolProvider();
+    const seen: string[] = [];
+    const res = await chat(provider, (_ref, apiKey) => {
+      seen.push(apiKey);
+      return new MockLanguageModelV3(apiKey === "k1" ? throwing(429, true) : success("from-k2"));
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { choices: { message: { content: string } }[] };
+    expect(body.choices[0].message.content).toBe("from-k2");
+    expect(seen).toEqual(["k1", "k2"]);
+    expect(fail).toEqual(["c1"]);
+    expect(ok).toEqual(["c2"]);
+  });
+
+  it("does NOT retry on a terminal error (401) — fails fast on the first candidate", async () => {
+    const { provider, ok, fail } = poolProvider();
+    const seen: string[] = [];
+    const res = await chat(provider, (_ref, apiKey) => {
+      seen.push(apiKey);
+      return new MockLanguageModelV3(throwing(401, false));
+    });
+    expect(res.status).toBe(502);
+    expect(seen).toEqual(["k1"]);
+    expect(fail).toEqual([]);
+    expect(ok).toEqual([]);
+  });
+
+  it("returns a gateway error when every candidate fails", async () => {
+    const { provider, fail } = poolProvider();
+    const res = await chat(provider, () => new MockLanguageModelV3(throwing(503, true)));
+    expect(res.status).toBe(502);
+    expect(fail).toEqual(["c1", "c2"]);
+  });
+
+  it("streaming uses only the first candidate (no fallback in v1)", async () => {
+    const { provider, ok } = poolProvider();
+    const seen: string[] = [];
+    const chunks = [
+      { type: "stream-start", warnings: [] },
+      { type: "text-start", id: "t" },
+      { type: "text-delta", id: "t", delta: "hi" },
+      { type: "text-end", id: "t" },
+      { type: "finish", finishReason: "stop", usage: LL_USAGE },
+    ];
+    const res = await chat(
+      provider,
+      (_ref, apiKey) => {
+        seen.push(apiKey);
+        return new MockLanguageModelV3({
+          doStream: { stream: simulateReadableStream({ chunks }) },
+        } as unknown as MockArgs);
+      },
+      true
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+    await res.text();
+    expect(seen).toEqual(["k1"]);
+    expect(ok).toEqual(["c1"]); // a successful stream clears the candidate's health state
+  });
+
+  it("returns 503 (transient) when every candidate is cooling down", async () => {
+    const provider: CredentialProvider = {
+      forModel: () => Promise.resolve(null),
+      forModelCandidates: () => Promise.resolve([]), // all cooled → filtered to empty
+      isEnabled: () => Promise.resolve(true), // ...but credentials DO exist
+    };
+    const res = await chat(provider, () => new MockLanguageModelV3(success("x")));
+    expect(res.status).toBe(503);
+  });
+
+  it("does NOT cool down a streaming credential on a terminal (non-retryable) error", async () => {
+    const { provider, fail } = poolProvider();
+    const chunks = [
+      { type: "stream-start", warnings: [] },
+      {
+        type: "error",
+        error: new APICallError({
+          message: "bad request",
+          url: "https://up/v1",
+          requestBodyValues: {},
+          statusCode: 400,
+          isRetryable: false,
+        }),
+      },
+    ];
+    const res = await chat(
+      provider,
+      () =>
+        new MockLanguageModelV3({
+          doStream: { stream: simulateReadableStream({ chunks }) },
+        } as unknown as MockArgs),
+      true
+    );
+    expect(res.status).toBe(200);
+    await res.text();
+    expect(fail).toEqual([]);
+  });
+
+  it("cools down the credential when a streaming request errors (no fallback, next request rotates)", async () => {
+    const { provider, fail } = poolProvider();
+    const chunks = [
+      { type: "stream-start", warnings: [] },
+      {
+        type: "error",
+        error: new APICallError({
+          message: "rate limited",
+          url: "https://up/v1",
+          requestBodyValues: {},
+          statusCode: 429,
+          isRetryable: true,
+        }),
+      },
+    ];
+    const res = await chat(
+      provider,
+      () =>
+        new MockLanguageModelV3({
+          doStream: { stream: simulateReadableStream({ chunks }) },
+        } as unknown as MockArgs),
+      true
+    );
+    expect(res.status).toBe(200);
+    await res.text(); // drain so the error part is consumed
+    expect(fail).toEqual(["c1"]);
   });
 });
