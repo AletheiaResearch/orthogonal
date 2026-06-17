@@ -441,6 +441,34 @@ resolved:** the repo/terminus has never been deployed, so regenerating the singl
 (no persistent D1 to break); future post-deploy changes will be additive. Deferred follow-ups logged
 on CON-70 (delete-vs-env-reseed; admin api_key-only) + CON-71 (all-cooled-down → 503).
 
+## Session 2026-06-17 (cont.) — CON-71 PR2 (L2 guardrails) started
+
+**Worktree:** `.claude/worktrees/con-71-policy-guardrails` on branch `nejc/con-71-policy-guardrails`
+(off `terminus`; single issue id — does NOT carry `con-70`/`con-41`). Base for the PR = `terminus`.
+
+**⚠️ Scope reversal (Nejc, 2026-06-17).** L2 is **guardrails only** — a versioned RBAC policy that
+_gates_ (allow/deny models + providers) and _clamps_ (output-token cap). The earlier
+"forced-default-routing" framing — `forceModel`, `routes`/`chain`, cross-provider fallback — is
+**cut**: Terminus never substitutes or reroutes the requested model ("we're not Anthropic — no black
+magic"). L1's same-provider key-pool rotation (shipped) is unaffected (rotating your own keys for
+the same model ≠ rerouting). The design spec
+([`docs/terminus-routing-byok-design.md`](terminus-routing-byok-design.md)) was rewritten in place
+to this scope (§§4, 6, 7, 8, 10, 11) — it is the source of truth; this tracker does not duplicate
+it.
+
+**Decisions locked this session (2 AskUserQuestion rounds + advisor):** (1) **Versioned policy
+storage + admin API** — `policies` + `policy_versions` (renamed from `routers*` — no routing), with
+a policy admin API (create-version / set-active / rollback / list) so the versioning has a live
+writer (rule #7). (2) **BYOK scope encoded now, dormant** — `credentialScope` + `byokServiceFeeBps`
+in the JSON blob (not columns; validated + stored but read by no v1 code). (3) **Defense-in-depth**
+— the policy stacks on the signed `claims.allowed_models`, never widens it. (4) **Fail-closed on
+policy load** — policy-absent → pass-through; policy-configured-but-unloadable → 5xx. (5)
+`applyGuardrails` splits `provider/model` identically to `resolveModelRef` (no bypass/phantom-403).
+
+**Next:** writing-plans → TDD (`policy/{blob,guardrails,store}.ts` + `chat.ts` wiring + policy admin
+endpoints + `policies`/`policy_versions` migration + `TERMINUS_GATEWAY_POLICY` seed). Verify gate
+per repo rules; open PR base `terminus`; never merge.
+
 ## Continuation prompt (paste into a fresh session) — post-PR-#13
 
 > Continue Linear epic **CON-41** (Terminus LLM gateway). **Work in a git worktree off the
