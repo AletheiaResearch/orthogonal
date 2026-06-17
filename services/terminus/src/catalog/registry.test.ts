@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveModelRef, type ModelsDevRegistry } from "./registry";
+import { resolveModelRef, splitModelId, type ModelsDevRegistry } from "./registry";
 
 const REGISTRY: ModelsDevRegistry = {
   anthropic: {
@@ -135,5 +135,22 @@ describe("resolveModelRef", () => {
 
     const ref = resolveModelRef(registry, "synthetic/some-model");
     expect(ref?.credentialMode).toBe("codex-oauth");
+  });
+});
+
+describe("splitModelId", () => {
+  it("splits at the first slash, keeping nested model ids intact", () => {
+    expect(splitModelId("openai/gpt-5")).toEqual({ providerId: "openai", modelId: "gpt-5" });
+    expect(splitModelId("openrouter/anthropic/claude")).toEqual({
+      providerId: "openrouter",
+      modelId: "anthropic/claude",
+    });
+  });
+
+  it("returns null for unqualified / malformed ids", () => {
+    expect(splitModelId("gpt5")).toBeNull(); // no slash
+    expect(splitModelId("/gpt5")).toBeNull(); // leading slash
+    expect(splitModelId("openai/")).toBeNull(); // trailing slash
+    expect(splitModelId("")).toBeNull();
   });
 });
