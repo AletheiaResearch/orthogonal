@@ -48,8 +48,8 @@ export const providerCredentials = sqliteTable(
     priority: integer("priority").notNull().default(0),
     /** Weighted-random share within a priority tier; treated as >= 1. */
     weight: integer("weight").notNull().default(1),
-    /** Epoch ms; while now < cooldown_until the row is skipped (rate-limit/health backoff). */
-    cooldownUntil: integer("cooldown_until"),
+    /** Epoch ms; while now < cooldown_until_ms the row is skipped (rate-limit/health backoff). */
+    cooldownUntilMs: integer("cooldown_until_ms"),
     /** Consecutive upstream failures; reset to 0 on success — drives escalating cooldown. */
     failureCount: integer("failure_count").notNull().default(0),
     createdAt: integer("created_at").notNull(),

@@ -157,11 +157,11 @@ describe("CredentialVault — pool + admin (CON-71 / CON-70)", () => {
   it("recordFailure sets cooldown + increments; recordSuccess clears", async () => {
     const { id } = await vault.createCredential({ provider: "openai", apiKey: "k", label: "a" });
     await vault.recordFailure(id, 9999);
-    expect(await rowById(id)).toMatchObject({ cooldownUntil: 9999, failureCount: 1 });
+    expect(await rowById(id)).toMatchObject({ cooldownUntilMs: 9999, failureCount: 1 });
     await vault.recordFailure(id, 12000);
-    expect(await rowById(id)).toMatchObject({ cooldownUntil: 12000, failureCount: 2 });
+    expect(await rowById(id)).toMatchObject({ cooldownUntilMs: 12000, failureCount: 2 });
     await vault.recordSuccess(id);
-    expect(await rowById(id)).toMatchObject({ cooldownUntil: null, failureCount: 0 });
+    expect(await rowById(id)).toMatchObject({ cooldownUntilMs: null, failureCount: 0 });
   });
 
   it("listForOwner returns public fields only — never the secret", async () => {

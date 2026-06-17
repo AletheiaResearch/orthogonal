@@ -43,6 +43,17 @@ const str = (v: unknown): string | undefined => (typeof v === "string" ? v : und
 const num = (v: unknown): number | undefined => (typeof v === "number" ? v : undefined);
 const bool = (v: unknown): boolean | undefined => (typeof v === "boolean" ? v : undefined);
 
+/** Walk the message + `cause` chain — Drizzle wraps the D1 error, so the SQLite text is in `cause`. */
+function errorChainText(err: unknown): string {
+  if (err instanceof Error) return `${err.message} ${errorChainText(err.cause)}`;
+  return err == null ? "" : String(err);
+}
+
+/** A unique-constraint violation (a real conflict) vs any other failure. */
+function isUniqueViolation(err: unknown): boolean {
+  return /UNIQUE constraint failed/i.test(errorChainText(err));
+}
+
 export function buildAdminApp(deps: AdminDeps = {}) {
   const buildVault = deps.buildVault ?? defaultVault;
   const app = new Hono<{ Bindings: Env }>();
@@ -78,15 +89,23 @@ export function buildAdminApp(deps: AdminDeps = {}) {
         enabled: bool(body?.enabled),
       });
       return c.json({ id }, 201);
-    } catch {
-      return c.json(
-        {
-          error: {
-            message: "a credential already exists for that provider+label",
-            type: "conflict",
+    } catch (err) {
+      // Only a unique-constraint violation is a real conflict; any other failure
+      // (DB error, encryption failure, …) is a 500, not a misleading 409.
+      if (isUniqueViolation(err)) {
+        return c.json(
+          {
+            error: {
+              message: "a credential already exists for that provider+label",
+              type: "conflict",
+            },
           },
-        },
-        409
+          409
+        );
+      }
+      return c.json(
+        { error: { message: "failed to create credential", type: "internal_error" } },
+        500
       );
     }
   });

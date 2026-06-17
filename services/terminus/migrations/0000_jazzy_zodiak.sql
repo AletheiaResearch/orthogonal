@@ -11,7 +11,7 @@ CREATE TABLE `provider_credentials` (
 	`label` text DEFAULT 'default' NOT NULL,
 	`priority` integer DEFAULT 0 NOT NULL,
 	`weight` integer DEFAULT 1 NOT NULL,
-	`cooldown_until` integer,
+	`cooldown_until_ms` integer,
 	`failure_count` integer DEFAULT 0 NOT NULL,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,

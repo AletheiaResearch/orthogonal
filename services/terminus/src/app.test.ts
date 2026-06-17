@@ -71,7 +71,13 @@ const credentials: CredentialProvider = {
   forModelCandidates: (ref) =>
     Promise.resolve(
       ref.providerId === "anthropic"
-        ? [{ id: "anthropic-default", resolve: () => Promise.resolve({ apiKey: "sk-ant" }) }]
+        ? [
+            {
+              id: "anthropic-default",
+              failureCount: 0,
+              resolve: () => Promise.resolve({ apiKey: "sk-ant" }),
+            },
+          ]
         : []
     ),
   isEnabled: (providerId) => Promise.resolve(providerId === "anthropic"),
@@ -315,8 +321,8 @@ function poolProvider(): { provider: CredentialProvider; ok: string[]; fail: str
       Promise.resolve(
         ref.providerId === "anthropic"
           ? [
-              { id: "c1", resolve: () => Promise.resolve({ apiKey: "k1" }) },
-              { id: "c2", resolve: () => Promise.resolve({ apiKey: "k2" }) },
+              { id: "c1", failureCount: 0, resolve: () => Promise.resolve({ apiKey: "k1" }) },
+              { id: "c2", failureCount: 0, resolve: () => Promise.resolve({ apiKey: "k2" }) },
             ]
           : []
       ),

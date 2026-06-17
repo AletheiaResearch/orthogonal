@@ -91,10 +91,15 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
     };
 
     const buildModel = deps.buildModel ?? buildLanguageModel;
+    // Build request-derived options ONCE, before the candidate loop: a malformed request
+    // (e.g. a tool message with no matching tool_call_id) must fail fast as a 400, not walk
+    // the whole credential pool cooling down healthy keys (GatewayError is terminal in retry).
+    const requestMessages = toModelMessages(body.messages);
+    const requestTools = toToolSet(body.tools);
     const callOptionsFor = (model: ReturnType<typeof buildLanguageModel>) => ({
       model,
-      messages: toModelMessages(body.messages),
-      tools: toToolSet(body.tools),
+      messages: requestMessages,
+      tools: requestTools,
       temperature: body.temperature,
       topP: body.top_p,
       maxOutputTokens: body.max_completion_tokens ?? body.max_tokens,
@@ -190,7 +195,10 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
         if (!isRetryableUpstreamError(err)) throw err;
         lastError = err;
         background(
-          deps.credentials.recordFailure?.(candidate.id, cooldownUntilFromError(err, nowMs))
+          deps.credentials.recordFailure?.(
+            candidate.id,
+            cooldownUntilFromError(err, nowMs, candidate.failureCount)
+          )
         );
       }
     }

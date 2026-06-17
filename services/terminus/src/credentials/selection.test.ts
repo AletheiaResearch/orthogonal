@@ -5,7 +5,7 @@ import { orderCandidates, type SelectableCredential } from "./selection";
 const row = (o: Partial<SelectableCredential> & { id: string }): SelectableCredential => ({
   priority: 0,
   weight: 1,
-  cooldownUntil: null,
+  cooldownUntilMs: null,
   ...o,
 });
 
@@ -15,12 +15,12 @@ describe("orderCandidates", () => {
   });
 
   it("excludes rows still cooling down", () => {
-    const out = orderCandidates([row({ id: "a", cooldownUntil: 2000 }), row({ id: "b" })], 1000);
+    const out = orderCandidates([row({ id: "a", cooldownUntilMs: 2000 }), row({ id: "b" })], 1000);
     expect(out.map((r) => r.id)).toEqual(["b"]);
   });
 
-  it("includes rows whose cooldown has elapsed (now >= cooldownUntil)", () => {
-    const out = orderCandidates([row({ id: "a", cooldownUntil: 500 })], 1000);
+  it("includes rows whose cooldown has elapsed (now >= cooldownUntilMs)", () => {
+    const out = orderCandidates([row({ id: "a", cooldownUntilMs: 500 })], 1000);
     expect(out.map((r) => r.id)).toEqual(["a"]);
   });
 

@@ -14,8 +14,8 @@ export interface SelectableCredential {
   priority: number;
   /** Weighted-random share within a tier; values < 1 are treated as 1. */
   weight: number;
-  /** Epoch ms; while `now < cooldownUntil` the row is skipped. `null` = available. */
-  cooldownUntil: number | null;
+  /** Epoch ms; while `now < cooldownUntilMs` the row is skipped. `null` = available. */
+  cooldownUntilMs: number | null;
 }
 
 /** Weighted-random ordering of one priority tier (sampling without replacement). */
@@ -44,7 +44,7 @@ export function orderCandidates<T extends SelectableCredential>(
   nowMs: number,
   rng: () => number = Math.random
 ): T[] {
-  const live = rows.filter((r) => r.cooldownUntil == null || nowMs >= r.cooldownUntil);
+  const live = rows.filter((r) => r.cooldownUntilMs == null || nowMs >= r.cooldownUntilMs);
   const tiers = new Map<number, T[]>();
   for (const r of live) {
     const tier = tiers.get(r.priority) ?? [];

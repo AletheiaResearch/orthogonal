@@ -49,6 +49,16 @@ describe("cooldownUntilFromError", () => {
     expect(cooldownUntilFromError(e, 1000)).toBe(1000 + 2000);
   });
 
+  it("honors an HTTP-date Retry-After", () => {
+    const now = Date.parse("2026-01-01T00:00:00.000Z");
+    const e = apiErr({
+      statusCode: 429,
+      isRetryable: true,
+      headers: { "retry-after": "Thu, 01 Jan 2026 00:00:30 GMT" },
+    });
+    expect(cooldownUntilFromError(e, now)).toBe(now + 30_000);
+  });
+
   it("escalating default backoff when there is no Retry-After", () => {
     const e = apiErr({ statusCode: 503, isRetryable: true });
     expect(cooldownUntilFromError(e, 1000, 0)).toBe(1000 + 30_000);

@@ -31,6 +31,8 @@ const CODEX_CANDIDATE_ID = "codex";
 export interface CredentialCandidate {
   /** Vault row id (or the synthetic Codex id) — used by recordSuccess/recordFailure. */
   id: string;
+  /** Failures recorded for this credential so far — drives escalating cooldown backoff. */
+  failureCount: number;
   resolve(): Promise<UpstreamCredential | null>;
 }
 
@@ -81,6 +83,7 @@ export class VaultCredentialProvider implements CredentialProvider {
       return [
         {
           id: CODEX_CANDIDATE_ID,
+          failureCount: 0,
           resolve: async () => {
             const token = await this.deps.codex.getAccessToken();
             return token ? { apiKey: token.accessToken, accountId: token.accountId } : null;
@@ -105,17 +108,11 @@ export class VaultCredentialProvider implements CredentialProvider {
     }
     if (rows.length === 0) return [];
 
-    const ordered = orderCandidates(
-      rows.map((r) => ({
-        id: r.id,
-        priority: r.priority,
-        weight: r.weight,
-        cooldownUntil: r.cooldownUntil,
-      })),
-      this.now()
-    );
-    return ordered.map((row) => ({
+    // Rows satisfy SelectableCredential (id/priority/weight/cooldownUntilMs), so order them
+    // directly; carry failureCount through so the fallback loop can escalate cooldowns.
+    return orderCandidates(rows, this.now()).map((row) => ({
       id: row.id,
+      failureCount: row.failureCount,
       resolve: async () => {
         const decrypted = await this.deps.vault.decryptById(row.id, owner);
         return decrypted?.mode === "api_key" ? { apiKey: decrypted.apiKey } : null;

@@ -49,7 +49,7 @@ export type PublicCredentialRow = Pick<
   | "priority"
   | "weight"
   | "enabled"
-  | "cooldownUntil"
+  | "cooldownUntilMs"
   | "failureCount"
   | "expiresAt"
   | "createdAt"
@@ -281,7 +281,7 @@ export class CredentialVault {
     await this.db
       .update(providerCredentials)
       .set({
-        cooldownUntil: cooldownUntilMs,
+        cooldownUntilMs,
         failureCount: sql`${providerCredentials.failureCount} + 1`,
         updatedAt: this.now(),
       })
@@ -292,7 +292,7 @@ export class CredentialVault {
   async recordSuccess(id: string): Promise<void> {
     await this.db
       .update(providerCredentials)
-      .set({ cooldownUntil: null, failureCount: 0, updatedAt: this.now() })
+      .set({ cooldownUntilMs: null, failureCount: 0, updatedAt: this.now() })
       .where(eq(providerCredentials.id, id));
   }
 
@@ -343,7 +343,7 @@ export class CredentialVault {
         priority: providerCredentials.priority,
         weight: providerCredentials.weight,
         enabled: providerCredentials.enabled,
-        cooldownUntil: providerCredentials.cooldownUntil,
+        cooldownUntilMs: providerCredentials.cooldownUntilMs,
         failureCount: providerCredentials.failureCount,
         expiresAt: providerCredentials.expiresAt,
         createdAt: providerCredentials.createdAt,

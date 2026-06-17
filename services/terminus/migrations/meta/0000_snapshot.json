@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "77d706e9-78a6-4b3c-87eb-2acb498d3a9b",
+  "id": "16b09bec-33ea-485d-9b91-988c940816ba",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "provider_credentials": {
@@ -98,8 +98,8 @@
           "autoincrement": false,
           "default": 1
         },
-        "cooldown_until": {
-          "name": "cooldown_until",
+        "cooldown_until_ms": {
+          "name": "cooldown_until_ms",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,

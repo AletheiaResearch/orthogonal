@@ -8,6 +8,8 @@
  */
 import { APICallError } from "ai";
 
+import { GatewayError } from "../errors";
+
 const DEFAULT_COOLDOWN_MS = 30_000;
 const MAX_COOLDOWN_MS = 5 * 60_000;
 
@@ -15,6 +17,9 @@ const MAX_COOLDOWN_MS = 5 * 60_000;
 export function isRetryableUpstreamError(err: unknown): boolean {
   // Client gave up — don't burn the pool retrying for a caller who's gone.
   if (err instanceof Error && err.name === "AbortError") return false;
+  // Our own validation/config errors (bad request, missing baseURL, unsupported provider)
+  // are deterministic — never walk the credential pool for them.
+  if (err instanceof GatewayError) return false;
   // The AI SDK classifies HTTP failures (429/5xx retryable; 400/401/403 not).
   if (APICallError.isInstance(err)) return err.isRetryable === true;
   // Unknown / network error: another candidate may succeed.
