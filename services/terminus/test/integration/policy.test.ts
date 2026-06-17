@@ -1,10 +1,15 @@
+import { mintGatewayToken } from "@open-inspect/shared";
+import { MockLanguageModelV3 } from "ai/test";
 import { env } from "cloudflare:test";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { afterEach, describe, expect, it } from "vitest";
 
+import type { CredentialProvider } from "../../src/credentials/provider";
 import { policies, policyVersions } from "../../src/db/schema";
+import type { Env } from "../../src/env";
 import { GatewayError } from "../../src/errors";
+import { createApp } from "../../src/index";
 import { PolicyStore } from "../../src/policy/store";
 
 const seedEnv = (blob: object) => ({ TERMINUS_GATEWAY_POLICY: JSON.stringify(blob) });
@@ -87,16 +92,14 @@ describe("PolicyStore (D1)", () => {
     await db
       .insert(policies)
       .values({ id: "p1", name: "platform-default", createdAt: 1, updatedAt: 1 });
-    await db
-      .insert(policyVersions)
-      .values({
-        id: "v1",
-        policyId: "p1",
-        version: 1,
-        config: "{not json",
-        isActive: true,
-        createdAt: 1,
-      });
+    await db.insert(policyVersions).values({
+      id: "v1",
+      policyId: "p1",
+      version: 1,
+      config: "{not json",
+      isActive: true,
+      createdAt: 1,
+    });
     const store = new PolicyStore(db, {}, { now: () => 1000, cache: new Map() });
     await expect(store.getActivePolicy()).rejects.toBeInstanceOf(GatewayError);
     await expect(store.getActivePolicy()).rejects.toMatchObject({ status: 503 });
@@ -160,5 +163,95 @@ describe("PolicyStore (D1)", () => {
     const store = new PolicyStore(db, {}, { now: () => 1000, cache: new Map() });
     const { id } = await store.createPolicy({});
     await expect(store.createVersion(id, { schemaVersion: 2 }, true)).rejects.toThrow();
+  });
+});
+
+describe("policy enforcement end-to-end (app + real PolicyStore + D1)", () => {
+  type MockArgs = ConstructorParameters<typeof MockLanguageModelV3>[0];
+  const SECRET = "e2e-secret-please-rotate";
+  const e2eEnv = { TERMINUS_JWT_SECRET: SECRET, DB: env.DB } as unknown as Env;
+
+  const E2E_REGISTRY = {
+    anthropic: {
+      id: "anthropic",
+      name: "Anthropic",
+      env: ["ANTHROPIC_API_KEY"],
+      npm: "@ai-sdk/anthropic",
+      models: {
+        "claude-opus-4-5": {
+          id: "claude-opus-4-5",
+          name: "Claude Opus 4.5",
+          limit: { context: 1000, output: 1000 },
+          modalities: { input: ["text"], output: ["text"] },
+        },
+      },
+    },
+  };
+
+  const e2eCreds: CredentialProvider = {
+    forModel: () => Promise.resolve({ apiKey: "k" }),
+    forModelCandidates: () =>
+      Promise.resolve([
+        { id: "c", failureCount: 0, resolve: () => Promise.resolve({ apiKey: "k" }) },
+      ]),
+    isEnabled: () => Promise.resolve(true),
+  };
+
+  const okModel = () =>
+    new MockLanguageModelV3({
+      doGenerate: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "ok" }],
+          finishReason: "stop",
+          usage: { inputTokens: { total: 1 }, outputTokens: { total: 1 } },
+          warnings: [],
+        }),
+    } as unknown as MockArgs);
+
+  async function chat(model: string, seed: object): Promise<Response> {
+    // Real PolicyStore over real D1, fresh cache per call (no cross-test module-cache bleed).
+    const app = createApp({
+      loadRegistry: () => Promise.resolve(E2E_REGISTRY),
+      buildCredentials: () => e2eCreds,
+      buildPolicyStore: (e) =>
+        new PolicyStore(
+          drizzle(e.DB),
+          { TERMINUS_GATEWAY_POLICY: JSON.stringify(seed) },
+          { cache: new Map() }
+        ),
+      chat: { buildModel: () => okModel() },
+    });
+    const tok = await mintGatewayToken({ sid: "s", allowed_models: [] }, SECRET);
+    return app.request(
+      "/v1/chat/completions",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${tok}`, "content-type": "application/json" },
+        body: JSON.stringify({ model, messages: [{ role: "user", content: "hi" }] }),
+      },
+      e2eEnv
+    );
+  }
+
+  it("denies a model blocked by the seeded policy (403, lazy-seeded from the env blob)", async () => {
+    const res = await chat("anthropic/claude-opus-4-5", {
+      schemaVersion: 1,
+      guardrails: { deniedModels: ["anthropic/claude-opus-4-5"] },
+    });
+    expect(res.status).toBe(403);
+    // the seed materialized a platform-default policy + active version
+    expect((await db.select().from(policies).all()).length).toBe(1);
+  });
+
+  it("serves a model allowed by the seeded policy (200)", async () => {
+    const res = await chat("anthropic/claude-opus-4-5", {
+      schemaVersion: 1,
+      guardrails: { allowedModels: ["anthropic/claude-opus-4-5"] },
+    });
+    expect(res.status).toBe(200);
+    expect(
+      ((await res.json()) as { choices: { message: { content: string } }[] }).choices[0].message
+        .content
+    ).toBe("ok");
   });
 });
