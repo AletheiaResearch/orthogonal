@@ -74,3 +74,64 @@ export const providerCredentials = sqliteTable(
 
 export type ProviderCredentialRow = typeof providerCredentials.$inferSelect;
 export type NewProviderCredentialRow = typeof providerCredentials.$inferInsert;
+
+/**
+ * Guardrail policy (CON-71 L2) — a Helicone-style versioned config, owner-scoped,
+ * mirroring `provider_credentials`. A `policy` names an owner's policy (v1: one
+ * `platform-default`); each `policy_version` carries a validated JSON guardrail blob
+ * (`policy/blob.ts`). The active version is the one with `is_active = 1` (partial
+ * unique → exactly one per policy); rollback flips `is_active` to an older version.
+ * There is no routing here — the blob only gates + clamps, never reroutes a model.
+ */
+export const policies = sqliteTable(
+  "policies",
+  {
+    id: text("id").primaryKey(),
+    /** `platform` | `tenant`. Single-tenant rollout uses `platform` only. */
+    ownerType: text("owner_type").$type<CredentialOwnerType>().notNull().default("platform"),
+    /** Tenant id for per-identity policies; empty for platform. */
+    ownerId: text("owner_id").notNull().default(""),
+    /** Human-readable policy name, e.g. `platform-default`. */
+    name: text("name").notNull(),
+    /** Whether the policy is live (a disabled policy is ignored at request time). */
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("policies_owner_name").on(table.ownerType, table.ownerId, table.name),
+    // Owner isolation — mirrors provider_credentials.
+    check(
+      "policies_tenant_owner_id",
+      sql`${table.ownerType} = 'platform' OR ${table.ownerId} <> ''`
+    ),
+  ]
+);
+
+export const policyVersions = sqliteTable(
+  "policy_versions",
+  {
+    id: text("id").primaryKey(),
+    /** Logical reference to `policies.id` (no FK — D1 keeps PRAGMA foreign_keys off). */
+    policyId: text("policy_id").notNull(),
+    /** Monotonic per policy (max(version)+1 at write). */
+    version: integer("version").notNull(),
+    /** The validated JSON guardrail blob (plaintext — not a secret). */
+    config: text("config").notNull(),
+    /** Exactly one active version per policy (partial unique index below). */
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(false),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("policy_versions_policy_version").on(table.policyId, table.version),
+    // Exactly one active version per policy.
+    uniqueIndex("policy_versions_active")
+      .on(table.policyId)
+      .where(sql`${table.isActive} = 1`),
+  ]
+);
+
+export type PolicyRow = typeof policies.$inferSelect;
+export type NewPolicyRow = typeof policies.$inferInsert;
+export type PolicyVersionRow = typeof policyVersions.$inferSelect;
+export type NewPolicyVersionRow = typeof policyVersions.$inferInsert;
