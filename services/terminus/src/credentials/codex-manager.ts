@@ -74,13 +74,12 @@ export class CodexTokenManager {
    */
   async refreshIfNearExpiry(): Promise<void> {
     const rows = await this.vault.listCodexRowsNearExpiry(this.now() + CODEX_REFRESH_BUFFER_MS);
-    const seen = new Set<string>();
+    const owners = new Map<string, CredentialOwner>();
     for (const row of rows) {
-      const key = `${row.ownerType}:${row.ownerId}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      await this.refreshOwner({ type: row.ownerType, id: row.ownerId });
+      owners.set(`${row.ownerType}:${row.ownerId}`, { type: row.ownerType, id: row.ownerId });
     }
+    // Owners are independent and refreshOwner self-isolates failures, so refresh in parallel.
+    await Promise.all([...owners.values()].map((owner) => this.refreshOwner(owner)));
   }
 
   /** Refresh one owner's Codex token if missing/near-expiry; isolated best-effort. */
