@@ -56,6 +56,11 @@ export async function refreshCodexToken(
   }
 
   const tokens = (await response.json()) as OpenAITokenResponse;
+  // The single-use refresh token must round-trip; persisting an undefined one
+  // would brick the account. Validate rather than trust the upstream JSON shape.
+  if (!tokens.access_token || !tokens.refresh_token) {
+    throw new Error("OpenAI token refresh response missing access_token or refresh_token");
+  }
   return {
     accessToken: tokens.access_token,
     refreshToken: tokens.refresh_token,

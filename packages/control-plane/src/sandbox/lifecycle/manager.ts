@@ -1232,16 +1232,6 @@ export class SandboxLifecycleManager {
   }
 
   /**
-   * Mint a short-lived Terminus gateway token for the sandbox when the LLM
-   * gateway is enabled and both Terminus secrets are configured.
-   *
-   * Returns empty fields (no token) when the gateway is disabled, unconfigured,
-   * or if minting fails — minting failure is logged and NON-fatal so the sandbox
-   * still spawns (falling back to direct LLM keys).
-   *
-   * @param sid Session id — must match the sandboxAuthToken sid for this spawn.
-   */
-  /**
    * Mint a gateway token when the session opted into the LLM gateway. Fails CLOSED:
    * if the gateway is requested but unconfigured or minting fails, this throws so the
    * spawn aborts — never silently falling back to raw provider-key injection (which

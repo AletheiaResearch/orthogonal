@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e1efb83a-54ea-4f79-90b2-37e3cd467b4d",
+  "id": "dbe2d3f8-f3b9-4149-a028-0bf229c597de",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "provider_credentials": {
@@ -99,7 +99,12 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "provider_credentials_tenant_owner_id": {
+          "name": "provider_credentials_tenant_owner_id",
+          "value": "\"provider_credentials\".\"owner_type\" = 'platform' OR \"provider_credentials\".\"owner_id\" <> ''"
+        }
+      }
     }
   },
   "views": {},

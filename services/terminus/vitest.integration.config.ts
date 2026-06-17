@@ -1,11 +1,13 @@
 import { webcrypto } from "node:crypto";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-pool-workers";
 import { defineConfig } from "vitest/config";
 
-// Drizzle-generated migrations (drizzle-kit generate → ./migrations).
-const migrationsPath = path.resolve(__dirname, "./migrations");
+// Drizzle-generated migrations (drizzle-kit generate → ./migrations). ESM has no
+// __dirname, so derive the config dir from import.meta.url.
+const migrationsPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "./migrations");
 
 /** Random base64 32-byte AES key for the credential-vault tests. */
 function generateTestEncryptionKey(): string {

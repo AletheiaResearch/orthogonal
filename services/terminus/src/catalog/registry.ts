@@ -37,9 +37,10 @@ export interface ModelsDevModel {
 
 /**
  * Non-default credential brokering for a provider. Absent for ordinary
- * models.dev providers (platform key via `env`/secret). `codex-oauth` marks a
- * synthetic provider whose credential is a per-session ChatGPT/Codex OAuth
- * access token brokered by the control plane (CON-50) — never a Worker secret.
+ * models.dev providers (platform key from the vault / Worker secret). `codex-oauth`
+ * marks a synthetic provider whose credential is a ChatGPT/Codex OAuth access token
+ * that Terminus owns and refreshes from its own encrypted D1 vault (CON-50) — the
+ * `CodexTokenManager`, never a per-request control-plane broker.
  */
 export type CredentialMode = "codex-oauth";
 

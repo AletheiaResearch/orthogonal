@@ -273,7 +273,7 @@ multi-key LB lands). Routing/LB config + per-key limits are **deferred** (the LB
 
 ### Request flow (gateway ON)
 
-```
+```text
 verify gateway token → resolve credential by (owner=platform, provider) from D1
   → decrypt in-isolate (AAD=owner_id) → buildLanguageModel (codex .responses() branch or provider)
   → streamText/generateText → OpenAI-compat SSE → usage sink
@@ -284,7 +284,7 @@ advertises the providers/models with an `enabled` credential row (Codex included
 
 ### Refresh flow (Codex)
 
-```
+```text
 cron tick → SELECT codex rows WHERE expires_at < now + buffer
   → POST OpenAI token endpoint (ported refreshOpenAIToken) → rotated {refresh, access, expires}
   → UPDATE … WHERE refresh_token = <old>  (conditional; re-read on miss = concurrent rotation)
