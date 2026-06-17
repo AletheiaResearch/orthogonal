@@ -203,6 +203,7 @@ export class CredentialVault {
           providerCredentials.ownerType,
           providerCredentials.ownerId,
           providerCredentials.provider,
+          providerCredentials.label,
         ],
       });
   }
@@ -240,6 +241,7 @@ export class CredentialVault {
           providerCredentials.ownerType,
           providerCredentials.ownerId,
           providerCredentials.provider,
+          providerCredentials.label,
         ],
         set: {
           secretEncrypted,

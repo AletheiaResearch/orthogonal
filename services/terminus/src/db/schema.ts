@@ -42,14 +42,26 @@ export const providerCredentials = sqliteTable(
     enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
     /** Provider-specific JSON (baseURL/region overrides). */
     config: text("config"),
+    /** Disambiguates multiple credentials for one (owner, provider) — a rotation/LB pool (CON-71). */
+    label: text("label").notNull().default("default"),
+    /** Routing priority tier; higher = preferred (selected first). */
+    priority: integer("priority").notNull().default(0),
+    /** Weighted-random share within a priority tier; treated as >= 1. */
+    weight: integer("weight").notNull().default(1),
+    /** Epoch ms; while now < cooldown_until the row is skipped (rate-limit/health backoff). */
+    cooldownUntil: integer("cooldown_until"),
+    /** Consecutive upstream failures; reset to 0 on success — drives escalating cooldown. */
+    failureCount: integer("failure_count").notNull().default(0),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },
   (table) => [
-    uniqueIndex("provider_credentials_owner_provider").on(
+    // Pool key (CON-71): multiple credentials per (owner, provider), disambiguated by label.
+    uniqueIndex("provider_credentials_owner_provider_label").on(
       table.ownerType,
       table.ownerId,
-      table.provider
+      table.provider,
+      table.label
     ),
     // Owner isolation: a non-platform (tenant) row must carry a non-empty owner_id,
     // so different tenants can't collapse into the same (owner_type,'',provider) bucket.
