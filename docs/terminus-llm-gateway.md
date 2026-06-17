@@ -431,8 +431,9 @@ best-effort health writers + admin CRUD + codex-near-expiry; retry/cooldown clas
 `forModelCandidates` + non-streaming fallback loop (streaming stays single-candidate → CON-74);
 codex cron refreshes every owner; `/admin/credentials` ingestion API behind `TERMINUS_ADMIN_SECRET`
 (+ terraform). Closes **CON-70**; advances **CON-71** (PR2 = L2 routing policy + RBAC guardrails).
-Task 11 (catalog owner-threading) deferred — no present value while the tenant claim is null. Not
-yet pushed/PR'd (awaiting go-ahead; never merge).
+Task 11 (catalog owner-threading) deferred — no present value while the tenant claim is null.
+**Pushed** to `origin/nejc/con-71-con-70-gateway-routing-byok`; **PR not opened yet** (awaiting
+go-ahead — base `terminus`; never merge).
 
 ## Continuation prompt (paste into a fresh session) — post-PR-#13
 
