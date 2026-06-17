@@ -3,6 +3,7 @@ import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
 import { describe, expect, it } from "vitest";
 
 import type { ModelsDevRegistry } from "./catalog/registry";
+import type { CredentialProvider } from "./credentials/provider";
 import type { Env } from "./env";
 import { createApp } from "./index";
 import type { UsageRecord, UsageSink } from "./usage/sink";
@@ -60,11 +61,20 @@ const REGISTRY: ModelsDevRegistry = {
   },
 };
 
-// Only Anthropic has a key configured → only its models should be advertised.
-const env = { TERMINUS_JWT_SECRET: SECRET, ANTHROPIC_API_KEY: "sk-ant" } as unknown as Env;
+const env = { TERMINUS_JWT_SECRET: SECRET } as unknown as Env;
+
+// Fake credential provider: only Anthropic is configured (mirrors the prior
+// env-key behavior) so node-env tests need no D1 vault.
+const credentials: CredentialProvider = {
+  forModel: (ref) => Promise.resolve(ref.providerId === "anthropic" ? { apiKey: "sk-ant" } : null),
+  isEnabled: (providerId) => Promise.resolve(providerId === "anthropic"),
+};
 
 function app() {
-  return createApp({ loadRegistry: () => Promise.resolve(REGISTRY) });
+  return createApp({
+    loadRegistry: () => Promise.resolve(REGISTRY),
+    buildCredentials: () => credentials,
+  });
 }
 
 async function token(allowed: string[] = []) {
@@ -149,6 +159,7 @@ describe("terminus app", () => {
     } as unknown as MockArgs);
     const gateway = createApp({
       loadRegistry: () => Promise.resolve(REGISTRY),
+      buildCredentials: () => credentials,
       usageSink: sink,
       chat: { buildModel: () => model },
     });
@@ -201,6 +212,7 @@ describe("terminus app", () => {
     } as unknown as MockArgs);
     const gateway = createApp({
       loadRegistry: () => Promise.resolve(REGISTRY),
+      buildCredentials: () => credentials,
       usageSink: rejectingSink,
       chat: { buildModel: () => model },
     });
@@ -238,6 +250,7 @@ describe("terminus app", () => {
     } as unknown as MockArgs);
     const gateway = createApp({
       loadRegistry: () => Promise.resolve(REGISTRY),
+      buildCredentials: () => credentials,
       usageSink: sink,
       chat: { buildModel: () => model },
     });

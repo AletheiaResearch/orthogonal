@@ -11,6 +11,12 @@ export interface Env {
   /** HS256 secret used to verify the short-lived sandbox gateway token (CON-52). */
   TERMINUS_JWT_SECRET: string;
 
+  /** D1 database backing the credential vault (CON-50). */
+  DB: D1Database;
+
+  /** Base64 AES-256 key encrypting vault secrets at rest (CON-50). */
+  CREDENTIALS_ENCRYPTION_KEY: string;
+
   /** KV namespace caching the fetched models.dev registry (CON-49). */
   MODELS_CACHE?: KVNamespace;
 
@@ -24,5 +30,5 @@ export interface Env {
   LOG_LEVEL?: string;
 
   /** Dynamic provider API keys + any other string/binding values. */
-  [key: string]: string | KVNamespace | Fetcher | undefined;
+  [key: string]: string | KVNamespace | Fetcher | D1Database | undefined;
 }
