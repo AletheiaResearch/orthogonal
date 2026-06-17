@@ -391,49 +391,66 @@ proves the auth/fetch-interceptor mechanism, NOT `config()`-registers-a-provider
 `packages/sandbox-runtime/src/sandbox_runtime/{entrypoint.py, plugins/gateway-plugin.js}`,
 `terraform/environments/production/{workers-control-plane.tf, locals.tf}`.
 
-## Continuation prompt (paste into a fresh session in this worktree)
+## Continuation prompt (paste into a fresh session) — post-PR-#13
 
-> Continue Linear issue **CON-41** (Terminus LLM gateway) in this worktree. Read
-> `docs/terminus-llm-gateway.md` end-to-end first — it is the design + tracking doc and contains the
-> committed CON-50 and CON-53 plans.
+> Continue Linear epic **CON-41** (Terminus LLM gateway). **Work in a git worktree off the
+> `terminus` branch.** Read this doc (`docs/terminus-llm-gateway.md`) first — it is the design +
+> living tracker (shown live in the cmux markdown viewer); keep it updated as you go.
 >
-> **State:** the foundation spine (CON-48 proxy, CON-49 `/v1/models`, CON-51 credential resolution,
-> CON-52 token auth) and **CON-54-scoped** (cost-priced usage emission; durable store deferred) are
-> done, tested (72 tests), and committed on branch `worktree-con-41-llm-gateway`. **Remaining:
-> CON-50 then CON-53** (plans + locked decisions in this doc).
+> **State:** CON-50 (Codex OAuth + Terminus-owned credential vault) and CON-53 (OpenCode gateway
+> wiring) are implemented and fully reviewed in **PR #13** (branch `nejc/con-50-codex-opencode`,
+> base **`terminus`** — NOT main). All bot review is resolved (Codex adversarial pass + 2 CodeRabbit
+> rounds). It ships **gated default-OFF** (per-session `llmGatewayEnabled`) and is **NOT merged** —
+> never merge yourself.
 >
-> **Workspace/PR rules:** work in this worktree; push with
-> `git push origin HEAD:nejc/con-41-llm-gateway-model-routing-chatgptcodex-oauth-vercel-ai-sdk`
-> (flows into **PR #12**, base **`terminus`** — an integration branch). **Do NOT merge to `main` and
-> do NOT change the PR base.** PR #12 is the whole-epic PR; it merges only when all sub-issues are
-> in.
+> **⚠️ The gate before the toggle can go ON = a LIVE smoke test on a pinned-OpenCode sandbox.** Two
+> pieces have zero CI coverage and are flagged UNVERIFIED in-code/doc: (1) the config-hook provider
+> registration in `sandbox-runtime/.../plugins/gateway-plugin.js`, and (2) the
+> `gateway/<provider>/<model>` default-model routing in `entrypoint.py`. Do not flip the default ON
+> until both are proven on a real sandbox. See "live-verify gaps" above + the CON-53 comment.
+>
+> **Architecture (locked, see the CON-50 REVISED section):** Terminus owns provider creds in its
+> **own D1** via **Drizzle** (parameterized — no hand-rolled SQL); one unified
+> `provider_credentials` table (platform/BYOK distinguished by `owner`); AES-256-GCM at rest (key =
+> Worker secret, owner-AAD), decrypted only in-isolate. Codex = a vault row (4 OAuth components);
+> `CodexTokenManager` refreshes (cron `scheduled()` + lazy + 401-reread); Terminus is the sole
+> refresher of its _own_ ChatGPT account (control-plane's refresh stays for the legacy raw-key
+> sandbox path). CON-53: control-plane mints a short-TTL gateway token, injects
+> `GATEWAY_TOKEN`/`GATEWAY_BASE_URL`, **drops raw `llm_secrets` when ON (fail-closed)**; the refresh
+> route is gated on the session's `llmGatewayEnabled` (403 otherwise).
+>
+> **Roadmap (Nejc), in order:** (1) finish/iron out PR #13 ← _likely where you start_ (any new
+> review, the smoke test, routing fixes); (2) the deferred sub-issues: **CON-70** (BYOK/per-tenant +
+> ingestion API), **CON-71** (LiteLLM/Helicone LB & routing), **CON-72** (gateway rollout: don't
+> drop `llm_secrets` for pre-gateway snapshot images + gate user-injected LLM keys) — **CON-54**
+> (durable metering store) is also still open; (3) the dashboard issue (natural home for CON-70's
+> ingestion API + admin surface); (4) a PR `terminus → main`; (5) try, iron out, merge.
+>
+> **Branch/PR rules:** stay on `nejc/con-50-codex-opencode` for PR #13 work; for a NEW sub-issue,
+> branch off `terminus` with a name that does **NOT** contain `con-41` (it would auto-close the
+> epic) and open a PR with base **`terminus`**. Push with `git push origin HEAD:<branch>`.
 >
 > **Repo rules:** build `@open-inspect/shared` first; conventional commits; **sole author Nejc
-> Drobnič — never add a Co-Authored-By trailer or any AI-attribution footer to commits or the PR**;
-> pnpm catalog is `strict` with a 7-day `minimumReleaseAge` gate (pin versions published ≥7 days
-> ago); **TDD** (test first, watch it fail); **verify before claiming done**
-> (`pnpm --filter @orthogonal/terminus typecheck && test && build`, `pnpm fmt:check`, `pnpm lint`);
-> call the `advisor` before committing to an approach and before declaring done; use **Workflows**
-> for parallel research/impl; keep this doc updated (it's shown live via the cmux markdown viewer).
+> Drobnič — never add a Co-Authored-By or any AI-attribution footer**; pnpm catalog is `strict` with
+> a 7-day `minimumReleaseAge` (pin versions published ≥7 days ago); **TDD** (test first, watch it
+> fail); **verify before claiming done** — `pnpm --filter <pkg> typecheck && test`; terminus +
+> control-plane also `run test:integration` (workerd/Miniflare D1); modal:
+> `cd packages/modal-infra && uv run --extra dev pytest tests/ -v && ruff check && ruff format --check`;
+> then `pnpm fmt:check`, `pnpm lint`, `tofu fmt -check` for any `.tf`. Call the **advisor** before
+> committing to an approach and before declaring done; use **Workflows** for parallel research/impl.
 >
-> **Linear:** keep sub-issue states current (move to **In Review** + link PR #12 when implemented);
-> CON-41 is In Review; **CON-54 stays open** to track the durable timeseries-DB store (deferred per
-> Nejc). Comment durable decisions on the relevant issue.
+> **Linear:** move each sub-issue through its own lifecycle (In Progress when you start → In
+> Review + link the PR when implemented); comment durable decisions on the relevant issue; reply to
+> **CodeRabbit** threads tagging **@coderabbitai** formatted to record durable Learnings (other
+> bots' threads don't count). Keep **CON-41 In Progress** — don't let it auto-close until the whole
+> epic lands.
 >
-> **Locked decisions:** CON-53 ships behind a **default-OFF `llmGatewayEnabled`** toggle (raw-key
-> injection stays; flip ON after a live smoke test) with a **short-TTL token + plugin refresh** and
-> **plugin** (not inline) delivery; CON-50 reuses **control-plane as the sole token refresher**
-> (Terminus pulls access tokens over a `CONTROL_PLANE` service binding — never holds the refresh
-> token) and builds Codex via `@ai-sdk/openai` `.responses()` + `ChatGPT-Account-Id` with a
-> synthetic `codex/*` provider; CON-54 has **no durable store** (a timeseries metrics DB is chosen
-> later).
->
-> **Live-verify gaps (implement + unit-test here; flag a deploy-time smoke test):** CON-50's
-> upstream body contract at `chatgpt.com/backend-api/codex/responses` (needs real Codex creds);
-> CON-53's OpenCode config-hook baseURL repoint (needs a live pinned-OpenCode sandbox).
->
-> Suggested order for CON-50: (1) spike the Codex request body via `createOpenAI({ fetch })`; (2)
-> terminus identification seam (`codex/*` → `ResolvedModelRef.credentialMode`); (3) router
-> Codex-Responses branch; (4) control-plane service-auth on the token-refresh route + a Terminus
-> `CodexCredentialResolver` over the service binding; (5) wire `chat.ts`; (6) advertise-always in
-> `/v1/models`. TDD each; commit + push as you go.
+> **Gotchas from the prior session:** (a) Workflow subagents sometimes resolve **absolute paths to
+> the original repo root instead of the worktree** — give them the explicit worktree path and
+> `git status` the worktree after to catch stray writes. (b) The **pre-commit hook (lint-staged)
+> OOM-kills** on large staged sets — after independently verifying `pnpm fmt:check` + `pnpm lint`
+> are clean, commit with `--no-verify`. (c) Drizzle migration regen (table not deployed yet, so keep
+> it one clean file): edit `services/terminus/src/db/schema.ts`, then
+> `rm -rf services/terminus/migrations && pnpm --filter @orthogonal/terminus db:generate`. (d)
+> terminus D1 tests run via the Miniflare-D1 harness; migrations apply through `readD1Migrations`
+> (tests) and `scripts/d1-migrate.sh` (terraform).
