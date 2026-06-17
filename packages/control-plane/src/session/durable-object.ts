@@ -7,7 +7,12 @@
  * - Prompt queue and event streaming
  */
 
-import { resolveAppName, timingSafeEqual } from "@open-inspect/shared";
+import {
+  DEFAULT_GATEWAY_TOKEN_TTL_SECONDS,
+  mintGatewayToken,
+  resolveAppName,
+  timingSafeEqual,
+} from "@open-inspect/shared";
 import { DurableObject } from "cloudflare:workers";
 
 import { generateId, hashToken, encryptToken, decryptToken } from "../auth/crypto";
@@ -173,6 +178,7 @@ export class SessionDO extends DurableObject<Env> {
     unarchive: (request) => this.sessionLifecycleHandler.unarchive(request),
     verifySandboxToken: (request) => this.sandboxHandler.verifySandboxToken(request),
     openaiTokenRefresh: () => this.sandboxHandler.openaiTokenRefresh(),
+    gatewayToken: () => this.sandboxHandler.gatewayToken(),
     scmCredentials: () => this.sandboxHandler.scmCredentials(),
     spawnContext: () => this.childSessionsHandler.getSpawnContext(),
     childSummary: (_request, url) => this.childSessionsHandler.getChildSummary(url),
@@ -386,6 +392,22 @@ export class SessionDO extends DurableObject<Env> {
         },
         isOpenAISecretsConfigured: () =>
           Boolean(this.env.DB && this.env.REPO_SECRETS_ENCRYPTION_KEY),
+        isGatewayConfigured: () =>
+          Boolean(this.env.TERMINUS_JWT_SECRET && this.env.TERMINUS_GATEWAY_URL),
+        mintGatewayToken: async (session) => {
+          // sid must match the spawn-time sid (session_name || id) so the gateway
+          // attributes refreshed tokens to the same session.
+          const sid = session.session_name || session.id;
+          const token = await mintGatewayToken(
+            { sid, tenant: null, allowed_models: [] },
+            this.env.TERMINUS_JWT_SECRET!
+          );
+          return {
+            token,
+            base_url: this.env.TERMINUS_GATEWAY_URL!,
+            expires_in: DEFAULT_GATEWAY_TOKEN_TTL_SECONDS,
+          };
+        },
         getScmCredentials: () => {
           const session = this.getSession();
           return new ScmCredentialsService(this.sourceControlProvider, this.log).getCredentials(
@@ -680,6 +702,8 @@ export class SessionDO extends DurableObject<Env> {
       ...DEFAULT_LIFECYCLE_CONFIG,
       controlPlaneUrl,
       model: DEFAULT_MODEL,
+      terminusJwtSecret: this.env.TERMINUS_JWT_SECRET,
+      terminusGatewayUrl: this.env.TERMINUS_GATEWAY_URL,
       sessionId,
       inactivity: {
         ...DEFAULT_LIFECYCLE_CONFIG.inactivity,

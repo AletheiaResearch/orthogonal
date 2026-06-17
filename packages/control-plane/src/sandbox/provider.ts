@@ -78,6 +78,10 @@ export interface CreateSandboxConfig {
   sandboxSettings?: SandboxSettings;
   /** GitHub App installation ID stored on the session (webhook override). */
   githubAppInstallationId?: string;
+  /** Short-lived Terminus gateway token (set when the LLM gateway is enabled). */
+  gatewayToken?: string;
+  /** Base URL of the Terminus LLM gateway (paired with gatewayToken). */
+  gatewayBaseUrl?: string;
 }
 
 /**
@@ -142,6 +146,10 @@ export interface RestoreConfig {
   sandboxSettings?: SandboxSettings;
   /** GitHub App installation ID stored on the session (webhook override). */
   githubAppInstallationId?: string;
+  /** Short-lived Terminus gateway token (set when the LLM gateway is enabled). */
+  gatewayToken?: string;
+  /** Base URL of the Terminus LLM gateway (paired with gatewayToken). */
+  gatewayBaseUrl?: string;
 }
 
 /**

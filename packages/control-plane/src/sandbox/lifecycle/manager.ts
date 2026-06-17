@@ -10,7 +10,7 @@
  * spawn attempts within the same request.
  */
 
-import type { McpServerConfig, SandboxSettings } from "@open-inspect/shared";
+import { mintGatewayToken, type McpServerConfig, type SandboxSettings } from "@open-inspect/shared";
 
 import { hashToken } from "../../auth/crypto";
 import { mintJwt } from "../../auth/jwt";
@@ -161,6 +161,10 @@ export interface SandboxLifecycleConfig {
   controlPlaneUrl: string;
   /** Default model ID used when the session has no model override. */
   model: string;
+  /** HS256 secret for minting Terminus gateway tokens. Unset disables the gateway. */
+  terminusJwtSecret?: string;
+  /** Base URL of the Terminus LLM gateway. Unset disables the gateway. */
+  terminusGatewayUrl?: string;
   /** Session ID for log correlation. Optional — logs will omit sessionId if not provided. */
   sessionId?: string;
   /** MCP server lookup for injecting servers into sandboxes. */
@@ -428,6 +432,10 @@ export class SandboxLifecycleManager {
       const codeServerEnabled = session.code_server_enabled === 1;
       const agentSlackNotifyEnabled = await this.resolveAgentSlackNotifyEnabled(session);
       const sandboxSettings = this.parseSandboxSettings(session);
+      const { gatewayToken, gatewayBaseUrl } = await this.tryMintGatewayToken(
+        sessionId,
+        sandboxSettings
+      );
       const createConfig: CreateSandboxConfig = {
         sessionId,
         sandboxId: expectedSandboxId,
@@ -447,6 +455,8 @@ export class SandboxLifecycleManager {
         mcpServers,
         sandboxSettings,
         githubAppInstallationId: session.github_app_installation_id ?? undefined,
+        gatewayToken,
+        gatewayBaseUrl,
       };
 
       const result = await this.provider.createSandbox(createConfig);
@@ -611,9 +621,14 @@ export class SandboxLifecycleManager {
       const agentSlackNotifyEnabled = await this.resolveAgentSlackNotifyEnabled(session);
       const mcpServers = await this.loadMcpServers(session);
       const sandboxSettings = this.parseSandboxSettings(session);
+      const restoreSessionId = session.session_name || session.id;
+      const { gatewayToken, gatewayBaseUrl } = await this.tryMintGatewayToken(
+        restoreSessionId,
+        sandboxSettings
+      );
       const result = await this.provider.restoreFromSnapshot({
         snapshotImageId,
-        sessionId: session.session_name || session.id,
+        sessionId: restoreSessionId,
         sandboxId: expectedSandboxId,
         sandboxAuthToken,
         controlPlaneUrl: this.config.controlPlaneUrl,
@@ -629,6 +644,8 @@ export class SandboxLifecycleManager {
         mcpServers,
         sandboxSettings,
         githubAppInstallationId: session.github_app_installation_id ?? undefined,
+        gatewayToken,
+        gatewayBaseUrl,
       });
 
       if (result.success) {
@@ -1210,6 +1227,41 @@ export class SandboxLifecycleManager {
       return normalizeSandboxSettings(parsed, { invalid: "omit" });
     } catch {
       this.log.warn("Failed to parse sandbox_settings, using defaults");
+      return {};
+    }
+  }
+
+  /**
+   * Mint a short-lived Terminus gateway token for the sandbox when the LLM
+   * gateway is enabled and both Terminus secrets are configured.
+   *
+   * Returns empty fields (no token) when the gateway is disabled, unconfigured,
+   * or if minting fails — minting failure is logged and NON-fatal so the sandbox
+   * still spawns (falling back to direct LLM keys).
+   *
+   * @param sid Session id — must match the sandboxAuthToken sid for this spawn.
+   */
+  private async tryMintGatewayToken(
+    sid: string,
+    sandboxSettings: SandboxSettings
+  ): Promise<{ gatewayToken?: string; gatewayBaseUrl?: string }> {
+    const { terminusJwtSecret, terminusGatewayUrl } = this.config;
+    if (!sandboxSettings.llmGatewayEnabled || !terminusJwtSecret || !terminusGatewayUrl) {
+      return {};
+    }
+
+    try {
+      const gatewayToken = await mintGatewayToken(
+        { sid, tenant: null, allowed_models: [] },
+        terminusJwtSecret
+      );
+      this.log.info("Minted gateway token", { event: "sandbox.gateway_token_minted" });
+      return { gatewayToken, gatewayBaseUrl: terminusGatewayUrl };
+    } catch (error) {
+      this.log.warn("Failed to mint gateway token; spawning without gateway", {
+        event: "sandbox.gateway_token_mint_failed",
+        error: error instanceof Error ? error.message : String(error),
+      });
       return {};
     }
   }

@@ -79,6 +79,8 @@ export class ModalSandboxProvider implements SandboxProvider {
           mcpServers: config.mcpServers,
           sandboxSettings: config.sandboxSettings,
           githubAppInstallationId: config.githubAppInstallationId,
+          gatewayToken: config.gatewayToken,
+          gatewayBaseUrl: config.gatewayBaseUrl,
         },
         config.correlation
       );
@@ -122,6 +124,8 @@ export class ModalSandboxProvider implements SandboxProvider {
           mcpServers: config.mcpServers,
           sandboxSettings: config.sandboxSettings,
           githubAppInstallationId: config.githubAppInstallationId,
+          gatewayToken: config.gatewayToken,
+          gatewayBaseUrl: config.gatewayBaseUrl,
         },
         config.correlation
       );

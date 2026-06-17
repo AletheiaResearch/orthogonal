@@ -85,6 +85,8 @@ class SandboxConfig:
     settings: dict[str, Any] | None = (
         None  # Sandbox settings (tunnelPorts, etc.) from control plane
     )
+    gateway_token: str | None = None  # Short-lived LLM gateway token (HS256 JWT)
+    gateway_base_url: str | None = None  # LLM gateway base URL
 
 
 @dataclass
@@ -318,6 +320,31 @@ class SandboxManager:
                     env_vars["GITHUB_APP_TOKEN"] = clone_token
                     env_vars["OI_GITHUB_TOKEN_IS_FALLBACK"] = "1"
 
+    @staticmethod
+    def _inject_gateway_env_vars(
+        env_vars: dict[str, str],
+        gateway_token: str | None,
+        gateway_base_url: str | None,
+    ) -> bool:
+        """Inject LLM gateway credentials into the sandbox environment.
+
+        When a non-empty ``gateway_token`` is supplied, the sandbox routes LLM
+        traffic through the gateway and the raw provider keys (``llm_secrets``,
+        containing ``ANTHROPIC_API_KEY``) are dropped from the sandbox so they
+        never enter a gateway-enabled container. Empty strings are treated the
+        same as ``None``.
+
+        Returns ``True`` when the gateway is enabled (and the raw LLM secrets
+        must be dropped), ``False`` otherwise.
+        """
+        token = (gateway_token or "").strip()
+        if not token:
+            return False
+
+        env_vars["GATEWAY_TOKEN"] = token
+        env_vars["GATEWAY_BASE_URL"] = (gateway_base_url or "").strip()
+        return True
+
     async def create_sandbox(
         self,
         config: SandboxConfig,
@@ -375,6 +402,12 @@ class SandboxManager:
             include_github_cli_aliases=boots_from_prebuilt_image,
         )
 
+        # When the LLM gateway is enabled, inject GATEWAY_TOKEN/GATEWAY_BASE_URL
+        # and drop the raw llm_secrets so provider keys never enter the sandbox.
+        gateway_enabled = self._inject_gateway_env_vars(
+            env_vars, config.gateway_token, config.gateway_base_url
+        )
+
         code_server_password: str | None = None
         if config.code_server_enabled:
             code_server_password = self._generate_code_server_password()
@@ -409,7 +442,7 @@ class SandboxManager:
         create_kwargs: dict = {
             "image": image,
             "app": app,
-            "secrets": [llm_secrets],
+            "secrets": [] if gateway_enabled else [llm_secrets],
             "timeout": config.timeout_seconds,
             "workdir": "/workspace",
             "env": env_vars,
@@ -651,6 +684,8 @@ class SandboxManager:
         code_server_enabled: bool = False,
         agent_slack_notify_enabled: bool = False,
         settings: dict[str, Any] | None = None,
+        gateway_token: str | None = None,
+        gateway_base_url: str | None = None,
     ) -> SandboxHandle:
         """
         Create a new sandbox from a filesystem snapshot Image.
@@ -718,6 +753,10 @@ class SandboxManager:
             env_vars, clone_token=clone_token, include_github_cli_aliases=True
         )
 
+        # When the LLM gateway is enabled, inject GATEWAY_TOKEN/GATEWAY_BASE_URL
+        # and drop the raw llm_secrets so provider keys never enter the sandbox.
+        gateway_enabled = self._inject_gateway_env_vars(env_vars, gateway_token, gateway_base_url)
+
         code_server_password: str | None = None
         if code_server_enabled:
             code_server_password = self._generate_code_server_password()
@@ -739,7 +778,7 @@ class SandboxManager:
         create_kwargs: dict = {
             "image": image,
             "app": app,
-            "secrets": [llm_secrets],
+            "secrets": [] if gateway_enabled else [llm_secrets],
             "timeout": timeout_seconds,
             "workdir": "/workspace",
             "env": env_vars,

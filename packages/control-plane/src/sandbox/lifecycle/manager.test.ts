@@ -4,6 +4,7 @@
  * Uses mocked dependencies to test lifecycle orchestration logic.
  */
 
+import * as shared from "@open-inspect/shared";
 import { describe, it, expect, vi } from "vitest";
 
 import type { SandboxRow, SessionRow } from "../../session/types";
@@ -2150,6 +2151,120 @@ describe("SandboxLifecycleManager", () => {
       expect(provider.restoreFromSnapshot).toHaveBeenCalledWith(
         expect.objectContaining({ agentSlackNotifyEnabled: false })
       );
+    });
+  });
+
+  describe("gateway token minting", () => {
+    const TERMINUS_SECRETS = {
+      terminusJwtSecret: "test-jwt-secret",
+      terminusGatewayUrl: "https://gateway.test",
+    };
+
+    function gatewayEnabledSession() {
+      return createMockSession({
+        sandbox_settings: JSON.stringify({ llmGatewayEnabled: true }),
+      });
+    }
+
+    function buildManager(opts: {
+      session: SessionRow;
+      sandbox?: ReturnType<typeof createMockSandbox>;
+      config?: Partial<SandboxLifecycleConfig>;
+      provider?: ReturnType<typeof createMockProvider>;
+    }) {
+      const sandbox =
+        opts.sandbox ?? createMockSandbox({ status: "pending", created_at: Date.now() - 60000 });
+      const storage = createMockStorage(opts.session, sandbox);
+      const provider = opts.provider ?? createMockProvider();
+      const config = { ...createTestConfig(), ...opts.config };
+      const manager = new SandboxLifecycleManager(
+        provider,
+        storage,
+        createMockBroadcaster(),
+        createMockWebSocketManager(false),
+        createMockAlarmScheduler(),
+        createMockIdGenerator(),
+        config
+      );
+      return { manager, provider };
+    }
+
+    it("mints and injects a gateway token when enabled and secrets are present (fresh spawn)", async () => {
+      const { manager, provider } = buildManager({
+        session: gatewayEnabledSession(),
+        config: TERMINUS_SECRETS,
+      });
+
+      await manager.spawnSandbox();
+
+      const call = vi.mocked(provider.createSandbox).mock.calls[0]?.[0];
+      expect(call?.gatewayBaseUrl).toBe("https://gateway.test");
+      expect(typeof call?.gatewayToken).toBe("string");
+      // sid must match the spawn-time sid (session_name || id).
+      const claims = JSON.parse(atob(call!.gatewayToken!.split(".")[1])) as { sid: string };
+      expect(claims.sid).toBe("test-session");
+    });
+
+    it("mints and injects a gateway token on snapshot restore", async () => {
+      const { manager, provider } = buildManager({
+        session: gatewayEnabledSession(),
+        sandbox: createMockSandbox({ status: "stopped", snapshot_image_id: "img-abc123" }),
+        config: TERMINUS_SECRETS,
+      });
+
+      await manager.spawnSandbox();
+
+      const call = vi.mocked(provider.restoreFromSnapshot!).mock.calls[0]?.[0];
+      expect(call?.gatewayBaseUrl).toBe("https://gateway.test");
+      expect(typeof call?.gatewayToken).toBe("string");
+    });
+
+    it("does not mint when the gateway is disabled in sandbox settings", async () => {
+      const { manager, provider } = buildManager({
+        session: createMockSession({ sandbox_settings: null }),
+        config: TERMINUS_SECRETS,
+      });
+
+      await manager.spawnSandbox();
+
+      const call = vi.mocked(provider.createSandbox).mock.calls[0]?.[0];
+      expect(call?.gatewayToken).toBeUndefined();
+      expect(call?.gatewayBaseUrl).toBeUndefined();
+    });
+
+    it("does not mint when Terminus secrets are not configured", async () => {
+      const { manager, provider } = buildManager({
+        session: gatewayEnabledSession(),
+        // No terminus secrets in config.
+      });
+
+      await manager.spawnSandbox();
+
+      const call = vi.mocked(provider.createSandbox).mock.calls[0]?.[0];
+      expect(call?.gatewayToken).toBeUndefined();
+      expect(call?.gatewayBaseUrl).toBeUndefined();
+    });
+
+    it("still spawns (non-fatal) when minting throws", async () => {
+      const mintSpy = vi
+        .spyOn(shared, "mintGatewayToken")
+        .mockRejectedValue(new Error("mint failed"));
+      try {
+        const { manager, provider } = buildManager({
+          session: gatewayEnabledSession(),
+          config: TERMINUS_SECRETS,
+        });
+
+        await manager.spawnSandbox();
+
+        expect(mintSpy).toHaveBeenCalled();
+        expect(provider.createSandbox).toHaveBeenCalled();
+        const call = vi.mocked(provider.createSandbox).mock.calls[0]?.[0];
+        expect(call?.gatewayToken).toBeUndefined();
+        expect(call?.gatewayBaseUrl).toBeUndefined();
+      } finally {
+        mintSpy.mockRestore();
+      }
     });
   });
 });

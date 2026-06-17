@@ -829,6 +829,14 @@ class SandboxSupervisor:
             shutil.copy(plugin_source, plugin_dir / "codex-auth-plugin.js")
             self.log.info("openai_oauth.plugin_deployed")
 
+        # Deploy Terminus gateway plugin if the per-session LLM gateway is on
+        gateway_plugin_source = Path("/app/sandbox_runtime/plugins/gateway-plugin.js")
+        if gateway_plugin_source.exists() and os.environ.get("GATEWAY_TOKEN"):
+            plugin_dir = opencode_dir / "plugins"
+            plugin_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy(gateway_plugin_source, plugin_dir / "gateway-plugin.js")
+            self.log.info("gateway.plugin_deployed")
+
         env = {
             **os.environ,
             "OPENCODE_CONFIG_CONTENT": json.dumps(opencode_config),

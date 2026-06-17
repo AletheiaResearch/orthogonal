@@ -27,6 +27,10 @@ export interface SandboxHandlerDeps {
   getSession: () => SessionRow | null;
   refreshOpenAIToken: (session: SessionRow) => Promise<OpenAITokenRefreshResult>;
   isOpenAISecretsConfigured: () => boolean;
+  isGatewayConfigured: () => boolean;
+  mintGatewayToken: (
+    session: SessionRow
+  ) => Promise<{ token: string; base_url: string; expires_in: number }>;
   getScmCredentials: () => Promise<ScmCredentialsResult>;
   broadcast: (message: ServerMessage) => void;
   generateId: () => string;
@@ -47,6 +51,7 @@ export interface SandboxHandler {
   addParticipant: (request: Request) => Promise<Response>;
   verifySandboxToken: (request: Request) => Promise<Response>;
   openaiTokenRefresh: () => Promise<Response>;
+  gatewayToken: () => Promise<Response>;
   scmCredentials: () => Promise<Response>;
 }
 
@@ -189,6 +194,28 @@ export function createSandboxHandler(deps: SandboxHandlerDeps): SandboxHandler {
           account_id: result.accountId,
         },
         { status: 200 }
+      );
+    },
+
+    async gatewayToken(): Promise<Response> {
+      const session = deps.getSession();
+      if (!session) {
+        return Response.json({ error: "No session" }, { status: 404 });
+      }
+
+      if (!deps.isGatewayConfigured()) {
+        return Response.json({ error: "Gateway not configured" }, { status: 500 });
+      }
+
+      const result = await deps.mintGatewayToken(session);
+
+      return Response.json(
+        {
+          token: result.token,
+          base_url: result.base_url,
+          expires_in: result.expires_in,
+        },
+        { status: 200, headers: { "Cache-Control": "no-store" } }
       );
     },
 
