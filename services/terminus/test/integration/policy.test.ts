@@ -75,7 +75,7 @@ describe("PolicyStore (D1)", () => {
     expect(await store.getActivePolicy()).toBeNull();
   });
 
-  it("does not re-seed when a policy already exists (admin owns it)", async () => {
+  it("fails closed when env is configured but an existing policy has no active version", async () => {
     await db
       .insert(policies)
       .values({ id: "p1", name: "platform-default", createdAt: 1, updatedAt: 1 });
@@ -83,9 +83,10 @@ describe("PolicyStore (D1)", () => {
       now: () => 1000,
       cache: new Map(),
     });
-    // policy exists but has no active version → pass-through (null), and no extra policy seeded.
-    expect(await store.getActivePolicy()).toBeNull();
+    await expect(store.getActivePolicy()).rejects.toBeInstanceOf(GatewayError);
+    await expect(store.getActivePolicy()).rejects.toMatchObject({ status: 503 });
     expect((await db.select().from(policies).all()).length).toBe(1);
+    expect(await db.select().from(policyVersions).all()).toEqual([]);
   });
 
   it("fails closed (503) when a configured active version has an invalid blob", async () => {

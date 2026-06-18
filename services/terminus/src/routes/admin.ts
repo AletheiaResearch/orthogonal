@@ -217,8 +217,25 @@ export function buildAdminApp(deps: AdminDeps = {}) {
         400
       );
     }
-    const { id } = await buildPolicyStore(c.env).createPolicy({ name });
-    return c.json({ id }, 201);
+    try {
+      const { id } = await buildPolicyStore(c.env).createPolicy({ name });
+      return c.json({ id }, 201);
+    } catch (err) {
+      // Only a unique-constraint violation is a real conflict; any other failure
+      // (DB error, …) is a 500, not a misleading 409.
+      if (isUniqueViolation(err)) {
+        return c.json(
+          {
+            error: {
+              message: "a policy already exists with that name",
+              type: "conflict",
+            },
+          },
+          409
+        );
+      }
+      return c.json({ error: { message: "failed to create policy", type: "internal_error" } }, 500);
+    }
   });
 
   app.get("/policies", async (c) => {
@@ -230,11 +247,17 @@ export function buildAdminApp(deps: AdminDeps = {}) {
     if (!body || body.config === undefined) {
       return c.json({ error: { message: "config is required", type: "bad_request" } }, 400);
     }
+    if (body.activate !== undefined && typeof body.activate !== "boolean") {
+      return c.json(
+        { error: { message: "activate must be a boolean when present", type: "bad_request" } },
+        400
+      );
+    }
     try {
       const result = await buildPolicyStore(c.env).createVersion(
         c.req.param("id"),
         body.config,
-        body.activate === true
+        bool(body.activate) ?? false
       );
       if (!result) {
         return c.json({ error: { message: "not found", type: "not_found" } }, 404);

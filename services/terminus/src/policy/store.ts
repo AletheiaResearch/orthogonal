@@ -101,7 +101,8 @@ export class PolicyStore {
    * Insert a `platform-default` policy + active version 1 from the env seed blob, only
    * when no policy row exists for the owner (so an admin-managed policy is never clobbered).
    * Idempotent + race-safe via insert-if-absent. Returns the seeded policy, or null when
-   * there is no seed secret (or a policy already exists with no active version → pass-through).
+   * there is no seed secret. If a seed secret is configured but a policy row already exists
+   * without an active version, fail closed instead of silently bypassing the guardrail.
    */
   private async seedFromEnv(owner: CredentialOwner): Promise<GuardrailPolicy | null> {
     const raw = trimmed(this.env.TERMINUS_GATEWAY_POLICY);
@@ -118,7 +119,7 @@ export class PolicyStore {
         )
       )
       .limit(1);
-    if (existing) return null; // admin (or a prior seed) owns it; don't seed over it
+    if (existing) throw policyUnavailable(); // admin (or a prior seed) owns it; don't seed over it
 
     const policy = parsePolicy(JSON.parse(raw)); // invalid seed → throws → fail-closed (503)
     const nowMs = this.now();
