@@ -458,7 +458,7 @@ describe("terminus chat — credential pool fallback (CON-71)", () => {
     expect(fail).toEqual(["c1", "c2"]);
   });
 
-  it("streaming uses only the first candidate (no fallback in v1)", async () => {
+  it("streaming commits to the first healthy candidate (no fallback needed)", async () => {
     const { provider, ok } = poolProvider();
     const seen: string[] = [];
     const chunks = [
@@ -495,38 +495,81 @@ describe("terminus chat — credential pool fallback (CON-71)", () => {
     expect(res.status).toBe(503);
   });
 
-  it("does NOT cool down a streaming credential on a terminal (non-retryable) error", async () => {
-    const { provider, fail } = poolProvider();
-    const chunks = [
-      { type: "stream-start", warnings: [] },
-      {
-        type: "error",
-        error: new APICallError({
-          message: "bad request",
-          url: "https://up/v1",
-          requestBodyValues: {},
-          statusCode: 400,
-          isRetryable: false,
-        }),
-      },
-    ];
+  // CON-74: streaming-request fallback via peek-first-chunk.
+  const errFirst = (statusCode: number, isRetryable: boolean) => [
+    { type: "stream-start", warnings: [] },
+    {
+      type: "error",
+      error: new APICallError({
+        message: "upstream",
+        url: "https://up/v1",
+        requestBodyValues: {},
+        statusCode,
+        isRetryable,
+      }),
+    },
+  ];
+  const okStream = (text: string) => [
+    { type: "stream-start", warnings: [] },
+    { type: "text-start", id: "t" },
+    { type: "text-delta", id: "t", delta: text },
+    { type: "text-end", id: "t" },
+    { type: "finish", finishReason: "stop", usage: LL_USAGE },
+  ];
+  const streamOf = (chunks: unknown[]) =>
+    new MockLanguageModelV3({
+      doStream: { stream: simulateReadableStream({ chunks }) },
+    } as unknown as MockArgs);
+
+  it("streaming falls back to the next candidate on a pre-first-token retryable error", async () => {
+    const { provider, ok, fail } = poolProvider();
+    const seen: string[] = [];
     const res = await chat(
       provider,
-      () =>
-        new MockLanguageModelV3({
-          doStream: { stream: simulateReadableStream({ chunks }) },
-        } as unknown as MockArgs),
+      (_ref, apiKey) => {
+        seen.push(apiKey);
+        return streamOf(apiKey === "k1" ? errFirst(429, true) : okStream("from-k2"));
+      },
       true
     );
     expect(res.status).toBe(200);
-    await res.text();
-    expect(fail).toEqual([]);
+    expect(await res.text()).toContain("from-k2");
+    expect(seen).toEqual(["k1", "k2"]); // rotated to the healthy candidate
+    expect(fail).toEqual(["c1"]);
+    expect(ok).toEqual(["c2"]);
   });
 
-  it("cools down the credential when a streaming request errors (no fallback, next request rotates)", async () => {
+  it("streaming returns a clean error status on a pre-first-token terminal error (no fallback)", async () => {
+    const { provider, ok, fail } = poolProvider();
+    const seen: string[] = [];
+    const res = await chat(
+      provider,
+      (_ref, apiKey) => {
+        seen.push(apiKey);
+        return streamOf(errFirst(400, false));
+      },
+      true
+    );
+    expect(res.status).toBe(502); // clean status, no SSE bytes sent
+    expect(seen).toEqual(["k1"]); // terminal → no fallback
+    expect(fail).toEqual([]); // not cooled down (deterministic failure)
+    expect(ok).toEqual([]);
+  });
+
+  it("streaming returns a clean error status when all candidates fail before the first token", async () => {
     const { provider, fail } = poolProvider();
+    const res = await chat(provider, () => streamOf(errFirst(429, true)), true);
+    expect(res.status).toBe(502);
+    expect(fail).toEqual(["c1", "c2"]); // both cooled down after exhausting the pool
+  });
+
+  it("streaming does NOT retry after the first token; surfaces the error mid-stream", async () => {
+    const { provider, fail } = poolProvider();
+    const seen: string[] = [];
     const chunks = [
       { type: "stream-start", warnings: [] },
+      { type: "text-start", id: "t" },
+      { type: "text-delta", id: "t", delta: "partial" },
       {
         type: "error",
         error: new APICallError({
@@ -540,15 +583,16 @@ describe("terminus chat — credential pool fallback (CON-71)", () => {
     ];
     const res = await chat(
       provider,
-      () =>
-        new MockLanguageModelV3({
-          doStream: { stream: simulateReadableStream({ chunks }) },
-        } as unknown as MockArgs),
+      (_ref, apiKey) => {
+        seen.push(apiKey);
+        return streamOf(chunks);
+      },
       true
     );
-    expect(res.status).toBe(200);
-    await res.text(); // drain so the error part is consumed
-    expect(fail).toEqual(["c1"]);
+    expect(res.status).toBe(200); // already committed
+    expect(await res.text()).toContain("partial"); // the committed token was delivered
+    expect(seen).toEqual(["k1"]); // no fallback after commit
+    expect(fail).toEqual(["c1"]); // cooled down for the NEXT request only
   });
 });
 

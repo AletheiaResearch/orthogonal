@@ -480,6 +480,31 @@ Deferred to the BYOK PR (gated on multi-tenancy; see spec §3b): `forced`/`unfor
 `provider_credentials`, per-tenant owner derivation in `forModelCandidates`, the BYOK→platform
 fallback edge, reading `credentialScope`, service-fee accounting.
 
+## Session 2026-06-18 — CON-74 (streaming-request fallback) — DONE (TDD, green)
+
+Branch `nejc/con-74-streaming-fallback` (off `terminus`). Full design spec:
+[`docs/terminus-streaming-fallback-design.md`](terminus-streaming-fallback-design.md).
+
+CON-71's cross-candidate fallback covered non-streaming only — `streamText().fullStream` is consumed
+after the SSE `Response` commits, so a streaming candidate couldn't fall back. **Peek-first-chunk:**
+`peekStream` (new, pure — `routes/stream-fallback.ts`) drives a candidate's stream until the first
+client-output part (commit) or a pre-output error/throw (fall back). Leading non-output parts
+(`start`/`reasoning`) are discarded (mapper ignores them); the committed stream re-emits the peeked
+part + the rest losslessly. The streaming branch is now the same candidate loop as non-streaming,
+sharing retry classification + cooldown via a `coolDownIfRetryable` helper. A retryable pre-output
+error rotates to the next candidate; a terminal one (or all-exhausted) **throws → clean HTTP
+status** (decision: nothing was streamed, so a real status beats today's `200`+SSE-error-frame).
+Post-commit errors surface mid-stream (no restart → no double-billing). `streamText` gets
+`maxRetries:0` (gateway owns fallback now). `partStartsClientOutput` is exported from the mapper
+(drift-guarded) so the commit set can't diverge. **Cancellation chain**
+(`asReadable.cancel → toOpenAIChatStream.return → drain.return → upstream.return`) is load-bearing
+and **e2e-tested** — a client disconnect releases the upstream iterator instead of leaking it
+(`asReadable` moved into `stream-fallback.ts` to co-locate the chain). SDK error-surfacing verified
+vs the installed `ai@6.0.199` `.d.ts` (robust to both a thrown `.next()` and an `error` part).
+**Verify:** 167 unit + 67 D1-integration; typecheck / fmt:check / lint clean. **Follow-up (logged,
+not in scope):** a first-token watchdog for a silent-hang upstream (peek delays header flush until
+the first token).
+
 ## Continuation prompt (paste into a fresh session) — post-PR-#16
 
 > Continue Linear epic **CON-41** (Terminus LLM gateway). **Work in a git worktree off the

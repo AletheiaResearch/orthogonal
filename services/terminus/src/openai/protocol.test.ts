@@ -5,6 +5,7 @@ import {
   type ChunkMeta,
   mapFinishReason,
   mapUsage,
+  partStartsClientOutput,
   toOpenAIChatCompletion,
   toOpenAIChatStream,
 } from "./protocol";
@@ -199,5 +200,48 @@ describe("toOpenAIChatCompletion", () => {
         },
       ],
     });
+  });
+});
+
+describe("partStartsClientOutput", () => {
+  const part = (p: unknown): TextStreamPart<ToolSet> => p as TextStreamPart<ToolSet>;
+
+  it("is true for the parts toOpenAIChatStream turns into client frames", () => {
+    expect(partStartsClientOutput(part({ type: "text-delta", id: "t", text: "hi" }))).toBe(true);
+    expect(
+      partStartsClientOutput(
+        part({ type: "tool-call", toolCallId: "c", toolName: "fn", input: {} })
+      )
+    ).toBe(true);
+    expect(
+      partStartsClientOutput(
+        part({ type: "finish", finishReason: "stop", totalUsage: usage({ outputTokens: 1 }) })
+      )
+    ).toBe(true);
+  });
+
+  it("is false for non-output parts (peek discards these) and for error parts", () => {
+    expect(partStartsClientOutput(part({ type: "start" }))).toBe(false);
+    expect(partStartsClientOutput(part({ type: "text-start", id: "t" }))).toBe(false);
+    expect(partStartsClientOutput(part({ type: "reasoning-delta", id: "r", text: "x" }))).toBe(
+      false
+    );
+    expect(partStartsClientOutput(part({ type: "tool-input-delta", id: "t", delta: "{" }))).toBe(
+      false
+    );
+    expect(partStartsClientOutput(part({ type: "error", error: new Error("x") }))).toBe(false);
+  });
+
+  it("drift guard: each part it flags actually yields a client data frame from the mapper", async () => {
+    const flagged: TextStreamPart<ToolSet>[] = [
+      part({ type: "text-delta", id: "t", text: "hi" }),
+      part({ type: "tool-call", toolCallId: "c", toolName: "fn", input: {} }),
+      part({ type: "finish", finishReason: "stop", totalUsage: usage({ outputTokens: 1 }) }),
+    ];
+    for (const p of flagged) {
+      expect(partStartsClientOutput(p)).toBe(true);
+      const frames = dataObjects(await collect(toOpenAIChatStream(parts(p), META)));
+      expect(frames.length).toBeGreaterThan(0);
+    }
   });
 });
