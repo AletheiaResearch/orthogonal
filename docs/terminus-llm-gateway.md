@@ -480,14 +480,13 @@ Deferred to the BYOK PR (gated on multi-tenancy; see spec §3b): `forced`/`unfor
 `provider_credentials`, per-tenant owner derivation in `forModelCandidates`, the BYOK→platform
 fallback edge, reading `credentialScope`, service-fee accounting.
 
-## Session 2026-06-18 — pre-toggle-ON blockers (CON-75 + CON-72)
+## Session 2026-06-18 — pre-toggle-ON blockers (CON-75 + CON-72) — DONE (TDD, green)
 
-The two code-fixable gates before flipping `llmGatewayEnabled` default-ON. Two PRs (one issue id
-each, base `terminus`): **CON-75** (sandbox-runtime, this branch
-`nejc/con-75-per-prompt-gateway-routing`) and **CON-72** (control-plane + `@open-inspect/shared`,
-next).
+The two code-fixable gates before flipping `llmGatewayEnabled` default-ON, bundled into **one PR**
+(two commits, base `terminus`): **CON-75** (sandbox-runtime) + **CON-72** (control-plane +
+`@open-inspect/shared`; **no modal changes**).
 
-### CON-75 — per-prompt model override bypasses the gateway — DONE (TDD, green)
+### CON-75 — per-prompt model override bypasses the gateway
 
 **Problem:** `entrypoint.py` re-keyed only the OpenCode _default_ model to
 `gateway/<provider>/<model>`. The control plane sends an explicit per-prompt model on every prompt,
@@ -518,23 +517,51 @@ forwards anthropic `thinking` / openai `reasoningEffort` to Terminus (and Termin
 upstream) is **not CI-coverable**. Added to the smoke-test list alongside the existing
 config-hook-registration + default-model-routing gaps.
 
-### CON-72 — don't drop `llm_secrets` for pre-gateway snapshots + gate user keys — planned
+### CON-72 — don't drop `llm_secrets` for pre-gateway snapshots + gate user keys
 
-Gate the gateway-token **mint** (control-plane), not the secret **drop** (modal): no token → modal
-keeps `llm_secrets` → no plugin re-key → clean raw-key fallback, from one decision with **zero modal
-changes**. Add an **additive** `runtime_gateway_capable` column to the control-plane DO `sandbox`
-table (`session/schema.ts` `ALTER TABLE`, default NULL — **never** 1, or legacy rows would drop keys
-into plugin-less images). Fresh base spawn → capable=true (the current image bakes the plugin);
-restore reads the persisted value; legacy snapshots are NULL → not-capable → raw fallback.
-`mintGatewayTokenIfEnabled` returns `{}` (warn, raw fallback) when enabled-but-not-capable —
-distinct from not-_configured_ (keeps the existing fail-closed `throw`). **Part B:** strip a curated
-set of LLM-provider key env names (in `@open-inspect/shared`, "keep in sync with the terminus
-catalog") from `getUserEnvVars` **only when the gateway is active** (token minted), so the
-not-capable raw fallback keeps the user's keys. Known, logged gaps: fail-_open_ to raw keys on a
-legacy snapshot (the leak is that session's pre-gateway status quo — security review must bless);
-repo-image spawns → not-capable (never gateway); a legacy session snapshots its legacy image forever
-(gateway applies only to sessions whose _first_ spawn is plugin-bearing — confirm the flip is
-new-sessions-only).
+**Part A — image-capability gate on the mint, not the drop.** Gate the gateway-token **mint**
+(control-plane) instead of the secret **drop** (modal): no token → modal keeps `llm_secrets` → no
+plugin re-key → clean raw-key fallback, from one decision with zero modal changes. New **additive**
+DO SQLite column `runtime_gateway_capable` (`session/schema.ts` `SCHEMA_SQL` + migration **32**
+`ALTER TABLE sandbox`, default **NULL** — legacy rows stay not-capable, never dropping keys into a
+plugin-less image). `doSpawn` persists it on every fresh spawn (`repoImageId === null` → base image
+bakes the plugin → capable; repo image → conservatively not-capable), even with the gateway off now,
+so a later restore reads the boot image's capability. `restoreFromSnapshot` reads the persisted
+value (a restore never changes the image).
+`mintGatewayTokenIfEnabled(sid, settings, runtimeGatewayCapable)` returns `{}` + warns when
+enabled-but-not-capable — a deliberate, **bounded fail-OPEN** to raw keys (the boot image is
+control-plane-selected, not attacker-injectable; the leak is the session's own pre-gateway status
+quo). Kept distinct from not-_configured_, which still **throws** (fail-closed).
+
+**Part B — strip user-injected LLM keys on the gateway-active path.** New `@open-inspect/shared`
+`withoutLlmProviderKeys` + a **curated** `LLM_PROVIDER_API_KEY_ENV_VARS` set (the providers the
+gateway fronts; "keep in sync with the terminus catalog"; deliberately excludes ambiguous non-LLM
+keys like `GOOGLE_API_KEY`/`STRIPE_API_KEY`). `doSpawn` + `restoreFromSnapshot` strip these from
+`userEnvVars` **only when a token was minted** (gateway active), so the not-capable raw fallback
+keeps the user's keys. This completes CON-75's acceptance #2 (a repo-secret provider key can no
+longer reach a provider directly when the gateway is ON).
+
+**Verify (bundled, green):** sandbox-runtime 354; shared 204; control-plane **1224 unit + 363
+D1-integration** (incl. a migration-32 column round-trip); typecheck/fmt/lint clean. **TDD
+throughout.**
+
+**Known, logged gaps (advisor):** (1) a legacy session (NULL capability) never routes through the
+gateway and keeps snapshotting its legacy image — the gateway applies to sessions whose **first**
+spawn is plugin-bearing; confirm the eventual default-ON flip is **new-sessions-only**. (2)
+repo-image spawns are conservatively not-capable → those sessions never use the gateway (a follow-up
+could stamp repo-image capability at build time). (3) the fail-open in Part A wants the focused
+security review's nod.
+
+**Adversarial review (4-lens workflow) — 1 of 7 findings confirmed, fixed in this PR:** the curated
+`LLM_PROVIDER_API_KEY_ENV_VARS` omitted `GOOGLE_API_KEY`, but models.dev's `google` provider accepts
+it as a Gemini credential — so a user-injected `GOOGLE_API_KEY` survived the strip on the
+gateway-active path (a direct-provider-reach leak). Added it (the gateway-mode "no provider
+reachable directly" invariant outweighs its non-LLM Maps/Cloud uses). **Logged follow-ups (not
+blocking):** (a) the strip set is static and can drift from the dynamic models.dev catalog — derive
+it from the catalog's provider `env` arrays so the control-plane strip set and the gateway's accept
+set stay identical by construction; (b) defense-in-depth — have `entrypoint.py` restrict OpenCode to
+**only** the `gateway` provider in gateway mode (so a complete strip list isn't the sole barrier to
+in-sandbox provider selection; the env strip still guards out-of-band calls).
 
 ## Continuation prompt (paste into a fresh session) — post-PR-#16
 
