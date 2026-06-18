@@ -480,6 +480,62 @@ Deferred to the BYOK PR (gated on multi-tenancy; see spec §3b): `forced`/`unfor
 `provider_credentials`, per-tenant owner derivation in `forModelCandidates`, the BYOK→platform
 fallback edge, reading `credentialScope`, service-fee accounting.
 
+## Session 2026-06-18 — pre-toggle-ON blockers (CON-75 + CON-72)
+
+The two code-fixable gates before flipping `llmGatewayEnabled` default-ON. Two PRs (one issue id
+each, base `terminus`): **CON-75** (sandbox-runtime, this branch
+`nejc/con-75-per-prompt-gateway-routing`) and **CON-72** (control-plane + `@open-inspect/shared`,
+next).
+
+### CON-75 — per-prompt model override bypasses the gateway — DONE (TDD, green)
+
+**Problem:** `entrypoint.py` re-keyed only the OpenCode _default_ model to
+`gateway/<provider>/<model>`. The control plane sends an explicit per-prompt model on every prompt,
+and `bridge.py._build_prompt_request_body` split it to a **bare** `providerID` — so every gateway-ON
+prompt selected the raw provider (no key in gateway mode → fails, or, with a stray repo key, goes
+direct to the provider bypassing Terminus auth/metering).
+
+**Fix (single authoritative signal):** the entrypoint owns the "gateway is live in this sandbox"
+decision. `_deploy_gateway_plugin` (extracted from `start_opencode`, now unit-tested) deploys
+`gateway-plugin.js` + re-keys the default **and** sets the env var `GATEWAY_ACTIVE` (new
+`constants.GATEWAY_ACTIVE_ENV`); it **clears** any stale/user-spoofed `GATEWAY_ACTIVE` when the
+gateway is not live (plugin absent or no `GATEWAY_TOKEN`), so the flag is never trusted from user
+env. `start_bridge` passes `env=os.environ` to the bridge subprocess (started _after_
+`start_opencode`), so the bridge inherits the flag. `_build_prompt_request_body` re-keys per-prompt
+overrides to `providerID=gateway`, `modelID="<provider>/<model>"` when `GATEWAY_ACTIVE` is set
+(matching `gateway-plugin.js`'s model keys → `body.model == "<provider>/<model>"`), skipping an
+already-`gateway/`-prefixed id. `constants.GATEWAY_PROVIDER_ID = "gateway"` (kept in sync with the
+plugin). Reasoning options stay computed from the **original** provider.
+
+**Scope (per advisor):** CON-75's testable deliverable is _only_ that `body.model` is gateway-keyed.
+The "repo-secret provider key → direct-provider bypass is impossible" acceptance is delivered by
+**CON-72 Part B** (stripping user-injected LLM keys), not here — cross-referenced, not claimed in
+this PR.
+
+**New live-verify gap (this PR creates it):** per-prompt requests have never hit the gateway before,
+so "gateway + reasoning options" is unproven — whether OpenCode's openai-compatible gateway provider
+forwards anthropic `thinking` / openai `reasoningEffort` to Terminus (and Terminus translates them
+upstream) is **not CI-coverable**. Added to the smoke-test list alongside the existing
+config-hook-registration + default-model-routing gaps.
+
+### CON-72 — don't drop `llm_secrets` for pre-gateway snapshots + gate user keys — planned
+
+Gate the gateway-token **mint** (control-plane), not the secret **drop** (modal): no token → modal
+keeps `llm_secrets` → no plugin re-key → clean raw-key fallback, from one decision with **zero modal
+changes**. Add an **additive** `runtime_gateway_capable` column to the control-plane DO `sandbox`
+table (`session/schema.ts` `ALTER TABLE`, default NULL — **never** 1, or legacy rows would drop keys
+into plugin-less images). Fresh base spawn → capable=true (the current image bakes the plugin);
+restore reads the persisted value; legacy snapshots are NULL → not-capable → raw fallback.
+`mintGatewayTokenIfEnabled` returns `{}` (warn, raw fallback) when enabled-but-not-capable —
+distinct from not-_configured_ (keeps the existing fail-closed `throw`). **Part B:** strip a curated
+set of LLM-provider key env names (in `@open-inspect/shared`, "keep in sync with the terminus
+catalog") from `getUserEnvVars` **only when the gateway is active** (token minted), so the
+not-capable raw fallback keeps the user's keys. Known, logged gaps: fail-_open_ to raw keys on a
+legacy snapshot (the leak is that session's pre-gateway status quo — security review must bless);
+repo-image spawns → not-capable (never gateway); a legacy session snapshots its legacy image forever
+(gateway applies only to sessions whose _first_ spawn is plugin-bearing — confirm the flip is
+new-sessions-only).
+
 ## Continuation prompt (paste into a fresh session) — post-PR-#16
 
 > Continue Linear epic **CON-41** (Terminus LLM gateway). **Work in a git worktree off the
