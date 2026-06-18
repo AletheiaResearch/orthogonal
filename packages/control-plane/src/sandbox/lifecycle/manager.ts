@@ -10,7 +10,12 @@
  * spawn attempts within the same request.
  */
 
-import { mintGatewayToken, type McpServerConfig, type SandboxSettings } from "@open-inspect/shared";
+import {
+  mintGatewayToken,
+  withoutLlmProviderKeys,
+  type McpServerConfig,
+  type SandboxSettings,
+} from "@open-inspect/shared";
 
 import { hashToken } from "../../auth/crypto";
 import { mintJwt } from "../../auth/jwt";
@@ -85,6 +90,8 @@ export interface SandboxStorage {
   updateSandboxModalObjectId(modalObjectId: string): void;
   /** Update sandbox snapshot image ID */
   updateSandboxSnapshotImageId(sandboxId: string, imageId: string): void;
+  /** Persist whether this sandbox's boot image bakes the gateway plugin (CON-72) */
+  setRuntimeGatewayCapable(capable: boolean): void;
   /** Update last activity timestamp */
   updateSandboxLastActivity(timestamp: number): void;
   /** Increment circuit breaker failure count */
@@ -432,10 +439,23 @@ export class SandboxLifecycleManager {
       const codeServerEnabled = session.code_server_enabled === 1;
       const agentSlackNotifyEnabled = await this.resolveAgentSlackNotifyEnabled(session);
       const sandboxSettings = this.parseSandboxSettings(session);
+
+      // A fresh spawn from the base image always bakes the current gateway plugin;
+      // a repo image is SHA-pinned and may predate it, so treat it as not-capable
+      // (CON-72). Persist it unconditionally — even with the gateway off now — so a
+      // later restore (once the toggle flips on) reads the boot image's capability.
+      const runtimeGatewayCapable = repoImageId === null;
+      this.storage.setRuntimeGatewayCapable(runtimeGatewayCapable);
+
       const { gatewayToken, gatewayBaseUrl } = await this.mintGatewayTokenIfEnabled(
         sessionId,
-        sandboxSettings
+        sandboxSettings,
+        runtimeGatewayCapable
       );
+      // When the gateway is active, strip user-injected raw LLM keys so no provider
+      // is reachable directly (Modal already drops the platform llm_secrets).
+      const sandboxEnvVars =
+        gatewayToken && userEnvVars ? withoutLlmProviderKeys(userEnvVars) : userEnvVars;
       const createConfig: CreateSandboxConfig = {
         sessionId,
         sandboxId: expectedSandboxId,
@@ -445,7 +465,7 @@ export class SandboxLifecycleManager {
         sandboxAuthToken,
         provider,
         model: modelId,
-        userEnvVars,
+        userEnvVars: sandboxEnvVars,
         repoImageId,
         repoImageSha,
         timeoutSeconds,
@@ -622,10 +642,19 @@ export class SandboxLifecycleManager {
       const mcpServers = await this.loadMcpServers(session);
       const sandboxSettings = this.parseSandboxSettings(session);
       const restoreSessionId = session.session_name || session.id;
+
+      // The snapshot's image carries the capability persisted on its producing
+      // spawn (CON-72). NULL = legacy (pre-gateway) snapshot → not capable → no
+      // mint → Modal keeps the raw llm_secrets → the sandbox still works. A restore
+      // never changes the image, so the persisted value is left untouched here.
+      const runtimeGatewayCapable = this.storage.getSandbox()?.runtime_gateway_capable === 1;
       const { gatewayToken, gatewayBaseUrl } = await this.mintGatewayTokenIfEnabled(
         restoreSessionId,
-        sandboxSettings
+        sandboxSettings,
+        runtimeGatewayCapable
       );
+      const sandboxEnvVars =
+        gatewayToken && userEnvVars ? withoutLlmProviderKeys(userEnvVars) : userEnvVars;
       const result = await this.provider.restoreFromSnapshot({
         snapshotImageId,
         sessionId: restoreSessionId,
@@ -636,7 +665,7 @@ export class SandboxLifecycleManager {
         repoName: session.repo_name,
         provider,
         model: modelId,
-        userEnvVars,
+        userEnvVars: sandboxEnvVars,
         timeoutSeconds,
         branch: session.base_branch,
         codeServerEnabled,
@@ -1232,15 +1261,30 @@ export class SandboxLifecycleManager {
   }
 
   /**
-   * Mint a gateway token when the session opted into the LLM gateway. Fails CLOSED:
-   * if the gateway is requested but unconfigured or minting fails, this throws so the
-   * spawn aborts — never silently falling back to raw provider-key injection (which
-   * would defeat the gateway's security boundary). When the gateway is not requested,
-   * returns empty fields and the sandbox spawns normally with raw keys.
+   * Mint a gateway token when the session opted into the LLM gateway.
+   *
+   * Fails CLOSED on misconfiguration: if the gateway is requested but unconfigured
+   * (or minting throws), this throws so the spawn aborts — never silently falling
+   * back to raw provider-key injection.
+   *
+   * Fails OPEN on image incapability (CON-72): the gateway only works when the
+   * sandbox's boot image bakes `gateway-plugin.js`. A restore of a pre-gateway
+   * snapshot — or a repo image — can't register the gateway provider, so minting a
+   * token there would make Modal drop the raw `llm_secrets` and leave the sandbox
+   * with no usable provider. For that one boot we return empty fields (raw-key
+   * fallback) and warn. This is a deliberate, bounded fail-open: the boot image is
+   * selected by the control plane (not attacker-injectable), so the only "leak" is
+   * the session's own pre-gateway status quo. (Such a session never routes through
+   * the gateway and keeps snapshotting its legacy image — the gateway applies to
+   * sessions whose first spawn is plugin-bearing.)
+   *
+   * When the gateway is not requested, returns empty fields and the sandbox spawns
+   * normally with raw keys.
    */
   private async mintGatewayTokenIfEnabled(
     sid: string,
-    sandboxSettings: SandboxSettings
+    sandboxSettings: SandboxSettings,
+    runtimeGatewayCapable: boolean
   ): Promise<{ gatewayToken?: string; gatewayBaseUrl?: string }> {
     if (!sandboxSettings.llmGatewayEnabled) {
       return {};
@@ -1252,6 +1296,15 @@ export class SandboxLifecycleManager {
         "llmGatewayEnabled is set but the LLM gateway is not configured " +
           "(TERMINUS_JWT_SECRET / TERMINUS_GATEWAY_URL missing); refusing to spawn with raw keys"
       );
+    }
+
+    if (!runtimeGatewayCapable) {
+      this.log.warn(
+        "llmGatewayEnabled but the boot image lacks the gateway plugin; " +
+          "falling back to raw provider keys for this boot",
+        { event: "sandbox.gateway_not_capable" }
+      );
+      return {};
     }
 
     const gatewayToken = await mintGatewayToken(

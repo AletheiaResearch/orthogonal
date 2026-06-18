@@ -53,6 +53,7 @@ function createSandbox(overrides: Partial<SandboxRow> = {}): SandboxRow {
     tunnel_urls: null,
     ttyd_url: null,
     ttyd_token: null,
+    runtime_gateway_capable: null,
     created_at: 1,
     ...overrides,
   };
