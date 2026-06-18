@@ -15,10 +15,11 @@ import { withCodexProvider } from "./catalog/codex";
 import { fetchRegistry } from "./catalog/models-dev";
 import { CodexTokenManager } from "./credentials/codex-manager";
 import { type CredentialProvider, VaultCredentialProvider } from "./credentials/provider";
-import { CredentialVault } from "./db/vault";
+import { CredentialVault, PLATFORM_OWNER } from "./db/vault";
 import type { Env } from "./env";
 import { errorResponse, toGatewayError } from "./errors";
 import { gatewayAuth, type TerminusVars } from "./middleware/auth";
+import { PolicyStore } from "./policy/store";
 import { buildAdminApp } from "./routes/admin";
 import { type ChatDeps, chatCompletions } from "./routes/chat";
 import { LoggingUsageSink } from "./usage/sink";
@@ -32,6 +33,8 @@ export interface AppDeps {
   buildCredentials?: (env: Env) => CredentialProvider;
   /** Injectable vault factory for the admin API (tests); defaults to the D1 vault. */
   buildVault?: (env: Env) => CredentialVault;
+  /** Per-request guardrail policy store factory (CON-71 L2); defaults to the D1 store. */
+  buildPolicyStore?: (env: Env) => PolicyStore;
   /** Test-only chat overrides (model builder, clock, id source). */
   chat?: Pick<ChatDeps, "buildModel" | "now" | "newId">;
 }
@@ -46,6 +49,12 @@ export function createApp(deps: AppDeps = {}) {
   const loadRegistry = deps.loadRegistry ?? fetchRegistry;
   const usageSink = deps.usageSink ?? new LoggingUsageSink();
   const buildCredentials = deps.buildCredentials ?? vaultCredentials;
+  // Guardrail policy store (CON-71 L2): the injected factory in tests, else the real D1 store
+  // when a DB is bound. No DB (DB-less unit envs) → undefined → chat treats it as no policy.
+  const policyStoreFor = (env: Env): PolicyStore | undefined => {
+    if (deps.buildPolicyStore) return deps.buildPolicyStore(env);
+    return env.DB ? new PolicyStore(drizzle(env.DB), env) : undefined;
+  };
   const app = new Hono<{ Bindings: Env; Variables: TerminusVars }>();
 
   app.get("/health", (c) => c.json({ status: "healthy", service: "terminus" }));
@@ -57,10 +66,12 @@ export function createApp(deps: AppDeps = {}) {
   app.get("/v1/models", async (c) => {
     try {
       const registry = withCodexProvider(await loadRegistry(c.env));
+      const policy = (await policyStoreFor(c.env)?.getActivePolicy(PLATFORM_OWNER)) ?? null;
       const list = await buildModelsList(
         registry,
         buildCredentials(c.env),
-        c.get("claims").allowed_models
+        c.get("claims").allowed_models,
+        policy
       );
       return c.json(list);
     } catch (err) {
@@ -74,12 +85,16 @@ export function createApp(deps: AppDeps = {}) {
       loadRegistry,
       usageSink,
       credentials: buildCredentials(c.env),
+      policy: policyStoreFor(c.env),
       ...deps.chat,
     })
   );
 
-  // CON-70 — platform credential ingestion/admin API (own bearer auth, not /v1).
-  app.route("/admin", buildAdminApp({ buildVault: deps.buildVault }));
+  // CON-70 + CON-71 — platform credential + policy admin API (own bearer auth, not /v1).
+  app.route(
+    "/admin",
+    buildAdminApp({ buildVault: deps.buildVault, buildPolicyStore: deps.buildPolicyStore })
+  );
 
   return app;
 }

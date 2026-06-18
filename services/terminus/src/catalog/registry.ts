@@ -80,20 +80,33 @@ export interface ResolvedModelRef {
 }
 
 /**
+ * Split a provider-qualified model id ("provider/model") at the first slash, so
+ * ids like "openrouter/anthropic/claude" keep "anthropic/claude" as the model id.
+ * Returns null when the id is unqualified or malformed (no leading provider, or a
+ * trailing slash). The single source of truth for the split — both `resolveModelRef`
+ * and the guardrail gate (`policy/guardrails.ts`) use it, so the RBAC gate can never
+ * disagree with resolution about a request's provider.
+ */
+export function splitModelId(qualifiedId: string): { providerId: string; modelId: string } | null {
+  const slash = qualifiedId.indexOf("/");
+  if (slash <= 0 || slash === qualifiedId.length - 1) return null;
+  return {
+    providerId: qualifiedId.slice(0, slash),
+    modelId: qualifiedId.slice(slash + 1),
+  };
+}
+
+/**
  * Resolve a provider-qualified model id ("provider/model") against the registry.
- * Splits at the first slash only, so ids like "openrouter/anthropic/claude" keep
- * "anthropic/claude" as the model id. Returns null when the id is unqualified or
- * the provider/model is unknown.
+ * Returns null when the id is unqualified/malformed or the provider/model is unknown.
  */
 export function resolveModelRef(
   registry: ModelsDevRegistry,
   qualifiedId: string
 ): ResolvedModelRef | null {
-  const slash = qualifiedId.indexOf("/");
-  if (slash <= 0 || slash === qualifiedId.length - 1) return null;
-
-  const providerId = qualifiedId.slice(0, slash);
-  const modelId = qualifiedId.slice(slash + 1);
+  const parts = splitModelId(qualifiedId);
+  if (!parts) return null;
+  const { providerId, modelId } = parts;
 
   const provider = registry[providerId];
   if (!provider) return null;

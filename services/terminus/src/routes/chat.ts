@@ -11,6 +11,7 @@ import type { fetchRegistry } from "../catalog/models-dev";
 import { type ModelCost, type ResolvedModelRef, resolveModelRef } from "../catalog/registry";
 import type { CredentialProvider } from "../credentials/provider";
 import { cooldownUntilFromError, isRetryableUpstreamError } from "../credentials/retry";
+import { type CredentialOwner, PLATFORM_OWNER } from "../db/vault";
 import {
   badRequest,
   errorResponse,
@@ -28,6 +29,8 @@ import {
   toOpenAIChatCompletion,
   toOpenAIChatStream,
 } from "../openai/protocol";
+import type { GuardrailPolicy } from "../policy/blob";
+import { applyGuardrails } from "../policy/guardrails";
 import {
   type BuildLanguageModelOptions,
   buildLanguageModel,
@@ -41,6 +44,12 @@ export interface ChatDeps {
   usageSink: UsageSink;
   /** Resolves the upstream credential for a model + session (vault-backed in prod). */
   credentials: CredentialProvider;
+  /**
+   * Active guardrail policy source (CON-71 L2). Undefined = no enforcement
+   * (pass-through). `getActivePolicy` returns null when none is configured and
+   * throws a 503 `GatewayError` when a configured policy can't be loaded (fail-closed).
+   */
+  policy?: { getActivePolicy(owner: CredentialOwner): Promise<GuardrailPolicy | null> };
   /** Injectable for tests; defaults to the real provider router. */
   buildModel?: (
     ref: ResolvedModelRef,
@@ -71,15 +80,30 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
     return errorResponse(badRequest("`model` (string) and `messages` (array) are required"));
   }
 
-  // Empty allowed_models means unrestricted (single-tenant rollout default).
-  if (claims.allowed_models.length > 0 && !claims.allowed_models.includes(body.model)) {
-    return errorResponse(forbiddenModel(body.model));
-  }
-
   try {
+    // L2 guardrail policy (CON-71): gate model/provider + clamp output tokens BEFORE resolution,
+    // so a 403 precedes a 404 and denied models don't reveal existence. Pass-through when no
+    // policy is configured; fail-closed (503) if a configured one can't load. Never rewrites
+    // body.model — the served model is always the requested one.
+    const requestedMaxOutput = body.max_completion_tokens ?? body.max_tokens;
+    const policy = (await deps.policy?.getActivePolicy(PLATFORM_OWNER)) ?? null;
+    let effectiveMaxOutput = policy
+      ? applyGuardrails(body.model, requestedMaxOutput, policy).maxOutputTokens
+      : requestedMaxOutput;
+
+    // Signed-claim coarse bound (defense-in-depth) — stacks on the policy gate, never widens it.
+    // Empty allowed_models means unrestricted (single-tenant rollout default).
+    if (claims.allowed_models.length > 0 && !claims.allowed_models.includes(body.model)) {
+      return errorResponse(forbiddenModel(body.model));
+    }
+
     const registry = withCodexProvider(await deps.loadRegistry(c.env));
     const ref = resolveModelRef(registry, body.model);
     if (!ref) return errorResponse(unknownModel(body.model));
+    effectiveMaxOutput =
+      effectiveMaxOutput !== undefined && ref.model.limit?.output !== undefined
+        ? Math.min(effectiveMaxOutput, ref.model.limit.output)
+        : effectiveMaxOutput;
 
     const candidates = await deps.credentials.forModelCandidates(ref, claims.sid);
     if (candidates.length === 0) {
@@ -111,7 +135,7 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       tools: requestTools,
       temperature: body.temperature,
       topP: body.top_p,
-      maxOutputTokens: body.max_completion_tokens ?? body.max_tokens,
+      maxOutputTokens: effectiveMaxOutput,
       stopSequences: typeof body.stop === "string" ? [body.stop] : body.stop,
       abortSignal: c.req.raw.signal,
       // Codex (ChatGPT-backend Responses) requires store:false + encrypted-reasoning options.

@@ -86,6 +86,28 @@ export const badRequest = (message: string): GatewayError =>
 export const upstreamError = (message: string): GatewayError =>
   new GatewayError("upstream_error", 502, "api_error", message);
 
+/** A model/provider blocked by the gateway guardrail policy (RBAC). Reuses the 403 model code. */
+export const policyDenied = (model: string, reason: string): GatewayError =>
+  new GatewayError(
+    "forbidden_model",
+    403,
+    "invalid_request_error",
+    `Model "${model}" is not allowed by the gateway policy (${reason})`
+  );
+
+/**
+ * A *configured* guardrail policy could not be loaded (D1 error, or a stored/seed
+ * blob that fails validation). Fail-closed (CON-71): a 503 transient error, never a
+ * silent pass-through. Distinct from "no policy configured" (which is pass-through).
+ */
+export const policyUnavailable = (): GatewayError =>
+  new GatewayError(
+    "upstream_error",
+    503,
+    "api_error",
+    "Gateway policy is temporarily unavailable; retry shortly"
+  );
+
 export interface OpenAIErrorBody {
   error: { message: string; type: string; code: GatewayErrorCode };
 }
