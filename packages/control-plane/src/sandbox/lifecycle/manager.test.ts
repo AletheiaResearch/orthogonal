@@ -34,6 +34,7 @@ import {
   type SandboxLifecycleConfig,
   type RepoImageLookup,
   type SlackAgentNotifyLookup,
+  type McpServerLookup,
 } from "./manager";
 
 // ==================== Mock Factories ====================
@@ -2373,6 +2374,76 @@ describe("SandboxLifecycleManager", () => {
       } finally {
         mintSpy.mockRestore();
       }
+    });
+
+    // CON-72 follow-up (E) — the gateway-active strip must cover per-server MCP env
+    // too, not just top-level user env: the entrypoint copies it into the MCP process.
+    function mcpServerLookupWith(env: Record<string, string>): McpServerLookup {
+      return {
+        getDecryptedForSession: vi.fn(async () => [
+          {
+            id: "mcp-1",
+            name: "local-mcp",
+            type: "local" as const,
+            command: ["run"],
+            env,
+            enabled: true,
+          },
+        ]),
+      };
+    }
+
+    it("strips LLM provider keys from MCP server env when the gateway is active", async () => {
+      const { manager, provider } = buildManager({
+        session: gatewayEnabledSession(),
+        config: {
+          ...TERMINUS_SECRETS,
+          mcpServerLookup: mcpServerLookupWith({ ANTHROPIC_API_KEY: "sk-mcp", KEEP: "v" }),
+        },
+      });
+
+      await manager.spawnSandbox();
+
+      const call = vi.mocked(provider.createSandbox).mock.calls[0]?.[0];
+      expect(call?.mcpServers?.[0]?.env).toEqual({ KEEP: "v" });
+    });
+
+    it("keeps MCP server env on the raw fallback (gateway not active)", async () => {
+      const { manager, provider } = buildManager({
+        session: gatewayEnabledSession(),
+        sandbox: createMockSandbox({
+          status: "stopped",
+          snapshot_image_id: "img-legacy",
+          runtime_gateway_capable: null,
+        }),
+        config: {
+          ...TERMINUS_SECRETS,
+          mcpServerLookup: mcpServerLookupWith({ ANTHROPIC_API_KEY: "sk-mcp", KEEP: "v" }),
+        },
+      });
+
+      await manager.spawnSandbox();
+
+      const call = vi.mocked(provider.restoreFromSnapshot!).mock.calls[0]?.[0];
+      expect(call?.mcpServers?.[0]?.env).toEqual({ ANTHROPIC_API_KEY: "sk-mcp", KEEP: "v" });
+    });
+
+    // CON-72 follow-up (B) — persist capability only once the spawn succeeds, so a
+    // failed fresh spawn can't overwrite the capability tied to the stored snapshot.
+    it("does not persist runtime_gateway_capable when the fresh spawn fails", async () => {
+      const provider = createMockProvider();
+      vi.mocked(provider.createSandbox).mockRejectedValue(new Error("spawn boom"));
+      const { manager, storage } = buildManager({
+        session: gatewayEnabledSession(),
+        config: TERMINUS_SECRETS,
+        provider,
+      });
+
+      await manager.spawnSandbox();
+
+      expect(provider.createSandbox).toHaveBeenCalled();
+      expect(storage.calls).not.toContain("setRuntimeGatewayCapable:true");
+      expect(storage.calls).not.toContain("setRuntimeGatewayCapable:false");
     });
   });
 });

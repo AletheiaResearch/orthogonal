@@ -12,7 +12,7 @@
 
 import {
   mintGatewayToken,
-  withoutLlmProviderKeys,
+  withoutLlmProviderCredentials,
   type McpServerConfig,
   type SandboxSettings,
 } from "@open-inspect/shared";
@@ -442,20 +442,24 @@ export class SandboxLifecycleManager {
 
       // A fresh spawn from the base image always bakes the current gateway plugin;
       // a repo image is SHA-pinned and may predate it, so treat it as not-capable
-      // (CON-72). Persist it unconditionally — even with the gateway off now — so a
-      // later restore (once the toggle flips on) reads the boot image's capability.
+      // (CON-72). Persisted only once the spawn succeeds (below) so a fresh spawn
+      // that fails can't overwrite the capability of the snapshot still on the row
+      // — a later restore must read the capability of the image it actually boots.
       const runtimeGatewayCapable = repoImageId === null;
-      this.storage.setRuntimeGatewayCapable(runtimeGatewayCapable);
 
       const { gatewayToken, gatewayBaseUrl } = await this.mintGatewayTokenIfEnabled(
         sessionId,
         sandboxSettings,
         runtimeGatewayCapable
       );
-      // When the gateway is active, strip user-injected raw LLM keys so no provider
-      // is reachable directly (Modal already drops the platform llm_secrets).
-      const sandboxEnvVars =
-        gatewayToken && userEnvVars ? withoutLlmProviderKeys(userEnvVars) : userEnvVars;
+      // When the gateway is active, strip user-injected raw LLM credentials from the
+      // top-level env and every MCP server env so no provider is reachable directly
+      // (Modal already drops the platform llm_secrets).
+      const { sandboxEnvVars, sandboxMcpServers } = this.stripProviderCredentialsForGateway(
+        gatewayToken !== undefined,
+        userEnvVars,
+        mcpServers
+      );
       const createConfig: CreateSandboxConfig = {
         sessionId,
         sandboxId: expectedSandboxId,
@@ -472,7 +476,7 @@ export class SandboxLifecycleManager {
         branch: session.base_branch,
         codeServerEnabled,
         agentSlackNotifyEnabled,
-        mcpServers,
+        mcpServers: sandboxMcpServers,
         sandboxSettings,
         githubAppInstallationId: session.github_app_installation_id ?? undefined,
         gatewayToken,
@@ -480,6 +484,15 @@ export class SandboxLifecycleManager {
       };
 
       const result = await this.provider.createSandbox(createConfig);
+
+      // Persist this boot image's gateway capability (CON-72) only now that the
+      // spawn succeeded, so a fresh spawn that fails can't leave a stale value on
+      // the row. NOTE: this records the capability of the image that *booted*;
+      // `snapshot_image_id` is not rewritten here (it still points at the prior
+      // snapshot until a new one is taken), so a fresh base boot that dies before
+      // snapshotting can leave capability and snapshot_image_id describing
+      // different images — see CON-72 follow-up on a dedicated per-boot flag.
+      this.storage.setRuntimeGatewayCapable(runtimeGatewayCapable);
 
       this.log.info("Sandbox spawned", {
         event: "sandbox.spawned",
@@ -590,6 +603,32 @@ export class SandboxLifecycleManager {
   }
 
   /**
+   * On the gateway-active path, strip raw LLM-provider credentials from both the
+   * top-level user env and every MCP server's `env` (the latter is copied into the
+   * MCP process environment by the sandbox entrypoint), so no provider is reachable
+   * directly — the gateway's auth/routing/metering boundary holds (CON-72). A no-op
+   * when the gateway is not active: a raw-fallback boot keeps the user's keys.
+   */
+  private stripProviderCredentialsForGateway(
+    gatewayActive: boolean,
+    userEnvVars: Record<string, string> | undefined,
+    mcpServers: McpServerConfig[] | undefined
+  ): {
+    sandboxEnvVars: Record<string, string> | undefined;
+    sandboxMcpServers: McpServerConfig[] | undefined;
+  } {
+    if (!gatewayActive) {
+      return { sandboxEnvVars: userEnvVars, sandboxMcpServers: mcpServers };
+    }
+    return {
+      sandboxEnvVars: userEnvVars ? withoutLlmProviderCredentials(userEnvVars) : userEnvVars,
+      sandboxMcpServers: mcpServers?.map((server) =>
+        server.env ? { ...server, env: withoutLlmProviderCredentials(server.env) } : server
+      ),
+    };
+  }
+
+  /**
    * Restore a sandbox from a filesystem snapshot.
    */
   private async restoreFromSnapshot(snapshotImageId: string): Promise<void> {
@@ -653,8 +692,11 @@ export class SandboxLifecycleManager {
         sandboxSettings,
         runtimeGatewayCapable
       );
-      const sandboxEnvVars =
-        gatewayToken && userEnvVars ? withoutLlmProviderKeys(userEnvVars) : userEnvVars;
+      const { sandboxEnvVars, sandboxMcpServers } = this.stripProviderCredentialsForGateway(
+        gatewayToken !== undefined,
+        userEnvVars,
+        mcpServers
+      );
       const result = await this.provider.restoreFromSnapshot({
         snapshotImageId,
         sessionId: restoreSessionId,
@@ -670,7 +712,7 @@ export class SandboxLifecycleManager {
         branch: session.base_branch,
         codeServerEnabled,
         agentSlackNotifyEnabled,
-        mcpServers,
+        mcpServers: sandboxMcpServers,
         sandboxSettings,
         githubAppInstallationId: session.github_app_installation_id ?? undefined,
         gatewayToken,
