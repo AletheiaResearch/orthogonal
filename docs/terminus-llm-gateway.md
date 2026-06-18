@@ -508,18 +508,20 @@ fallback edge, reading `credentialScope`, service-fee accounting.
 > the gateway — a real pre-toggle-ON blocker). Don't flip the default until all three are proven
 > live.
 >
-> **Roadmap (Nejc), in order:** (1) the **dashboard issue** — natural home for CON-70's ingestion UI
->
-> - a CF-AI-Gateway-style **node-builder that authors the CON-71 guardrail policy** blob; (2) the
->   deferred **BYOK PR** (per spec §3b: a `forced`/`unforced` column on `provider_credentials`, per-
->   tenant owner derivation in `forModelCandidates`, the BYOK→platform fallback edge, reading
->   `credentialScope`, service-fee accounting) — gated on multi-tenancy / a non-null identity claim
->   (CON-52 follow-up); **no dedicated Linear issue exists for it yet — file one (estimate ~8) or
->   fold into CON-70/CON-52**; (3) open sub-issues **CON-72** (rollout: pre-gateway-snapshot
->   `llm_secrets` + gate user keys), **CON-75** (per-prompt override), **CON-74** (streaming
->   fallback), **CON-73** (Broadcast), **CON-54** (durable metering — blocked on the timeseries-DB
->   choice); (4) the live smoke test → flip the toggle ON; (5) a PR **`terminus → main`**; try, iron
->   out, merge.
+> **Roadmap (Nejc), in order — finish CON-41's open items BEFORE the dashboard:** (1) the
+> **pre-toggle-ON blockers**, both code-fixable now: **CON-75** (per-prompt model override in
+> `bridge.py` bypasses the gateway) + **CON-72** (rollout: don't drop `llm_secrets` for pre-gateway
+> snapshots + gate user-injected keys); (2) the **live smoke test** on a pinned-OpenCode sandbox
+> (config-hook provider registration + `gateway/<provider>/<model>` default-model routing + CON-75)
+> → then flip `llmGatewayEnabled` default-ON; (3) the remaining gateway sub-issues — **CON-74**
+> (streaming fallback), **CON-73** (Broadcast), **CON-54** (durable metering — blocked on the
+> timeseries-DB choice); (4) a PR **`terminus → main`** (try, iron out, merge); (5) **later /
+> separate** — the **dashboard** (CON-70 ingestion UI + a CF-AI-Gateway-style node-builder that
+> authors the CON-71 guardrail-policy blob) and the **BYOK PR** (spec §3b: `forced`/`unforced`
+> column on `provider_credentials`, per-tenant owner derivation in `forModelCandidates`, the
+> BYOK→platform fallback edge, reading `credentialScope`, service-fee), both gated on multi-tenancy
+> / a non-null identity claim (CON-52 follow-up). **No dedicated Linear issue exists for the BYOK
+> work yet — file one (estimate ~8) or fold into CON-70/CON-52.**
 >
 > **Branch/PR rules:** branch off `terminus`; the name must **NOT** contain `con-41` (auto-closes
 > the epic) and must carry **exactly ONE** issue id (PR #14's `con-71-con-70` branch auto-closed
