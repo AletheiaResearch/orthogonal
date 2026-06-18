@@ -95,18 +95,38 @@ describe("PolicyStore (D1)", () => {
     expect(await db.select().from(policyVersions).all()).toEqual([]);
   });
 
-  it("fails closed when env is configured but an existing policy has no active version", async () => {
+  it("completes a mid-seed policy row when env is configured", async () => {
     await db
       .insert(policies)
-      .values({ id: "p1", name: "platform-default", createdAt: 1, updatedAt: 1 });
-    const store = new PolicyStore(db, seedEnv({ schemaVersion: 1, guardrails: {} }), {
-      now: () => 1000,
-      cache: new Map(),
-    });
-    await expect(store.getActivePolicy()).rejects.toBeInstanceOf(GatewayError);
-    await expect(store.getActivePolicy()).rejects.toMatchObject({ status: 503 });
+      .values({ id: "p-winning", name: "platform-default", createdAt: 1, updatedAt: 1 });
+    const seed = { schemaVersion: 1, guardrails: { deniedModels: ["seeded/model"] } };
+    const store = new PolicyStore(db, seedEnv(seed), { now: () => 1000, cache: new Map() });
+
+    expect((await store.getActivePolicy())?.guardrails.deniedModels).toEqual(["seeded/model"]);
     expect((await db.select().from(policies).all()).length).toBe(1);
-    expect(await db.select().from(policyVersions).all()).toEqual([]);
+    const versions = await db.select().from(policyVersions).all();
+    expect(versions).toHaveLength(1);
+    expect(versions[0]).toMatchObject({
+      policyId: "p-winning",
+      version: 1,
+      isActive: true,
+    });
+    expect(JSON.parse(versions[0].config).guardrails.deniedModels).toEqual(["seeded/model"]);
+  });
+
+  it("keeps mid-seed completion idempotent on a fresh cache", async () => {
+    await db
+      .insert(policies)
+      .values({ id: "p-winning", name: "platform-default", createdAt: 1, updatedAt: 1 });
+    const seed = { schemaVersion: 1, guardrails: { deniedModels: ["seeded/model"] } };
+    const store = new PolicyStore(db, seedEnv(seed), { now: () => 1000, cache: new Map() });
+
+    expect((await store.getActivePolicy())?.guardrails.deniedModels).toEqual(["seeded/model"]);
+    const freshStore = new PolicyStore(db, seedEnv(seed), { now: () => 1001, cache: new Map() });
+    expect((await freshStore.getActivePolicy())?.guardrails.deniedModels).toEqual(["seeded/model"]);
+    const versions = await db.select().from(policyVersions).all();
+    expect(versions).toHaveLength(1);
+    expect(versions[0].policyId).toBe("p-winning");
   });
 
   it("fails closed (503) when a configured active version has an invalid blob", async () => {

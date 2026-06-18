@@ -95,33 +95,19 @@ export class PolicyStore {
       )
       .limit(1);
     if (row?.config != null) return parsePolicy(JSON.parse(row.config));
-    if (row) throw policyUnavailable();
+    if (row && !trimmed(this.env.TERMINUS_GATEWAY_POLICY)) throw policyUnavailable();
     return this.seedFromEnv(owner);
   }
 
   /**
-   * Insert a `platform-default` policy + active version 1 from the env seed blob, only
-   * when no policy row exists for the owner (so an admin-managed policy is never clobbered).
-   * Idempotent + race-safe via insert-if-absent. Returns the seeded policy, or null when
-   * there is no seed secret. If a seed secret is configured but a policy row already exists
-   * without an active version, fail closed instead of silently bypassing the guardrail.
+   * Insert/complete a `platform-default` policy + active version 1 from the env seed blob.
+   * Idempotent + race-safe via insert-if-absent and re-reading the winning policy id before
+   * inserting the version. Returns the active policy from storage, or null when there is no
+   * seed secret and no row to complete.
    */
   private async seedFromEnv(owner: CredentialOwner): Promise<GuardrailPolicy | null> {
     const raw = trimmed(this.env.TERMINUS_GATEWAY_POLICY);
     if (!raw) return null;
-
-    const [existing] = await this.db
-      .select({ id: policies.id })
-      .from(policies)
-      .where(
-        and(
-          eq(policies.ownerType, owner.type),
-          eq(policies.ownerId, owner.id),
-          eq(policies.name, PLATFORM_DEFAULT_POLICY_NAME)
-        )
-      )
-      .limit(1);
-    if (existing) throw policyUnavailable(); // admin (or a prior seed) owns it; don't seed over it
 
     const policy = parsePolicy(JSON.parse(raw)); // invalid seed → throws → fail-closed (503)
     const nowMs = this.now();
@@ -150,20 +136,27 @@ export class PolicyStore {
         )
       )
       .limit(1);
-    if (seeded) {
-      await this.db
-        .insert(policyVersions)
-        .values({
-          id: crypto.randomUUID(),
-          policyId: seeded.id,
-          version: 1,
-          config: JSON.stringify(policy),
-          isActive: true,
-          createdAt: nowMs,
-        })
-        .onConflictDoNothing();
-    }
-    return policy;
+    if (!seeded) throw policyUnavailable();
+
+    await this.db
+      .insert(policyVersions)
+      .values({
+        id: crypto.randomUUID(),
+        policyId: seeded.id,
+        version: 1,
+        config: JSON.stringify(policy),
+        isActive: true,
+        createdAt: nowMs,
+      })
+      .onConflictDoNothing();
+
+    const [active] = await this.db
+      .select({ config: policyVersions.config })
+      .from(policyVersions)
+      .where(and(eq(policyVersions.policyId, seeded.id), eq(policyVersions.isActive, true)))
+      .limit(1);
+    if (!active) throw policyUnavailable();
+    return parsePolicy(JSON.parse(active.config));
   }
 
   /** Admin: create a new (empty) policy. */
