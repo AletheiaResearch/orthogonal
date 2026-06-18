@@ -75,6 +75,26 @@ describe("PolicyStore (D1)", () => {
     expect(await store.getActivePolicy()).toBeNull();
   });
 
+  it("returns null and writes no rows when no policy row and no seed env exist", async () => {
+    const store = new PolicyStore(db, {}, { now: () => 1000, cache: new Map() });
+
+    expect(await store.getActivePolicy()).toBeNull();
+    expect(await db.select().from(policies).all()).toEqual([]);
+    expect(await db.select().from(policyVersions).all()).toEqual([]);
+  });
+
+  it("fails closed when a seedless existing policy has no active version", async () => {
+    await db
+      .insert(policies)
+      .values({ id: "p1", name: "platform-default", createdAt: 1, updatedAt: 1 });
+    const store = new PolicyStore(db, {}, { now: () => 1000, cache: new Map() });
+
+    await expect(store.getActivePolicy()).rejects.toBeInstanceOf(GatewayError);
+    await expect(store.getActivePolicy()).rejects.toMatchObject({ status: 503 });
+    expect((await db.select().from(policies).all()).length).toBe(1);
+    expect(await db.select().from(policyVersions).all()).toEqual([]);
+  });
+
   it("fails closed when env is configured but an existing policy has no active version", async () => {
     await db
       .insert(policies)

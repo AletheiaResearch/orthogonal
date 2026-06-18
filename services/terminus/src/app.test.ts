@@ -654,6 +654,41 @@ describe("terminus chat — guardrail policy (CON-71 L2)", () => {
     expect(capturedMax).toBe(256);
   });
 
+  it("clamps an omitted token limit to the model output ceiling when the policy cap is higher", async () => {
+    let capturedMax: number | undefined;
+    const res = await chatWith(
+      {
+        loadRegistry: () => Promise.resolve(REGISTRY),
+        buildCredentials: () => credentials,
+        buildPolicyStore: () =>
+          policyStore(
+            parsePolicy({ schemaVersion: 1, guardrails: { maxOutputTokensCap: 128000 } })
+          ),
+        chat: {
+          buildModel: () =>
+            new MockLanguageModelV3({
+              doGenerate: (options: { maxOutputTokens?: number }) => {
+                capturedMax = options.maxOutputTokens;
+                return Promise.resolve({
+                  content: [{ type: "text", text: "ok" }],
+                  finishReason: "stop",
+                  usage: LL_USAGE,
+                  warnings: [],
+                });
+              },
+            } as unknown as MockArgs),
+        },
+      },
+      {
+        model: "anthropic/claude-opus-4-5",
+        messages: [{ role: "user", content: "hi" }],
+      }
+    );
+
+    expect(res.status).toBe(200);
+    expect(capturedMax).toBe(64000);
+  });
+
   it("fails closed with 503 when the policy store errors", async () => {
     const res = await chatWith({
       loadRegistry: () => Promise.resolve(REGISTRY),

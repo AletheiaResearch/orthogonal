@@ -87,7 +87,7 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
     // body.model — the served model is always the requested one.
     const requestedMaxOutput = body.max_completion_tokens ?? body.max_tokens;
     const policy = (await deps.policy?.getActivePolicy(PLATFORM_OWNER)) ?? null;
-    const effectiveMaxOutput = policy
+    let effectiveMaxOutput = policy
       ? applyGuardrails(body.model, requestedMaxOutput, policy).maxOutputTokens
       : requestedMaxOutput;
 
@@ -100,6 +100,10 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
     const registry = withCodexProvider(await deps.loadRegistry(c.env));
     const ref = resolveModelRef(registry, body.model);
     if (!ref) return errorResponse(unknownModel(body.model));
+    effectiveMaxOutput =
+      effectiveMaxOutput !== undefined && ref.model.limit?.output !== undefined
+        ? Math.min(effectiveMaxOutput, ref.model.limit.output)
+        : effectiveMaxOutput;
 
     const candidates = await deps.credentials.forModelCandidates(ref, claims.sid);
     if (candidates.length === 0) {

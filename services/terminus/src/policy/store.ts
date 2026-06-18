@@ -77,23 +77,25 @@ export class PolicyStore {
     return policy;
   }
 
-  /** Load + validate the active version's blob, or lazy-seed, or null. */
+  /** Load + validate the active version's blob, fail closed on an unenforceable row, or seed/null. */
   private async loadActive(owner: CredentialOwner): Promise<GuardrailPolicy | null> {
-    const rows = await this.db
-      .select({ config: policyVersions.config })
-      .from(policyVersions)
-      .innerJoin(policies, eq(policyVersions.policyId, policies.id))
+    const [row] = await this.db
+      .select({ policyId: policies.id, config: policyVersions.config })
+      .from(policies)
+      .leftJoin(
+        policyVersions,
+        and(eq(policyVersions.policyId, policies.id), eq(policyVersions.isActive, true))
+      )
       .where(
         and(
           eq(policies.ownerType, owner.type),
           eq(policies.ownerId, owner.id),
-          eq(policies.name, PLATFORM_DEFAULT_POLICY_NAME),
-          eq(policies.enabled, true),
-          eq(policyVersions.isActive, true)
+          eq(policies.name, PLATFORM_DEFAULT_POLICY_NAME)
         )
       )
       .limit(1);
-    if (rows.length > 0) return parsePolicy(JSON.parse(rows[0].config));
+    if (row?.config != null) return parsePolicy(JSON.parse(row.config));
+    if (row) throw policyUnavailable();
     return this.seedFromEnv(owner);
   }
 
