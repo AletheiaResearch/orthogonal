@@ -13,7 +13,7 @@ import { Hono } from "hono";
 
 import { CODEX_PROVIDER, CredentialVault } from "../db/vault";
 import type { Env } from "../env";
-import { PolicyStore } from "../policy/store";
+import { PLATFORM_DEFAULT_POLICY_NAME, PolicyStore } from "../policy/store";
 
 export interface AdminDeps {
   /** Injectable vault factory (tests); defaults to the D1-backed vault. */
@@ -54,6 +54,8 @@ function bearer(authorization: string | undefined): string {
 const str = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
 const num = (v: unknown): number | undefined => (typeof v === "number" ? v : undefined);
 const bool = (v: unknown): boolean | undefined => (typeof v === "boolean" ? v : undefined);
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
 
 /** Walk the message + `cause` chain — Drizzle wraps the D1 error, so the SQLite text is in `cause`. */
 function errorChainText(err: unknown): string {
@@ -184,10 +186,36 @@ export function buildAdminApp(deps: AdminDeps = {}) {
 
   // CON-71 L2 — guardrail policy management (platform owner; versioned + rollback).
   app.post("/policies", async (c) => {
-    const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
+    const rawBody = await c.req.text();
+    let body: Record<string, unknown> | null = null;
+    if (rawBody.trim().length > 0) {
+      try {
+        const parsed = JSON.parse(rawBody) as unknown;
+        if (!isRecord(parsed)) {
+          return c.json({ error: { message: "body must be an object", type: "bad_request" } }, 400);
+        }
+        body = parsed;
+      } catch {
+        return c.json(
+          { error: { message: "request body is not valid JSON", type: "bad_request" } },
+          400
+        );
+      }
+    }
     const name = str(body?.name);
     if (body && body.name !== undefined && name === undefined) {
       return c.json({ error: { message: "name must be a string", type: "bad_request" } }, 400);
+    }
+    if (name !== undefined && name !== PLATFORM_DEFAULT_POLICY_NAME) {
+      return c.json(
+        {
+          error: {
+            message: "only the platform-default policy is supported in v1",
+            type: "bad_request",
+          },
+        },
+        400
+      );
     }
     const { id } = await buildPolicyStore(c.env).createPolicy({ name });
     return c.json({ id }, 201);
@@ -208,6 +236,9 @@ export function buildAdminApp(deps: AdminDeps = {}) {
         body.config,
         body.activate === true
       );
+      if (!result) {
+        return c.json({ error: { message: "not found", type: "not_found" } }, 404);
+      }
       return c.json(result, 201);
     } catch (err) {
       // An invalid blob is a 400; any other failure (DB, …) is a 500.

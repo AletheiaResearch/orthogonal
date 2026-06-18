@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { CredentialResolver, ResolvedCredential } from "../credentials/resolver";
+import { parsePolicy } from "../policy/blob";
 import { buildModelsList } from "./catalog";
 import type { ModelsDevRegistry } from "./registry";
 
@@ -90,6 +91,20 @@ describe("buildModelsList", () => {
       "anthropic/claude-opus-4-5",
       "openai/gpt-5.4",
     ]);
+  });
+
+  it("omits models blocked by the active guardrail policy", async () => {
+    const list = await buildModelsList(
+      REGISTRY,
+      resolverFor(new Set(["anthropic", "openai"])),
+      [],
+      parsePolicy({
+        schemaVersion: 1,
+        guardrails: { deniedModels: ["openai/gpt-5.4"] },
+      })
+    );
+
+    expect(list.data.map((m) => m.id)).toEqual(["anthropic/claude-opus-4-5"]);
   });
 
   it("sorts models by id for stable output", async () => {

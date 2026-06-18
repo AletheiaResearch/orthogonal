@@ -165,6 +165,25 @@ describe("admin policy API (CON-71 L2)", () => {
     expect(((await policiesList.json()) as { policies: unknown[] }).policies).toHaveLength(1);
   });
 
+  it("accepts an empty create body but rejects malformed JSON without writing", async () => {
+    const bad = await req("/policies", { method: "POST", body: "{not json" });
+    expect(bad.status).toBe(400);
+    expect(await db.select().from(policies)).toEqual([]);
+
+    const empty = await req("/policies", { method: "POST" });
+    expect(empty.status).toBe(201);
+    expect(await db.select().from(policies)).toHaveLength(1);
+  });
+
+  it("rejects non-default policy names in v1", async () => {
+    const res = await req("/policies", {
+      method: "POST",
+      body: JSON.stringify({ name: "alternate" }),
+    });
+    expect(res.status).toBe(400);
+    expect(await db.select().from(policies)).toEqual([]);
+  });
+
   it("rejects an invalid policy blob with 400", async () => {
     const id = await newPolicy();
     const res = await req(`/policies/${id}/versions`, {
@@ -172,6 +191,15 @@ describe("admin policy API (CON-71 L2)", () => {
       body: JSON.stringify({ config: { schemaVersion: 2 }, activate: true }),
     });
     expect(res.status).toBe(400);
+  });
+
+  it("404s adding a version to a nonexistent policy without writing", async () => {
+    const res = await req("/policies/missing-policy/versions", {
+      method: "POST",
+      body: JSON.stringify({ config: { schemaVersion: 1, guardrails: {} }, activate: true }),
+    });
+    expect(res.status).toBe(404);
+    expect(await db.select().from(policyVersions)).toEqual([]);
   });
 
   it("rejects a versions POST with no config (400)", async () => {

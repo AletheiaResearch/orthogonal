@@ -21,7 +21,7 @@ import { type GuardrailPolicy, parsePolicy } from "./blob";
 export const POLICY_CACHE_TTL_MS = 30_000;
 
 /** Default policy name for the single platform-default policy seeded/managed in v1. */
-const PLATFORM_DEFAULT_NAME = "platform-default";
+export const PLATFORM_DEFAULT_POLICY_NAME = "platform-default";
 
 interface CacheEntry {
   policy: GuardrailPolicy | null;
@@ -87,6 +87,7 @@ export class PolicyStore {
         and(
           eq(policies.ownerType, owner.type),
           eq(policies.ownerId, owner.id),
+          eq(policies.name, PLATFORM_DEFAULT_POLICY_NAME),
           eq(policies.enabled, true),
           eq(policyVersions.isActive, true)
         )
@@ -113,7 +114,7 @@ export class PolicyStore {
         and(
           eq(policies.ownerType, owner.type),
           eq(policies.ownerId, owner.id),
-          eq(policies.name, PLATFORM_DEFAULT_NAME)
+          eq(policies.name, PLATFORM_DEFAULT_POLICY_NAME)
         )
       )
       .limit(1);
@@ -127,7 +128,7 @@ export class PolicyStore {
         id: crypto.randomUUID(),
         ownerType: owner.type,
         ownerId: owner.id,
-        name: PLATFORM_DEFAULT_NAME,
+        name: PLATFORM_DEFAULT_POLICY_NAME,
         enabled: true,
         createdAt: nowMs,
         updatedAt: nowMs,
@@ -142,7 +143,7 @@ export class PolicyStore {
         and(
           eq(policies.ownerType, owner.type),
           eq(policies.ownerId, owner.id),
-          eq(policies.name, PLATFORM_DEFAULT_NAME)
+          eq(policies.name, PLATFORM_DEFAULT_POLICY_NAME)
         )
       )
       .limit(1);
@@ -165,13 +166,17 @@ export class PolicyStore {
   /** Admin: create a new (empty) policy. */
   async createPolicy(input: { name?: string; owner?: CredentialOwner }): Promise<{ id: string }> {
     const owner = input.owner ?? PLATFORM_OWNER;
+    const name = input.name ?? PLATFORM_DEFAULT_POLICY_NAME;
+    if (name !== PLATFORM_DEFAULT_POLICY_NAME) {
+      throw new Error("only the platform-default policy is supported in v1");
+    }
     const id = crypto.randomUUID();
     const nowMs = this.now();
     await this.db.insert(policies).values({
       id,
       ownerType: owner.type,
       ownerId: owner.id,
-      name: input.name ?? PLATFORM_DEFAULT_NAME,
+      name,
       enabled: true,
       createdAt: nowMs,
       updatedAt: nowMs,
@@ -188,7 +193,14 @@ export class PolicyStore {
     policyId: string,
     config: unknown,
     activate = false
-  ): Promise<{ id: string; version: number }> {
+  ): Promise<{ id: string; version: number } | null> {
+    const [existing] = await this.db
+      .select({ id: policies.id })
+      .from(policies)
+      .where(eq(policies.id, policyId))
+      .limit(1);
+    if (!existing) return null;
+
     const policy = parsePolicy(config);
     const stored = JSON.stringify(policy);
     const nowMs = this.now();

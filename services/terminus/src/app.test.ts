@@ -97,6 +97,13 @@ async function token(allowed: string[] = []) {
   return mintGatewayToken({ sid: "sess_1", allowed_models: allowed }, SECRET);
 }
 
+function policyStore(policy: GuardrailPolicy | null, opts?: { fail?: boolean }) {
+  return {
+    getActivePolicy: () =>
+      opts?.fail ? Promise.reject(policyUnavailable()) : Promise.resolve(policy),
+  } as unknown as PolicyStore;
+}
+
 describe("terminus app", () => {
   it("serves /health without auth", async () => {
     const res = await app().request("/health");
@@ -120,6 +127,29 @@ describe("terminus app", () => {
     const body = (await res.json()) as { object: string; data: { id: string }[] };
     expect(body.object).toBe("list");
     expect(body.data.map((m) => m.id)).toEqual(["anthropic/claude-opus-4-5"]);
+  });
+
+  it("omits models denied by the active policy from /v1/models", async () => {
+    const gateway = createApp({
+      loadRegistry: () => Promise.resolve(REGISTRY),
+      buildCredentials: () => credentials,
+      buildPolicyStore: () =>
+        policyStore(
+          parsePolicy({
+            schemaVersion: 1,
+            guardrails: { deniedModels: ["anthropic/claude-opus-4-5"] },
+          })
+        ),
+    });
+    const res = await gateway.request(
+      "/v1/models",
+      { headers: { Authorization: `Bearer ${await token()}` } },
+      env
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { id: string }[] };
+    expect(body.data.map((m) => m.id)).toEqual([]);
   });
 
   async function chat(body: unknown, allowed: string[] = []) {
@@ -533,13 +563,6 @@ describe("terminus chat — guardrail policy (CON-71 L2)", () => {
           warnings: [],
         }),
     } as unknown as MockArgs);
-
-  // A minimal fake of the store's chat-facing surface (the admin methods are unused here).
-  const policyStore = (policy: GuardrailPolicy | null, opts?: { fail?: boolean }) =>
-    ({
-      getActivePolicy: () =>
-        opts?.fail ? Promise.reject(policyUnavailable()) : Promise.resolve(policy),
-    }) as unknown as PolicyStore;
 
   async function chatWith(deps: Parameters<typeof createApp>[0], body?: unknown) {
     return createApp(deps).request(

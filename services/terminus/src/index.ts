@@ -15,7 +15,7 @@ import { withCodexProvider } from "./catalog/codex";
 import { fetchRegistry } from "./catalog/models-dev";
 import { CodexTokenManager } from "./credentials/codex-manager";
 import { type CredentialProvider, VaultCredentialProvider } from "./credentials/provider";
-import { CredentialVault } from "./db/vault";
+import { CredentialVault, PLATFORM_OWNER } from "./db/vault";
 import type { Env } from "./env";
 import { errorResponse, toGatewayError } from "./errors";
 import { gatewayAuth, type TerminusVars } from "./middleware/auth";
@@ -66,10 +66,12 @@ export function createApp(deps: AppDeps = {}) {
   app.get("/v1/models", async (c) => {
     try {
       const registry = withCodexProvider(await loadRegistry(c.env));
+      const policy = (await policyStoreFor(c.env)?.getActivePolicy(PLATFORM_OWNER)) ?? null;
       const list = await buildModelsList(
         registry,
         buildCredentials(c.env),
-        c.get("claims").allowed_models
+        c.get("claims").allowed_models,
+        policy
       );
       return c.json(list);
     } catch (err) {

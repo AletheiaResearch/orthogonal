@@ -7,6 +7,9 @@
  * enriched with catalog metadata (context window, modalities, pricing) so clients
  * discover the full catalog from one endpoint.
  */
+import { GatewayError } from "../errors";
+import type { GuardrailPolicy } from "../policy/blob";
+import { applyGuardrails } from "../policy/guardrails";
 import type { ModelsDevRegistry } from "./registry";
 
 /** Minimal seam the catalog needs: which providers have a usable credential. */
@@ -30,6 +33,17 @@ export interface ModelsListResponse {
   data: CatalogModel[];
 }
 
+function visibleByPolicy(modelId: string, policy: GuardrailPolicy | null | undefined): boolean {
+  if (!policy) return true;
+  try {
+    applyGuardrails(modelId, undefined, policy);
+    return true;
+  } catch (err) {
+    if (err instanceof GatewayError && err.status === 403) return false;
+    throw err;
+  }
+}
+
 /**
  * Build the `/v1/models` response. `allowedModels` scopes the catalog to a session;
  * an empty list means unrestricted (all enabled models) — see CON-52 follow-up for
@@ -38,7 +52,8 @@ export interface ModelsListResponse {
 export async function buildModelsList(
   registry: ModelsDevRegistry,
   resolver: ProviderEnablement,
-  allowedModels: string[]
+  allowedModels: string[],
+  policy?: GuardrailPolicy | null
 ): Promise<ModelsListResponse> {
   const allowAll = allowedModels.length === 0;
   const allowed = new Set(allowedModels);
@@ -58,6 +73,7 @@ export async function buildModelsList(
     for (const [modelId, model] of Object.entries(provider.models ?? {})) {
       const id = `${providerId}/${modelId}`;
       if (!allowAll && !allowed.has(id)) continue;
+      if (!visibleByPolicy(id, policy)) continue;
 
       data.push({
         id,

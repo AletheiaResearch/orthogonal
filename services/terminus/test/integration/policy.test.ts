@@ -126,16 +126,16 @@ describe("PolicyStore (D1)", () => {
   it("admin: create policy → add versions → activate → rollback", async () => {
     const store = new PolicyStore(db, {}, { now: () => 1000, cache: new Map() });
     const { id } = await store.createPolicy({ name: "platform-default" });
-    const v1 = await store.createVersion(
+    const v1 = (await store.createVersion(
       id,
       { schemaVersion: 1, guardrails: { deniedModels: ["m/1"] } },
       true
-    );
-    const v2 = await store.createVersion(
+    ))!;
+    const v2 = (await store.createVersion(
       id,
       { schemaVersion: 1, guardrails: { deniedModels: ["m/2"] } },
       true
-    );
+    ))!;
     expect(v1.version).toBe(1);
     expect(v2.version).toBe(2);
     const active = await db
@@ -157,6 +157,56 @@ describe("PolicyStore (D1)", () => {
     expect(active2[0].version).toBe(1);
     expect((await store.listVersions(id)).length).toBe(2);
     expect(await store.setActiveVersion(id, 99)).toBe(false);
+  });
+
+  it("createPolicy rejects non-default names in v1", async () => {
+    const store = new PolicyStore(db, {}, { now: () => 1000, cache: new Map() });
+
+    await expect(store.createPolicy({ name: "other" })).rejects.toThrow(/platform-default/);
+    expect(await db.select().from(policies).all()).toEqual([]);
+  });
+
+  it("createVersion returns null for a nonexistent policy without writing an orphan", async () => {
+    const store = new PolicyStore(db, {}, { now: () => 1000, cache: new Map() });
+    const result = await store.createVersion(
+      "missing-policy",
+      { schemaVersion: 1, guardrails: {} },
+      true
+    );
+
+    expect(result).toBeNull();
+    expect(await db.select().from(policyVersions).all()).toEqual([]);
+  });
+
+  it("loads only the v1 platform-default policy when other named policies are active", async () => {
+    await db.insert(policies).values([
+      { id: "p-other", name: "other", createdAt: 1, updatedAt: 1 },
+      { id: "p-default", name: "platform-default", createdAt: 1, updatedAt: 1 },
+    ]);
+    await db.insert(policyVersions).values([
+      {
+        id: "v-other",
+        policyId: "p-other",
+        version: 1,
+        config: JSON.stringify({ schemaVersion: 1, guardrails: { deniedModels: ["other/model"] } }),
+        isActive: true,
+        createdAt: 1,
+      },
+      {
+        id: "v-default",
+        policyId: "p-default",
+        version: 1,
+        config: JSON.stringify({
+          schemaVersion: 1,
+          guardrails: { deniedModels: ["default/model"] },
+        }),
+        isActive: true,
+        createdAt: 1,
+      },
+    ]);
+
+    const store = new PolicyStore(db, {}, { now: () => 1000, cache: new Map() });
+    expect((await store.getActivePolicy())?.guardrails.deniedModels).toEqual(["default/model"]);
   });
 
   it("createVersion rejects an invalid blob (a plain error, not a 503)", async () => {
