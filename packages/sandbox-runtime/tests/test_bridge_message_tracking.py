@@ -342,6 +342,24 @@ class TestBuildPromptRequestBodyGateway:
             "modelID": "anthropic/claude-opus-4-8",
         }
 
+    def test_active_gateway_prefixed_model_keeps_reasoning_options(
+        self, bridge: AgentBridge, monkeypatch: pytest.MonkeyPatch
+    ):
+        """A caller passing an already gateway-prefixed model still gets reasoning
+        options computed from the real provider (they must not be silently dropped
+        just because the provider id reads "gateway")."""
+        monkeypatch.setenv(GATEWAY_ACTIVE_ENV, "1")
+        body = bridge._build_prompt_request_body(
+            "Hello", "gateway/openai/gpt-5-codex", reasoning_effort="high"
+        )
+
+        assert body["model"]["providerID"] == GATEWAY_PROVIDER_ID
+        assert body["model"]["modelID"] == "openai/gpt-5-codex"
+        assert body["model"]["options"] == {
+            "reasoningEffort": "high",
+            "reasoningSummary": "auto",
+        }
+
     def test_active_with_no_model_omits_model_key(
         self, bridge: AgentBridge, monkeypatch: pytest.MonkeyPatch
     ):

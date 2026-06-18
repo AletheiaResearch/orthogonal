@@ -833,6 +833,15 @@ class AgentBridge:
                 provider_id, model_id = model.split("/", 1)
             else:
                 provider_id, model_id = "anthropic", model
+
+            # A caller may hand us an already gateway-prefixed model
+            # ("gateway/<provider>/<model>"). Unwrap it to the real provider so the
+            # reasoning-options branch below keys off "anthropic"/"openai" rather than
+            # "gateway" (otherwise the options are silently dropped). The re-key guard
+            # at the end restores the "gateway" prefix when the gateway is active.
+            if provider_id == GATEWAY_PROVIDER_ID and "/" in model_id:
+                provider_id, model_id = model_id.split("/", 1)
+
             model_spec: dict[str, Any] = {
                 "providerID": provider_id,
                 "modelID": model_id,
