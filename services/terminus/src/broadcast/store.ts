@@ -1,0 +1,283 @@
+/**
+ * Destination store (CON-73) — the encrypted-at-rest registry over Terminus's own D1,
+ * a sibling of `CredentialVault`. Each destination's auth material is AES-256-GCM
+ * encrypted with the owner as AAD (so a row can't be decrypted under another owner);
+ * the non-secret `config` is stored plaintext. Access is owner-scoped and goes through
+ * Drizzle (parameterized — no hand-rolled SQL).
+ *
+ * `listEnabled` is what the dispatcher reads per call: it decrypts + parses the enabled
+ * rows into `ResolvedDestinationRow`s, which the registry maps to adapter instances.
+ * `listForOwner` is the admin projection and NEVER includes the secret.
+ */
+import { decryptSecret, encryptSecret } from "@open-inspect/shared";
+import { and, eq } from "drizzle-orm";
+import type { DrizzleD1Database } from "drizzle-orm/d1";
+
+import {
+  type BroadcastDestinationRow,
+  type NewBroadcastDestinationRow,
+  broadcastDestinations,
+} from "../db/schema";
+import { type CredentialOwner, PLATFORM_OWNER } from "../db/vault";
+
+/**
+ * Owner-visible destination metadata for the admin API — never includes the secret.
+ * `config` is the PARSED non-secret config object (not the raw stored JSON string), so
+ * the `GET` shape matches what was `POST`ed.
+ */
+export type PublicDestinationRow = Pick<
+  BroadcastDestinationRow,
+  | "id"
+  | "ownerType"
+  | "ownerId"
+  | "type"
+  | "label"
+  | "enabled"
+  | "samplingRate"
+  | "createdAt"
+  | "updatedAt"
+> & { config: unknown };
+
+/** A decrypted + parsed destination row — what the registry turns into an adapter. */
+export interface ResolvedDestinationRow {
+  id: string;
+  type: string;
+  label: string;
+  enabled: boolean;
+  samplingRate: number;
+  /** Parsed non-secret config JSON. */
+  config: unknown;
+  /** Parsed decrypted auth-material JSON. */
+  secret: unknown;
+}
+
+export interface CreateDestinationInput {
+  type: string;
+  /** Non-secret config — stored as JSON plaintext. */
+  config: unknown;
+  /** Auth material — JSON-encoded then AES-256-GCM encrypted at rest. */
+  secret: unknown;
+  label?: string;
+  samplingRate?: number;
+  enabled?: boolean;
+  owner?: CredentialOwner;
+}
+
+/** AES-GCM AAD binding ciphertext to its owner (mirrors `CredentialVault`). */
+function ownerAad(owner: CredentialOwner): string {
+  return `${owner.type}:${owner.id}`;
+}
+
+/** Parse a stored JSON config text column; fall back to the raw string if it isn't valid JSON. */
+function safeParseConfig(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+export class DestinationStore {
+  constructor(
+    private readonly db: DrizzleD1Database,
+    private readonly encryptionKey: string,
+    private readonly now: () => number = () => Date.now()
+  ) {}
+
+  /** Insert a new destination. Throws on a duplicate (owner, type, label). */
+  async create(input: CreateDestinationInput): Promise<{ id: string }> {
+    const owner = input.owner ?? PLATFORM_OWNER;
+    const nowMs = this.now();
+    const id = crypto.randomUUID();
+    const secretEncrypted = await encryptSecret(
+      JSON.stringify(input.secret ?? {}),
+      this.encryptionKey,
+      ownerAad(owner)
+    );
+    await this.db.insert(broadcastDestinations).values({
+      id,
+      ownerType: owner.type,
+      ownerId: owner.id,
+      type: input.type,
+      enabled: input.enabled ?? true,
+      samplingRate: input.samplingRate ?? 1,
+      config: JSON.stringify(input.config ?? {}),
+      secretEncrypted,
+      label: input.label ?? "default",
+      createdAt: nowMs,
+      updatedAt: nowMs,
+    });
+    return { id };
+  }
+
+  /** Owner-scoped metadata for the admin API — never includes the secret. */
+  async listForOwner(owner: CredentialOwner = PLATFORM_OWNER): Promise<PublicDestinationRow[]> {
+    const rows = await this.db
+      .select({
+        id: broadcastDestinations.id,
+        ownerType: broadcastDestinations.ownerType,
+        ownerId: broadcastDestinations.ownerId,
+        type: broadcastDestinations.type,
+        label: broadcastDestinations.label,
+        enabled: broadcastDestinations.enabled,
+        samplingRate: broadcastDestinations.samplingRate,
+        config: broadcastDestinations.config,
+        createdAt: broadcastDestinations.createdAt,
+        updatedAt: broadcastDestinations.updatedAt,
+      })
+      .from(broadcastDestinations)
+      .where(
+        and(
+          eq(broadcastDestinations.ownerType, owner.type),
+          eq(broadcastDestinations.ownerId, owner.id)
+        )
+      );
+    // `config` is stored as a JSON text column — parse it so the API returns the same
+    // object shape that was POSTed (not a JSON-encoded string).
+    return rows.map((row) => ({ ...row, config: safeParseConfig(row.config) }));
+  }
+
+  /**
+   * Enabled rows, still encrypted (no decryption). The registry caches THESE per-isolate
+   * with a short TTL so a zero-destination deployment costs no per-request D1 read and no
+   * decrypted secret is ever held in a cache (decryption happens per call, transiently).
+   */
+  async listEnabledRaw(
+    owner: CredentialOwner = PLATFORM_OWNER
+  ): Promise<BroadcastDestinationRow[]> {
+    return this.db
+      .select()
+      .from(broadcastDestinations)
+      .where(
+        and(
+          eq(broadcastDestinations.ownerType, owner.type),
+          eq(broadcastDestinations.ownerId, owner.id),
+          eq(broadcastDestinations.enabled, true)
+        )
+      );
+  }
+
+  /** Enabled destinations, decrypted + parsed — the dispatcher's per-call fan-out set. */
+  async listEnabled(owner: CredentialOwner = PLATFORM_OWNER): Promise<ResolvedDestinationRow[]> {
+    const rows = await this.listEnabledRaw(owner);
+    const resolved = await Promise.all(
+      rows.map(async (row) => {
+        try {
+          return await this.decryptRow(row, owner);
+        } catch (e) {
+          // Per-row isolation (matches the registry's `resolveEnabled`): a single corrupt or
+          // key-mismatched row must never drop the whole set — skip + log it.
+          console.error(
+            JSON.stringify({
+              event: "terminus.broadcast.decrypt_error",
+              destinationId: row.id,
+              message: e instanceof Error ? e.message : String(e),
+            })
+          );
+          return null;
+        }
+      })
+    );
+    return resolved.filter((r): r is ResolvedDestinationRow => r !== null);
+  }
+
+  /** Decrypt one destination by id (owner-scoped) — for the admin test-connection action. */
+  async getDecrypted(
+    id: string,
+    owner: CredentialOwner = PLATFORM_OWNER
+  ): Promise<ResolvedDestinationRow | null> {
+    const [row] = await this.db
+      .select()
+      .from(broadcastDestinations)
+      .where(
+        and(
+          eq(broadcastDestinations.id, id),
+          eq(broadcastDestinations.ownerType, owner.type),
+          eq(broadcastDestinations.ownerId, owner.id)
+        )
+      )
+      .limit(1);
+    return row ? this.decryptRow(row, owner) : null;
+  }
+
+  /** Enable/disable a destination (owner-scoped). Returns whether a row matched. */
+  async setEnabled(
+    id: string,
+    enabled: boolean,
+    owner: CredentialOwner = PLATFORM_OWNER
+  ): Promise<boolean> {
+    return this.update(id, { enabled }, owner);
+  }
+
+  /**
+   * Patch a destination's mutable fields (owner-scoped) — any subset of `enabled`,
+   * `samplingRate`, non-secret `config`, and the encrypted `secret` (re-credentialling).
+   * Only the provided fields change; `secret` is re-encrypted. Returns whether a row matched.
+   */
+  async update(
+    id: string,
+    fields: { config?: unknown; secret?: unknown; samplingRate?: number; enabled?: boolean },
+    owner: CredentialOwner = PLATFORM_OWNER
+  ): Promise<boolean> {
+    const set: Partial<NewBroadcastDestinationRow> = { updatedAt: this.now() };
+    if (fields.enabled !== undefined) set.enabled = fields.enabled;
+    if (fields.samplingRate !== undefined) set.samplingRate = fields.samplingRate;
+    if (fields.config !== undefined) set.config = JSON.stringify(fields.config);
+    if (fields.secret !== undefined) {
+      set.secretEncrypted = await encryptSecret(
+        JSON.stringify(fields.secret),
+        this.encryptionKey,
+        ownerAad(owner)
+      );
+    }
+    const updated = await this.db
+      .update(broadcastDestinations)
+      .set(set)
+      .where(
+        and(
+          eq(broadcastDestinations.id, id),
+          eq(broadcastDestinations.ownerType, owner.type),
+          eq(broadcastDestinations.ownerId, owner.id)
+        )
+      )
+      .returning({ id: broadcastDestinations.id });
+    return updated.length > 0;
+  }
+
+  /** Delete a destination (owner-scoped). Returns whether a row matched. */
+  async delete(id: string, owner: CredentialOwner = PLATFORM_OWNER): Promise<boolean> {
+    const deleted = await this.db
+      .delete(broadcastDestinations)
+      .where(
+        and(
+          eq(broadcastDestinations.id, id),
+          eq(broadcastDestinations.ownerType, owner.type),
+          eq(broadcastDestinations.ownerId, owner.id)
+        )
+      )
+      .returning({ id: broadcastDestinations.id });
+    return deleted.length > 0;
+  }
+
+  /** Decrypt + parse one raw row (owner-scoped). Used by `listEnabled`/`getDecrypted`
+   * and by the registry when resolving cached raw rows. */
+  async decryptRow(
+    row: BroadcastDestinationRow,
+    owner: CredentialOwner = PLATFORM_OWNER
+  ): Promise<ResolvedDestinationRow> {
+    const secretPlain = await decryptSecret(
+      row.secretEncrypted,
+      this.encryptionKey,
+      ownerAad(owner)
+    );
+    return {
+      id: row.id,
+      type: row.type,
+      label: row.label,
+      enabled: row.enabled,
+      samplingRate: row.samplingRate,
+      config: JSON.parse(row.config),
+      secret: JSON.parse(secretPlain),
+    };
+  }
+}

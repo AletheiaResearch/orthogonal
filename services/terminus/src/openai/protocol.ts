@@ -150,7 +150,7 @@ export function partStartsClientOutput(part: TextStreamPart<ToolSet>): boolean {
 export async function* toOpenAIChatStream(
   fullStream: AsyncIterable<TextStreamPart<ToolSet>>,
   meta: ChunkMeta,
-  onUsage?: (usage: LanguageModelUsage) => void,
+  onUsage?: (usage: LanguageModelUsage, finishReason: FinishReason | undefined) => void,
   onError?: (error: unknown) => void,
   onComplete?: (parts: CompletionParts) => void
 ): AsyncGenerator<string> {
@@ -191,7 +191,7 @@ export async function* toOpenAIChatStream(
         });
       yield sse(chunkFrame(meta, delta, null));
     } else if (part.type === "finish") {
-      onUsage?.(part.totalUsage);
+      onUsage?.(part.totalUsage, part.finishReason);
       if (capture)
         onComplete?.({
           content: capture.text,

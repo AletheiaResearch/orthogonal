@@ -16,6 +16,9 @@ import { DEFAULT_GATEWAY_TOKEN_TTL_SECONDS, mintGatewayToken } from "@open-inspe
 import { drizzle } from "drizzle-orm/d1";
 import { Hono } from "hono";
 
+import { buildDestination } from "../broadcast/registry";
+import { checkDestinationUrl } from "../broadcast/ssrf";
+import { DestinationStore } from "../broadcast/store";
 import { CODEX_PROVIDER, CredentialVault } from "../db/vault";
 import type { Env } from "../env";
 import { PLATFORM_DEFAULT_POLICY_NAME, PolicyStore } from "../policy/store";
@@ -25,6 +28,8 @@ export interface AdminDeps {
   buildVault?: (env: Env) => CredentialVault;
   /** Injectable policy store factory (tests); defaults to the D1-backed store. */
   buildPolicyStore?: (env: Env) => PolicyStore;
+  /** Injectable destination store factory (tests); defaults to the D1-backed store. */
+  buildDestinationStore?: (env: Env) => DestinationStore;
 }
 
 function defaultVault(env: Env): CredentialVault {
@@ -34,6 +39,13 @@ function defaultVault(env: Env): CredentialVault {
 function defaultPolicyStore(env: Env): PolicyStore {
   return new PolicyStore(drizzle(env.DB), env);
 }
+
+function defaultDestinationStore(env: Env): DestinationStore {
+  return new DestinationStore(drizzle(env.DB), env.CREDENTIALS_ENCRYPTION_KEY);
+}
+
+/** Broadcast destination types the admin API accepts (CON-73). */
+const KNOWN_DESTINATION_TYPES = new Set(["otlp", "posthog", "webhook"]);
 
 /** A policy blob that fails validation (vs any other failure) — for a 400 vs 500 split. */
 function isPolicyValidationError(err: unknown): boolean {
@@ -45,9 +57,14 @@ function timingSafeEqual(a: string, b: string): boolean {
   const enc = new TextEncoder();
   const ab = enc.encode(a);
   const bb = enc.encode(b);
-  if (ab.length !== bb.length) return false;
-  let diff = 0;
-  for (let i = 0; i < ab.length; i++) diff |= ab[i] ^ bb[i];
+  // Fold the length difference into `diff` and iterate to the longer of the two, rather
+  // than branching on a length mismatch — an early `return false` would reject a
+  // wrong-length token in O(1) while a right-length one runs the full loop, leaking the
+  // secret's byte length through response timing.
+  let diff = ab.length ^ bb.length;
+  for (let i = 0; i < ab.length || i < bb.length; i++) {
+    diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0);
+  }
   return diff === 0;
 }
 
@@ -64,6 +81,23 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
 const isStringArray = (v: unknown): v is string[] =>
   Array.isArray(v) && v.every((m) => typeof m === "string");
 
+/**
+ * Key names that look like a credential — rejected ANYWHERE in plaintext `config`
+ * (CON-73). Auth material belongs in the encrypted `secret`; `config` is non-secret.
+ * (Headers are rejected wholesale from `config` separately, since a vendor's bespoke
+ * auth header — e.g. `x-honeycomb-team` — needn't match this pattern.)
+ */
+const SECRET_KEY_RE =
+  /(authorization|cookie|password|secret|token|hmac|api[-_]?key|projectapikey|[-_](key|secret|token))/i;
+/** Recursively scan a config value for a secret-looking key. */
+function configHasSecret(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(configHasSecret);
+  if (isRecord(value)) {
+    return Object.entries(value).some(([k, v]) => SECRET_KEY_RE.test(k) || configHasSecret(v));
+  }
+  return false;
+}
+
 /** Walk the message + `cause` chain — Drizzle wraps the D1 error, so the SQLite text is in `cause`. */
 function errorChainText(err: unknown): string {
   if (err instanceof Error) return `${err.message} ${errorChainText(err.cause)}`;
@@ -78,6 +112,7 @@ function isUniqueViolation(err: unknown): boolean {
 export function buildAdminApp(deps: AdminDeps = {}) {
   const buildVault = deps.buildVault ?? defaultVault;
   const buildPolicyStore = deps.buildPolicyStore ?? defaultPolicyStore;
+  const buildDestinationStore = deps.buildDestinationStore ?? defaultDestinationStore;
   const app = new Hono<{ Bindings: Env }>();
 
   // Bearer auth against TERMINUS_ADMIN_SECRET. Fail-closed when the secret is unset.
@@ -266,6 +301,318 @@ export function buildAdminApp(deps: AdminDeps = {}) {
     return ok
       ? c.body(null, 204)
       : c.json({ error: { message: "not found", type: "not_found" } }, 404);
+  });
+
+  // CON-73 — configurable broadcast destinations (platform owner). Mirrors credential
+  // CRUD. Auth material lives in the encrypted `secret` blob; `config` is non-secret
+  // (the create path rejects secret-looking headers in `config`). Secrets never leave.
+  app.post("/destinations", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
+    const type = str(body?.type);
+    if (!body || !type || !isRecord(body.config) || !isRecord(body.secret)) {
+      return c.json(
+        {
+          error: {
+            message: "type (string), config (object), and secret (object) are required",
+            type: "bad_request",
+          },
+        },
+        400
+      );
+    }
+    if (!KNOWN_DESTINATION_TYPES.has(type)) {
+      return c.json(
+        { error: { message: `unsupported destination type: ${type}`, type: "bad_request" } },
+        400
+      );
+    }
+    if (
+      body.samplingRate !== undefined &&
+      (typeof body.samplingRate !== "number" || body.samplingRate < 0 || body.samplingRate > 1)
+    ) {
+      return c.json(
+        { error: { message: "samplingRate must be a number in [0,1]", type: "bad_request" } },
+        400
+      );
+    }
+    if (
+      (body.label !== undefined && typeof body.label !== "string") ||
+      (body.enabled !== undefined && typeof body.enabled !== "boolean")
+    ) {
+      return c.json(
+        {
+          error: {
+            message: "label and enabled must have the correct type when present",
+            type: "bad_request",
+          },
+        },
+        400
+      );
+    }
+    // Headers carry auth → they belong in the encrypted `secret.headers`, never `config`.
+    if ("headers" in body.config) {
+      return c.json(
+        {
+          error: {
+            message: "headers must be set in `secret.headers`, not plaintext `config`",
+            type: "bad_request",
+          },
+        },
+        400
+      );
+    }
+    // No secret-looking field may sit in plaintext `config` (it would also leak via list).
+    if (configHasSecret(body.config)) {
+      return c.json(
+        {
+          error: {
+            message: "secret-looking fields must be set in `secret`, not plaintext `config`",
+            type: "bad_request",
+          },
+        },
+        400
+      );
+    }
+    // Every runtime-configured URL is an SSRF vector — validate it at create time.
+    const cfg = body.config as Record<string, unknown>;
+    const requiredUrlField = type === "webhook" ? "url" : type === "otlp" ? "endpoint" : null;
+    if (requiredUrlField) {
+      const url = str(cfg[requiredUrlField]);
+      const check = url
+        ? checkDestinationUrl(url)
+        : ({ ok: false, reason: `${requiredUrlField} is required` } as const);
+      if (!check.ok) {
+        return c.json(
+          {
+            error: {
+              message: `invalid ${type} ${requiredUrlField}: ${check.reason}`,
+              type: "bad_request",
+            },
+          },
+          400
+        );
+      }
+    }
+    if (type === "posthog" && cfg.host !== undefined) {
+      const check = checkDestinationUrl(str(cfg.host) ?? "");
+      if (!check.ok) {
+        return c.json(
+          { error: { message: `invalid posthog host: ${check.reason}`, type: "bad_request" } },
+          400
+        );
+      }
+    }
+    // Per-type required auth: a PostHog destination needs a project key in `secret`, or it
+    // would be persisted-but-inert (the registry skips it as misconfigured at resolve time).
+    if (type === "posthog" && !str((body.secret as Record<string, unknown>).projectApiKey)) {
+      return c.json(
+        {
+          error: {
+            message: "posthog destinations require secret.projectApiKey (string)",
+            type: "bad_request",
+          },
+        },
+        400
+      );
+    }
+    try {
+      const { id } = await buildDestinationStore(c.env).create({
+        type,
+        config: body.config,
+        secret: body.secret,
+        label: str(body.label),
+        samplingRate: num(body.samplingRate),
+        enabled: bool(body.enabled),
+      });
+      return c.json({ id }, 201);
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        return c.json(
+          {
+            error: {
+              message: "a destination already exists for that type+label",
+              type: "conflict",
+            },
+          },
+          409
+        );
+      }
+      return c.json(
+        { error: { message: "failed to create destination", type: "internal_error" } },
+        500
+      );
+    }
+  });
+
+  app.get("/destinations", async (c) => {
+    return c.json({ destinations: await buildDestinationStore(c.env).listForOwner() });
+  });
+
+  // Patch any subset of {enabled, samplingRate, config, secret} — including re-credentialling
+  // (rotate the `secret`) and re-pointing (`config.url`/`endpoint`/`host`), without a new id.
+  app.patch("/destinations/:id", async (c) => {
+    const id = c.req.param("id");
+    const store = buildDestinationStore(c.env);
+    const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body) {
+      return c.json({ error: { message: "request body is required", type: "bad_request" } }, 400);
+    }
+    const fields: { config?: unknown; secret?: unknown; samplingRate?: number; enabled?: boolean } =
+      {};
+    if (body.enabled !== undefined) {
+      if (typeof body.enabled !== "boolean") {
+        return c.json(
+          { error: { message: "enabled must be a boolean", type: "bad_request" } },
+          400
+        );
+      }
+      fields.enabled = body.enabled;
+    }
+    if (body.samplingRate !== undefined) {
+      if (typeof body.samplingRate !== "number" || body.samplingRate < 0 || body.samplingRate > 1) {
+        return c.json(
+          { error: { message: "samplingRate must be a number in [0,1]", type: "bad_request" } },
+          400
+        );
+      }
+      fields.samplingRate = body.samplingRate;
+    }
+    if (body.config !== undefined) {
+      if (!isRecord(body.config)) {
+        return c.json({ error: { message: "config must be an object", type: "bad_request" } }, 400);
+      }
+      if ("headers" in body.config) {
+        return c.json(
+          {
+            error: {
+              message: "headers must be set in `secret.headers`, not plaintext `config`",
+              type: "bad_request",
+            },
+          },
+          400
+        );
+      }
+      if (configHasSecret(body.config)) {
+        return c.json(
+          {
+            error: {
+              message: "secret-looking fields must be set in `secret`, not plaintext `config`",
+              type: "bad_request",
+            },
+          },
+          400
+        );
+      }
+    }
+    if (body.secret !== undefined && !isRecord(body.secret)) {
+      return c.json({ error: { message: "secret must be an object", type: "bad_request" } }, 400);
+    }
+
+    // Preflight: when config/secret change, MERGE over the existing row and re-validate the
+    // result against the row's type, so a partial PATCH can't drop a required field (e.g. an
+    // OTLP `endpoint`) or rotate a PostHog key to empty — which would persist but never build
+    // (a silent fan-out drop). Merging also means a PATCH only changes the keys it names.
+    if (body.config !== undefined || body.secret !== undefined) {
+      const existing = await store.getDecrypted(id);
+      if (!existing) {
+        return c.json({ error: { message: "not found", type: "not_found" } }, 404);
+      }
+      const existingConfig = isRecord(existing.config) ? existing.config : {};
+      const existingSecret = isRecord(existing.secret) ? existing.secret : {};
+      const mergedConfig =
+        body.config !== undefined
+          ? { ...existingConfig, ...(body.config as Record<string, unknown>) }
+          : existingConfig;
+      const mergedSecret =
+        body.secret !== undefined
+          ? { ...existingSecret, ...(body.secret as Record<string, unknown>) }
+          : existingSecret;
+
+      const requiredUrlField =
+        existing.type === "webhook" ? "url" : existing.type === "otlp" ? "endpoint" : null;
+      if (requiredUrlField) {
+        const url = str(mergedConfig[requiredUrlField]);
+        const check = url
+          ? checkDestinationUrl(url)
+          : ({ ok: false, reason: `${requiredUrlField} is required` } as const);
+        if (!check.ok) {
+          return c.json(
+            {
+              error: {
+                message: `invalid ${existing.type} ${requiredUrlField}: ${check.reason}`,
+                type: "bad_request",
+              },
+            },
+            400
+          );
+        }
+      }
+      if (existing.type === "posthog") {
+        if (mergedConfig.host !== undefined) {
+          const check = checkDestinationUrl(str(mergedConfig.host) ?? "");
+          if (!check.ok) {
+            return c.json(
+              { error: { message: `invalid posthog host: ${check.reason}`, type: "bad_request" } },
+              400
+            );
+          }
+        }
+        if (!str(mergedSecret.projectApiKey)) {
+          return c.json(
+            {
+              error: {
+                message: "posthog destinations require secret.projectApiKey (string)",
+                type: "bad_request",
+              },
+            },
+            400
+          );
+        }
+      }
+
+      if (body.config !== undefined) fields.config = mergedConfig;
+      if (body.secret !== undefined) fields.secret = mergedSecret;
+    }
+
+    if (Object.keys(fields).length === 0) {
+      return c.json(
+        {
+          error: {
+            message: "at least one of enabled, samplingRate, config, secret is required",
+            type: "bad_request",
+          },
+        },
+        400
+      );
+    }
+    const ok = await store.update(id, fields);
+    return ok
+      ? c.body(null, 204)
+      : c.json({ error: { message: "not found", type: "not_found" } }, 404);
+  });
+
+  app.delete("/destinations/:id", async (c) => {
+    const ok = await buildDestinationStore(c.env).delete(c.req.param("id"));
+    return ok
+      ? c.body(null, 204)
+      : c.json({ error: { message: "not found", type: "not_found" } }, 404);
+  });
+
+  // Validate a destination before relying on it: decrypt, build the adapter, probe.
+  // `testConnection` is best-effort and never throws (a real send is what proves it).
+  app.post("/destinations/:id/test", async (c) => {
+    const row = await buildDestinationStore(c.env).getDecrypted(c.req.param("id"));
+    if (!row) {
+      return c.json({ error: { message: "not found", type: "not_found" } }, 404);
+    }
+    const destination = buildDestination(row);
+    if (!destination) {
+      return c.json(
+        { error: { message: "destination unsupported or misconfigured", type: "bad_request" } },
+        400
+      );
+    }
+    return c.json(await destination.testConnection());
   });
 
   // CON-71 L2 — guardrail policy management (platform owner; versioned + rollback).
