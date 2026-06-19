@@ -38,8 +38,14 @@ const SPAN_KIND_CLIENT = 3;
 /** OTLP status-code enum values (proto3 JSON integers). */
 const STATUS_CODE_OK = 1;
 const STATUS_CODE_ERROR = 2;
-/** Nanoseconds per millisecond — epoch-ms → OTLP UnixNano. */
-const NANOS_PER_MS = 1_000_000;
+/**
+ * epoch-ms → OTLP UnixNano (an int64 decimal string). The product `ms * 1e6` (~1.7e18)
+ * exceeds Number.MAX_SAFE_INTEGER, so we encode the exact int64 with BigInt rather than
+ * depending on float arithmetic to round-trip cleanly.
+ */
+function msToUnixNano(ms: number): string {
+  return (BigInt(Math.trunc(ms)) * 1_000_000n).toString();
+}
 /** Default `service.name` when the config does not set one. */
 const DEFAULT_SERVICE_NAME = "terminus-gateway";
 
@@ -146,8 +152,8 @@ export class OtlpDestination implements BroadcastDestination {
       spanId: randomSpanId(),
       name: `chat ${metrics.model}`,
       kind: SPAN_KIND_CLIENT,
-      startTimeUnixNano: String(metrics.startedAtMs * NANOS_PER_MS),
-      endTimeUnixNano: String(metrics.finishedAtMs * NANOS_PER_MS),
+      startTimeUnixNano: msToUnixNano(metrics.startedAtMs),
+      endTimeUnixNano: msToUnixNano(metrics.finishedAtMs),
       attributes: buildAttributes(metrics),
       status: { code: metrics.finishReason === "error" ? STATUS_CODE_ERROR : STATUS_CODE_OK },
     };

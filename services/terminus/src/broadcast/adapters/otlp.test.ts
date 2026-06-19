@@ -207,18 +207,17 @@ describe("OtlpDestination.send — span identity + timing (proto3 JSON encoding)
     expect(typeof span.kind).toBe("number");
   });
 
-  it("encodes start/end as nanosecond decimal strings (ms * 1e6)", async () => {
+  it("encodes start/end as int64 nanosecond decimal strings (ms × 1e6)", async () => {
     const { fetchImpl, calls } = recordingFetch();
     const d = new OtlpDestination(config(), fetchImpl);
-    const m = metrics();
-    await d.send(record(), new AbortController().signal);
+    // A realistic epoch-ms whose ns value (~1.7e18) exceeds Number.MAX_SAFE_INTEGER.
+    const startedAtMs = 1_700_000_001_234;
+    const finishedAtMs = 1_700_000_002_567;
+    await d.send(record({ startedAtMs, finishedAtMs }), new AbortController().signal);
     const span = spanOf(bodyOf(calls[0].init));
-    // Compute the expected string with the SAME expression the impl must use,
-    // so we never hand-count zeros and float precision matches exactly.
-    expect(span.startTimeUnixNano).toBe(String(m.startedAtMs * 1_000_000));
-    expect(span.endTimeUnixNano).toBe(String(m.finishedAtMs * 1_000_000));
+    expect(span.startTimeUnixNano).toBe("1700000001234000000");
+    expect(span.endTimeUnixNano).toBe("1700000002567000000");
     expect(typeof span.startTimeUnixNano).toBe("string");
-    expect(typeof span.endTimeUnixNano).toBe("string");
   });
 });
 
