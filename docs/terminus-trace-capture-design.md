@@ -8,10 +8,10 @@
 > flag. It does **not** build any consumer. Sanitization, the trace store (ClickHouse), consent UI,
 > and event-stream capture are **out of scope** and land with CON-43 / CON-40 / CON-73.
 
-> Interacts with → **CON-74** (streaming-request fallback, sibling branch off `terminus`, unmerged):
-> CON-74 rewrites the streaming _block_ in `chat.ts` but still routes every stream part through
-> `toOpenAIChatStream`. The streaming capture seam therefore lives **inside that mapper**, which
-> both branches call — see §7.
+> Interacts with → **CON-74** (streaming-request fallback): CON-74 rewrites the streaming _block_ in
+> `chat.ts` but still routes every stream part through `toOpenAIChatStream`. The streaming capture
+> seam therefore lives **inside that mapper**. CON-74 landed first and this branch was rebased onto
+> it — see §9 for the resolved merge (chunk-1 re-yield verified).
 
 ## 1. Goal
 
@@ -230,15 +230,25 @@ export async function* toOpenAIChatStream(
 - **Never affects the response:** capture is fire-and-forget via `waitUntil`; build + dispatch are
   isolated; a throwing/rejecting sink logs and is swallowed.
 
-## 9. CON-74 merge note
+## 9. CON-74 merge (landed — resolved)
 
-The streaming **call-site** in `chat.ts` _will_ conflict with CON-74 (both branches edit that block)
-— expected, and the resolution is trivial: re-add the `onComplete` argument to the
-`toOpenAIChatStream(...)` call inside CON-74's per-candidate loop. The robust part — accumulation
-**inside the mapper** — does not conflict. **At merge, verify** CON-74's `peekStream` re-yields the
-peeked first part into the stream the mapper consumes; otherwise chunk 1 is dropped from
-accumulation (it would also be dropped from client output, so a CON-74 test should already cover it,
-but confirm against the trace path).
+CON-74 (streaming-request fallback) **landed on `terminus` first**, so this branch was rebased onto
+it. As predicted, the streaming call-site in `chat.ts` conflicted (both edit that block); the
+accumulation **inside the mapper** did not. Resolution: `onComplete` re-added to the
+`toOpenAIChatStream(peeked.stream, …)` call inside CON-74's per-candidate peek loop.
+
+**Chunk-1 re-yield — verified.** CON-74's `peekStream` commits on the first client-output part and
+returns `drain(first, it)`, which **re-yields that peeked part** before draining the rest (see
+`routes/stream-fallback.ts`). `partStartsClientOutput` matches exactly the `text-delta` /
+`tool-call` / `finish` parts the mapper accumulates, so the committed stream the mapper consumes
+includes chunk 1 — **no content is dropped from accumulation.** Leading non-output parts (`start`,
+`reasoning`) that the peek discards are parts the mapper already ignores.
+
+**Streaming error semantics changed (test updated).** Under CON-74 a stream that errors **before**
+any output no longer commits a 200 SSE — the peek rotates to the next candidate / returns a clean
+HTTP error. The "no trace on error" test therefore now exercises the **committed-then-errors** path
+(emit a `text-delta` to commit, then error before `finish`): the stream commits 200, surfaces the
+error mid-stream, never reaches `finish`, so `onComplete` never fires and no trace is captured.
 
 ## 10. Testing (TDD — test first, watch it fail)
 
