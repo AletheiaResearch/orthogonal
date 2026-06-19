@@ -27,6 +27,14 @@ export interface Env {
    */
   TERMINUS_GATEWAY_POLICY?: string;
 
+  /**
+   * Default-OFF kill-switch for raw trace content-capture (CON-61). Truthy (`"true"` /
+   * `"1"`) routes a `TraceSink` into the chat handler; unset/falsy = no content handling,
+   * zero overhead. An operator switch, NOT user consent — per-session consent + the
+   * sanitizer land with CON-43. See `trace/sink.ts`.
+   */
+  TERMINUS_TRACE_CAPTURE_ENABLED?: string;
+
   /** KV namespace caching the fetched models.dev registry (CON-49). */
   MODELS_CACHE?: KVNamespace;
 

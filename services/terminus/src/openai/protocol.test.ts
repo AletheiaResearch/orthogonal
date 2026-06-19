@@ -130,6 +130,54 @@ describe("toOpenAIChatStream", () => {
     expect(err.type).toBe("api_error");
   });
 
+  it("invokes onComplete once on finish with accumulated content, tool calls, finishReason and usage", async () => {
+    const onComplete = vi.fn();
+    await collect(
+      toOpenAIChatStream(
+        parts(
+          { type: "text-delta", id: "t", text: "He" },
+          { type: "text-delta", id: "t", text: "llo" },
+          { type: "tool-call", toolCallId: "call_1", toolName: "search", input: { q: "hi" } },
+          {
+            type: "finish",
+            finishReason: "tool-calls",
+            totalUsage: usage({ inputTokens: 5, outputTokens: 2, totalTokens: 7 }),
+          }
+        ),
+        META,
+        undefined,
+        undefined,
+        onComplete
+      )
+    );
+
+    expect(onComplete).toHaveBeenCalledOnce();
+    expect(onComplete).toHaveBeenCalledWith({
+      content: "Hello",
+      toolCalls: [{ toolCallId: "call_1", toolName: "search", input: { q: "hi" } }],
+      finishReason: "tool-calls",
+      usage: usage({ inputTokens: 5, outputTokens: 2, totalTokens: 7 }),
+    });
+  });
+
+  it("does NOT invoke onComplete when the stream errors before finish", async () => {
+    const onComplete = vi.fn();
+    await collect(
+      toOpenAIChatStream(
+        parts(
+          { type: "text-delta", id: "t", text: "partial" },
+          { type: "error", error: new Error("boom") }
+        ),
+        META,
+        undefined,
+        undefined,
+        onComplete
+      )
+    );
+
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
   it("maps a tool-call part to an OpenAI tool_calls delta", async () => {
     const frames = await collect(
       toOpenAIChatStream(

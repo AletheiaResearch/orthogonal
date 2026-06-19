@@ -25,6 +25,7 @@ import type { TerminusContext } from "../middleware/auth";
 import { toModelMessages, toToolSet } from "../openai/messages";
 import {
   type ChunkMeta,
+  type CompletionParts,
   type OpenAIChatRequest,
   toOpenAIChatCompletion,
   toOpenAIChatStream,
@@ -36,6 +37,7 @@ import {
   buildLanguageModel,
   codexProviderOptions,
 } from "../providers/router";
+import { type TraceSink, toTraceRecord } from "../trace/sink";
 import { computeCostUsd } from "../usage/pricing";
 import type { UsageRecord, UsageSink } from "../usage/sink";
 import { asReadable, peekStream } from "./stream-fallback";
@@ -43,6 +45,13 @@ import { asReadable, peekStream } from "./stream-fallback";
 export interface ChatDeps {
   loadRegistry: typeof fetchRegistry;
   usageSink: UsageSink;
+  /**
+   * Raw trace content-capture sink (CON-61). Present ONLY when the operator flag
+   * `TERMINUS_TRACE_CAPTURE_ENABLED` is on (gated at the handler edge in `index.ts`),
+   * so chat capture is enabled iff this is set — undefined = zero content handling.
+   * Content is raw/unsanitized; see `trace/sink.ts`.
+   */
+  traceSink?: TraceSink;
   /** Resolves the upstream credential for a model + session (vault-backed in prod). */
   credentials: CredentialProvider;
   /**
@@ -196,6 +205,45 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       return true;
     };
 
+    // Raw trace content-capture (CON-61), active ONLY when a sink is wired (operator
+    // flag on). Best-effort and fully isolated: the try/catch wraps BOTH the record
+    // build AND the dispatch, because the streaming path calls this from inside the
+    // generator during a stream pull — a throw here must never corrupt the live
+    // response. Content is raw/unsanitized; a real consumer must sanitize first
+    // (see trace/sink.ts). Fires only on a successful completion (the `finish` part).
+    const captureTrace = (parts: CompletionParts): void => {
+      if (!deps.traceSink) return;
+      try {
+        // toTraceRecord does the content mapping (tool-call rename + verbatim, NON-coerced
+        // finish reason) — pure + unit-tested in trace/sink.test.ts.
+        const trace = toTraceRecord(
+          usageRecord(claims, body.model, parts.usage, nowMs, ref.model.cost),
+          body.messages,
+          parts
+        );
+        const write = deps.traceSink.record(trace).catch((e) => {
+          console.error(
+            JSON.stringify({
+              event: "terminus.trace.sink_error",
+              message: e instanceof Error ? e.message : String(e),
+            })
+          );
+        });
+        try {
+          c.executionCtx.waitUntil(write);
+        } catch {
+          // no ExecutionContext (unit tests); the record still runs to completion
+        }
+      } catch (e) {
+        console.error(
+          JSON.stringify({
+            event: "terminus.trace.capture_error",
+            message: e instanceof Error ? e.message : String(e),
+          })
+        );
+      }
+    };
+
     // Streaming: peek-first-chunk fallback (CON-74). Mirror the non-streaming candidate
     // loop — drive each candidate's stream until the first client-output part (commit)
     // or a pre-output error. A retryable pre-output error rotates to the next candidate;
@@ -227,7 +275,12 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
             background(deps.credentials.recordSuccess?.(candidate.id));
           },
           // Mid-stream error after commit: no fallback, just cool down for the next request.
-          (err) => void coolDownIfRetryable(candidate, err)
+          (err) => void coolDownIfRetryable(candidate, err),
+          // Trace capture (CON-61): accumulate + capture on finish, only when a sink is
+          // wired. Omitted when off so the mapper does no accumulation (zero overhead).
+          // The peeked first chunk is re-yielded into this stream (CON-74 `drain`), so
+          // accumulation sees every client-output part including chunk 1.
+          deps.traceSink ? captureTrace : undefined
         );
         return new Response(asReadable(sse), {
           headers: {
@@ -254,15 +307,15 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
         // same-target retry (it would add hidden backoff before we fall back).
         const result = await generateText({ ...callOptionsFor(model), maxRetries: 0 });
         background(deps.credentials.recordSuccess?.(candidate.id));
+        const completion: CompletionParts = {
+          content: result.text,
+          toolCalls: result.toolCalls,
+          finishReason: result.finishReason,
+          usage: result.totalUsage,
+        };
         await emit(result.totalUsage);
-        return Response.json(
-          toOpenAIChatCompletion(meta, {
-            content: result.text,
-            toolCalls: result.toolCalls,
-            finishReason: result.finishReason,
-            usage: result.totalUsage,
-          })
-        );
+        captureTrace(completion);
+        return Response.json(toOpenAIChatCompletion(meta, completion));
       } catch (err) {
         if (!coolDownIfRetryable(candidate, err)) throw err;
         lastError = err;
