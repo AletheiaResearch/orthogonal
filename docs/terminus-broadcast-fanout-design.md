@@ -1,7 +1,8 @@
 # Terminus broadcast fan-out — design (CON-73, folds CON-54)
 
-> Status: **proposed** — awaiting Nejc's review. Spec-driven per `docs/terminus-llm-gateway.md`.
-> Branch: `nejc/con-73-broadcast-fanout`. Lands on `terminus`.
+> Status: **proposed** — awaiting Nejc's review. Revised once after an adversarial review (codex)
+> against the real source. Spec-driven per `docs/terminus-llm-gateway.md`. Branch:
+> `nejc/con-73-broadcast-fanout`. Lands on `terminus`.
 
 ## 1. Goal
 
@@ -10,7 +11,8 @@ produces one canonical record that is fanned out, fire-and-forget, to zero-or-mo
 operator-configured destinations (analytics, observability, object storage, a metrics DB, a custom
 webhook). Destinations are added, toggled, sampled, and re-credentialled **at runtime** (no
 redeploy) — this is the literal answer to "the DB is just one configurable destination, why would a
-DB choice block us."
+DB choice block us." (One exception, called out in §8: an R2 _native binding_ is a deploy-time
+optimization, not a runtime path — the runtime object-storage path is S3 SigV4.)
 
 This **unifies two issues**:
 
@@ -25,9 +27,14 @@ It builds directly on the already-merged seams: the **usage seam** (`usage/sink.
 
 ### Non-goals (explicit)
 
-- **PII sanitization is OPTIONAL and out of the critical path.** Content capture stays default-OFF
-  (`TERMINUS_TRACE_CAPTURE_ENABLED`); the sanitizer is a _pluggable per-destination transform_
-  (CON-43), not a blocker for this work. Metrics-only fan-out works with content OFF.
+- **PII sanitization is OPTIONAL and out of the critical path** — but raw content is NOT broadcast
+  in Phase 1. Content capture stays default-OFF (`TERMINUS_TRACE_CAPTURE_ENABLED`); the sanitizer is
+  a _pluggable per-destination transform_ (CON-43), not a blocker for the framework. **Phase 1 is
+  metrics-only.** Exporting raw prompts/responses to an external destination is a stronger action
+  than CON-61's in-house capture — `trace/sink.ts` requires the sanitizer to run first — so
+  `includeContent` is **hard-gated until CON-43** lands (sanitizer + per-session consent). The seam
+  _supports_ a content tier so it doesn't have to be re-plumbed later; no destination sets
+  `includeContent` until then.
 - **No durable in-Worker batching.** Per-call fire-and-forget only. If batching is ever needed it
   belongs on a Durable Object or Cloudflare Queue, never an in-isolate array (see §9).
 - **The CON-42 dashboard** is a _downstream destination_, not built here.
@@ -53,42 +60,48 @@ Two Worker-specific divergences we adopt deliberately: **fan-out runs _inline_ i
 
 ```
                        ┌─────────────────────────────────────────────┐
-  chat.ts  ──build──►  │  EmissionRecord  (canonical, built ONCE)     │
- (emit point)          │  ├─ metrics  (ALWAYS: model, provider,       │
-                       │  │            tokens, costUsd, latencyMs,     │
+  chat.ts  ──build──►  │  EmissionRecord  (canonical, built ONCE      │
+ (completion           │                   at the completion boundary)│
+  boundary)            │  ├─ metrics  (ALWAYS: model, provider,       │
+                       │  │            tokens, costUsd, latency,       │
                        │  │            traceId, sessionId, finish…)    │
-                       │  └─ content? (OPTIONAL: messages, response,   │
-                       │              toolCalls — gated + sanitized)   │
+                       │  └─ content? (gated OFF until CON-43:         │
+                       │              messages, response, toolCalls)   │
                        └───────────────┬─────────────────────────────┘
-                                       │ ctx.waitUntil(  Promise.allSettled( … ) )
+                                       │ dispatch() → ctx.waitUntil( Promise.allSettled( … ) )
                           ┌────────────┴───────────────┐
                           ▼  BroadcastDispatcher (registry of enabled destinations)
-        ┌─────────┬─────────────┬──────────────┬──────────────┬─────────────┐
-        ▼         ▼             ▼              ▼              ▼             ▼
-   OtlpDest   PostHogDest   R2Dest      WebhookDest   LangfuseDest   …(per-adapter)
-   (shared    (proprietary  (R2 native  (generic +    (proprietary)
-    OTLP/JSON  $ai_*)        binding)    HMAC + SSRF)
+        ┌─────────────┬──────────────┬──────────────┬───────────────────────────┐
+        ▼             ▼              ▼              ▼                            ▼
+   OtlpDest      PostHogDest    WebhookDest    …Phase 2:                   (frozen
+   (shared       (proprietary   (generic +      S3/SigV4, Langfuse,        interface)
+    OTLP/JSON     $ai_*)         HMAC + SSRF)    LangSmith, Datadog
     serializer)
 ```
 
 Three layers, each independently testable:
 
-1. **The canonical record** (`EmissionRecord`) — built once at the existing emit point, _composed_
+1. **The canonical record** (`EmissionRecord`) — built once at the completion boundary, _composed_
    from the data the chat handler already has (never re-derived per destination).
-2. **The dispatcher** (`BroadcastDispatcher`) — resolves the enabled destination set from runtime
-   config, applies per-destination sampling/filtering, and fans out with `Promise.allSettled` inside
-   a single `ctx.waitUntil`. One destination failing/timing-out can never reject the others or fail
-   the call.
+2. **The dispatcher** (`BroadcastDispatcher`) — `dispatch()` is **synchronous/void**: it resolves
+   the enabled destination set from runtime config, applies per-destination sampling/filtering, and
+   fans out with `Promise.allSettled` — all inside a single `ctx.waitUntil`, never awaited by the
+   route. One destination failing/timing-out can never reject the others, add latency, or fail the
+   call.
 3. **The destinations** (`BroadcastDestination` adapters) — each maps the canonical record to its
    wire shape and POSTs it. Two families behind one interface: a **shared OTLP/JSON serializer**
    (generic OTLP, and OTLP-mode of Langfuse/PostHog/W&B) and **proprietary adapters** (PostHog
-   capture, LangSmith, Langfuse native, Datadog, R2/S3, ClickHouse).
+   capture, LangSmith, Langfuse native, Datadog, S3, ClickHouse).
 
-### Where it slots in
+### Where it slots in (corrected)
 
-The dispatcher is injected as a new optional dependency and dispatched at the **same emit point** as
-usage/trace today (`routes/chat.ts`), alongside the existing `emit()`/`captureTrace()` closures.
-`index.ts` constructs it (default = empty registry = no-op) exactly like `usageSink`/`traceSink`:
+**There is no single unified emit point today.** `emit()` (chat.ts ~157) receives only usage;
+`captureTrace()` (chat.ts ~214) separately rebuilds a `UsageRecord` from the completion parts; and
+on the streaming path usage (`onUsage`) fires _before_ content (`onComplete`) in
+`openai/protocol.ts`. So Phase 1 **introduces one completion helper** at the `onComplete`/result
+boundary that builds the `UsageRecord` **once** and fans it out to the usage sink, the trace sink,
+_and_ the broadcast dispatcher. `index.ts` constructs the dispatcher (default = empty registry =
+no-op) exactly like `usageSink`/`traceSink`:
 
 ```ts
 // index.ts (sketch)
@@ -96,17 +109,15 @@ const broadcast = deps.broadcast ?? buildBroadcastDispatcher(/* resolves config 
 // …passed into chatCompletions(c, { …, broadcast })
 ```
 
-**Correction to an earlier assumption:** this is _not_ a zero-call-site-change swap. `chat.ts` must
-change — additively — to (a) measure latency, (b) generate a trace id, (c) always extract the finish
-reason, (d) dispatch the record. See §5.
+This is **not** a zero-call-site-change swap. `chat.ts` changes additively (§5): measure span
+timing, generate a trace id, always extract the finish reason, dispatch.
 
 ### End-state (stated, not built in Phase 1)
 
 Once the registry exists, the deferred CON-54 timeseries sink and the CON-61 content store are _just
-destinations_ (a "metrics-db" destination; a "trace-store" destination). Phase 1 leaves the existing
-`UsageSink` (structured-log) and `TraceSink` (CON-61) seams intact and adds the broadcast as a
-third, independent, default-empty seam. Collapsing them into registry destinations is a later
-cleanup, not this PR.
+destinations_. Phase 1 leaves the existing `UsageSink` (structured-log) and `TraceSink` (CON-61)
+seams intact and adds the broadcast as a third, independent, default-empty seam. Collapsing them
+into registry destinations is a later cleanup, not this PR.
 
 ## 4. The canonical record
 
@@ -114,7 +125,7 @@ One record, two tiers. Built once; the same object is handed to every destinatio
 
 ```ts
 interface EmissionMetrics {
-  traceId: string; // 16 random bytes, lowercase hex (32 chars) — OTLP-native (see §5)
+  traceId: string; // 16 random bytes, lowercase hex (32 chars) — OTLP-native (§5)
   sessionId: string; // UsageRecord.sid (gateway-token claim; attribution key)
   tenant: string | null; // UsageRecord.tenant
   model: string; // provider-qualified, e.g. "anthropic/claude-opus-4-5"
@@ -125,15 +136,19 @@ interface EmissionMetrics {
   reasoningTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
-  costUsd: number; // gateway-computed (only the gateway holds pricing)
-  latencyMs: number; // upstream-request → upstream-finish (NOT client pull time, §5)
-  ttftMs?: number; // optional time-to-first-token (streaming)
+  costUsd: number; // gateway-computed TOTAL (only the gateway holds pricing). Per-direction
+  //          input/output split is a deferred enhancement (§8 Langfuse); we forward total.
+  startedAtMs: number; // upstream attempt START (epoch ms) → OTLP span start
+  finishedAtMs: number; // upstream attempt FINISH (epoch ms) → OTLP span end. Streaming caveat §5.
+  latencyMs: number; // finishedAtMs − startedAtMs. Non-streaming = true upstream duration;
+  //           streaming = client-pull-observed (NOT true upstream finish — §5).
+  ttftMs?: number; // time-to-first-token, measured at the CON-74 first-chunk peek —
+  //          the real server-side upstream-latency signal for streaming.
   finishReason: string | undefined; // raw AI-SDK reason, always extracted
-  createdAt: number; // epoch ms (= UsageRecord.createdAt)
 }
 
 interface EmissionContent {
-  // present ONLY when trace capture is on
+  // gated OFF until CON-43 (sanitizer + consent); no Phase-1 destination sets includeContent
   requestMessages: OpenAIChatMessage[];
   responseText: string;
   responseToolCalls: TraceToolCall[];
@@ -141,78 +156,94 @@ interface EmissionContent {
 
 interface EmissionRecord {
   metrics: EmissionMetrics; // always
-  content?: EmissionContent; // optional, gated default-OFF, sanitized per-destination
+  content?: EmissionContent; // gated; see §1 non-goals
 }
 ```
 
 Construction is a pure
-`toEmissionRecord(usageRecord, { latencyMs, ttftMs, traceId, finishReason }, content?)` — it
-**composes** the already-built `UsageRecord` plus the new metric fields plus the optional content
+`toEmissionRecord(usageRecord, { startedAtMs, finishedAtMs, ttftMs, traceId, finishReason }, content?)`
+— it **composes** the already-built `UsageRecord` plus the new fields plus the optional content
 slice. It does not re-parse the model response. This preserves the "build once, fan out" invariant.
 
+**Span timing is explicit** (`startedAtMs`/`finishedAtMs`), _not_ `UsageRecord.createdAt` —
+`createdAt` is captured before the upstream call (chat.ts ~129) and would mis-time an OTLP span.
+OTLP adapters use the two timestamps directly; non-OTLP adapters use `latencyMs`.
+
 **Metrics carry no PII** and are always emitted (a billing/PostHog-metrics destination needs no
-content). **Content carries raw, unsanitized PII** (per `trace/sink.ts`) and is attached only when
-`TERMINUS_TRACE_CAPTURE_ENABLED` is on; each content-consuming destination runs the optional
-sanitizer before serialization (§7).
+content). **Content carries raw, unsanitized PII** (per `trace/sink.ts`) and is therefore **not
+attached in Phase 1**; the field exists so the content tier need not be re-plumbed when CON-43
+lands.
 
 ## 5. `chat.ts` changes (additive)
 
-Four additive changes at the existing emit point — both response paths share one emit closure today,
-so the new dispatch lives there too:
+Phase 1 **introduces a single completion helper** (there is no unified emit point today, §3) and
+makes four additive changes there:
 
-1. **Latency.** Capture `startedAtMs` immediately before the upstream call begins (`streamText(...)`
-   / `generateText(...)`), and compute `latencyMs = now() - startedAtMs` **at the upstream `finish`
-   boundary** — the usage/finish callback for streaming, the awaited result for non-streaming.
-   - **Streaming trap (called out):** usage/finish on the committed SSE stream fires _after the
-     client pulls_. `latencyMs` must be measured to the **upstream finish part**, not to stream
-     drain, or it degrades into "client read rate." The CON-74 peek/drain
-     (`routes/stream-fallback.ts`) makes this boundary subtle — define and test it explicitly.
-   - Honor the unit-in-name convention: `latencyMs`, `startedAtMs`, `ttftMs`.
-2. **Trace id.** Generate once per request: **16 random bytes, lowercase-hex (32 chars)**, via
-   `deps.newId`-injectable source. _Not_ `crypto.randomUUID()` — OTLP, Langfuse-OTLP, and W&B all
-   require a 16-byte trace id; a hex-16 string is directly OTLP-usable and fine as a string for
-   every proprietary adapter. (The `chatcmpl-…` response id stays a UUID; the trace id is separate.)
-3. **Finish reason.** Always extract it (cheap; today it is only computed on the gated trace path).
-   It is a metrics-tier field.
-4. **Dispatch.** Build the `EmissionRecord` and hand it to
-   `broadcast.dispatch(record, c.executionCtx)`, which itself wraps the fan-out in `waitUntil` +
-   `Promise.allSettled`. Default empty registry → no work, zero overhead.
-
-These compose with the existing `emit()`/`captureTrace()` closures; we reuse the same
-`usageRecord(...)` the handler already builds.
+1. **Span timing.** Capture `startedAtMs` immediately before the upstream call begins
+   (`streamText(...)` / `generateText(...)`); capture `finishedAtMs` at the completion boundary.
+   - **Non-streaming:** `finishedAtMs` is the awaited `generateText` result → `latencyMs` is the
+     true upstream duration.
+   - **Streaming caveat (codex-confirmed):** the upstream `finish` part is consumed _lazily as the
+     client pulls_ the committed SSE stream (`routes/stream-fallback.ts` pull path →
+     `openai/protocol.ts` `for await`). So a `finishedAtMs` taken at `onComplete` **includes client
+     backpressure** — it is not true upstream-finish. We therefore **define streaming `latencyMs` as
+     client-pull-observed total** and capture **`ttftMs` at the first-chunk peek** as the real
+     server-side upstream signal. (Measuring true upstream-finish would require buffering the entire
+     upstream response server-side, defeating CON-74's lazy passthrough — explicitly rejected.)
+   - Unit-in-name convention: `startedAtMs`, `finishedAtMs`, `latencyMs`, `ttftMs`.
+2. **Trace id.** Generate once per request: **16 random bytes, lowercase-hex (32 chars)**, via a
+   **new `deps.newTraceId` injectable** — distinct from `deps.newId`, which is already used for the
+   `chatcmpl-…` response-id suffix (chat.ts ~69, ~129). OTLP / Langfuse-OTLP / W&B all require a
+   16-byte trace id; a hex-16 string is directly OTLP-usable and fine as a string for every
+   proprietary adapter. (OTLP also needs an 8-byte span id — the serializer derives one.)
+3. **Finish reason.** Always extract it (cheap; today only computed on the gated trace path). It is
+   a metrics-tier field.
+4. **Dispatch.** `broadcast.dispatch(record, c.executionCtx)` — **returns `void` synchronously** and
+   schedules _all_ work (config lookup, decryption, sends) inside one guarded `waitUntil`. It is
+   **never awaited** by the route (unlike today's non-streaming usage emit, which is awaited at
+   chat.ts ~316) — so per-request D1 reads + decryption add zero latency to the response. Default
+   empty registry → no work.
 
 ## 6. The destination interface & dispatcher
 
 ```ts
 interface BroadcastDestination {
   readonly id: string;
-  readonly type: string; // "otlp" | "posthog" | "r2" | "webhook" | …
+  readonly type: string; // "otlp" | "posthog" | "webhook" | "s3" | …
   /** Map the canonical record to this destination's wire shape and POST it. Must never throw. */
   send(record: EmissionRecord, signal: AbortSignal): Promise<void>;
   /** Minimal reachability+auth probe for the admin "test connection" action. */
   testConnection(): Promise<{ ok: boolean; status?: number; error?: string }>;
 }
+
+interface BroadcastDispatcher {
+  /** Synchronous/void: schedules ALL fan-out work in ctx.waitUntil; never awaited. */
+  dispatch(record: EmissionRecord, ctx: ExecutionContext): void;
+}
 ```
 
-The **dispatcher**:
+`dispatch()` schedules **one** guarded promise into `ctx.waitUntil`; inside it:
 
-- Resolves the **enabled** destinations from runtime config (§7) per request.
-- For each: applies **deterministic per-destination sampling** — `hash(traceId) < samplingRate` (not
-  `Math.random()`), so the _same_ trace is consistently in/out of a given destination and
-  independent across destinations (billing at 1.0, debug at 0.05). Applies **event-type filter**
-  (success/failure) and **property filters**.
-- Fans out:
-  `ctx.waitUntil(Promise.allSettled(dests.map(d => withTimeout(d.send(record, signal)))))`. Each
-  `send` is independently try/caught with an `AbortController` timeout (a few seconds). A rejection
-  only logs (per-destination delivery counter / `console.error`) — it never propagates.
+- **Resolve** the enabled destinations from runtime config (§7) — the D1 read + credential
+  decryption happen _here_, off the response path.
+- **Sample** per destination, deterministically per `(destination, trace)`:
+  `hash(destinationId + ":" + traceId) < samplingRate`. Hashing the destination id **and** trace id
+  (not the trace id alone) keeps destinations _independent_ — two destinations at the same rate do
+  not select the identical trace set — while staying stable for a given trace.
+- **Filter:** Phase 1 emits on **success only** (no failure record shape exists yet; errors today
+  fall into chat.ts's catch with no emission — a failure-broadcast path is a follow-up). Property
+  filters (send only if all `{key,value}` match) are supported.
+- **Fan out:** `Promise.allSettled(dests.map(d => withTimeout(d.send(record, signal), timeoutMs)))`.
+  Each `send` is independently try/caught with an `AbortController` timeout. A rejection only logs
+  (per-dest delivery counter / `console.error`) — it never propagates.
 
 **OTLP family vs proprietary** — one canonical record in, per-destination serializer out:
 
 - **OTLP/JSON serializer (shared):** generic OTLP collectors + the OTLP mode of Langfuse, PostHog,
   W&B. Emits `gen_ai.*` GenAI-semantic-convention spans (proto3-JSON: int enums, int64 as decimal
-  strings, 32-hex trace id / 16-hex span id, typed `AnyValue`). Cost → vendor-namespaced
-  `terminus.cost.usd`; finish reason → `gen_ai.response.finish_reasons` (array); latency = span
-  duration; session → `gen_ai.conversation.id`.
+  strings, 32-hex trace id / 16-hex span id, typed `AnyValue`). Span start/end from
+  `startedAtMs`/`finishedAtMs` (→ nanoseconds); cost → vendor-namespaced `terminus.cost.usd`; finish
+  reason → `gen_ai.response.finish_reasons` (array); session → `gen_ai.conversation.id`.
 - **Proprietary adapters:** each transforms the canonical record into the vendor JSON (§8).
 
 ## 7. Runtime config & storage
@@ -223,15 +254,21 @@ pattern. KV is rejected (eventually-consistent; "configurable mid-runtime" wants
 New table `broadcast_destinations` (owner-scoped, same `owner_type`/`owner_id` model as
 credentials):
 
-| column                              | type        | purpose                                                                                                                                                         |
-| ----------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                                | text PK     |                                                                                                                                                                 |
-| `owner_type` / `owner_id`           | text        | `platform` (single-tenant) / BYOK                                                                                                                               |
-| `type`                              | text        | adapter discriminator (`otlp`/`posthog`/`r2`/`webhook`/…)                                                                                                       |
-| `enabled`                           | bool        | toggle without delete                                                                                                                                           |
-| `config`                            | text (JSON) | non-secret per-dest config: endpoint/host/region, headers, `samplingRate` (0–1), `includeContent` (bool), `privacy` mode, `propertyFilters`, `eventTypes`       |
-| `secret_encrypted`                  | text        | AES-256-GCM creds (api key / S3 keys / HMAC key), **reusing `encryptSecret`/`decryptSecret` from `@open-inspect/shared`** with owner-as-AAD — same as the vault |
-| `label`, `created_at`, `updated_at` |             | mirror credentials                                                                                                                                              |
+| column                              | type        | purpose                                                                                                                                                                                                           |
+| ----------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                | text PK     |                                                                                                                                                                                                                   |
+| `owner_type` / `owner_id`           | text        | `platform` (single-tenant) / BYOK                                                                                                                                                                                 |
+| `type`                              | text        | adapter discriminator (`otlp`/`posthog`/`webhook`/`s3`/…)                                                                                                                                                         |
+| `enabled`                           | bool        | toggle without delete                                                                                                                                                                                             |
+| `config`                            | text (JSON) | **non-secret only**: endpoint/host/region, non-secret headers (e.g. `Content-Type`), `samplingRate` (0–1), `includeContent` (gated, §1), `propertyFilters`, `eventTypes`                                          |
+| `secret_encrypted`                  | text        | **ALL auth material** — Bearer token / Basic `user:pass` / api key / HMAC key / S3 access+secret keys. AES-256-GCM via `encryptSecret`/`decryptSecret` (`@open-inspect/shared`), owner-as-AAD — same as the vault |
+| `label`, `created_at`, `updated_at` |             | mirror credentials                                                                                                                                                                                                |
+
+**Secrets never live in `config`.** Auth headers (`Authorization: Bearer …`, `x-api-key`,
+`DD-API-KEY`, the PostHog body key, the HMAC signing key) are decrypted from `secret_encrypted` and
+assembled at send time. The admin write path **rejects secret-looking header names**
+(`authorization`, `x-api-key`, `*-key`, …) in plaintext `config`, mirroring the vault's rule that
+public metadata never includes a secret (`vault.ts`, `admin.ts`).
 
 Generated via `drizzle-kit generate` into `services/terminus/migrations/`; auto-applied in tests
 (`readD1Migrations`/`applyD1Migrations`) and prod (terraform `null_resource.terminus_d1_migrations`,
@@ -255,47 +292,49 @@ gate destination enablement later.
 ## 8. Per-destination adapters
 
 Distilled from the source-verified research (LiteLLM/Helicone OSS + official docs). Each adapter is
-a pure `record → wire` map + a `fetch`. **Phase tag** in the last column (§10).
+a pure `record → wire` map + a `fetch`. **Phase tag** in the heading (§10).
 
 ### OTLP/JSON (generic) — _Phase 1_
 
 `POST {endpoint}/v1/traces`, `Content-Type: application/json`. Per-backend auth menu (Bearer / Basic
-via `btoa` / `x-honeycomb-team` / `api-key`). `gen_ai.*` spans, proto3-JSON encoding (int enums,
-int64-as-string, 32-hex traceId, typed AnyValue). `gen_ai.provider.name`, `gen_ai.request.model` +
-`gen_ai.response.model`, `gen_ai.usage.input_tokens`/`output_tokens`,
-`gen_ai.response.finish_reasons` (array), `gen_ai.conversation.id` (session); **cost →
-`terminus.cost.usd`** (not standard); latency = span duration; messages → `gen_ai.input.messages` /
-`gen_ai.output.messages` (Opt-In). 200 may carry `partial_success` — log, never fail.
+via `btoa` / `x-honeycomb-team` / `api-key`) — all from `secret_encrypted`. `gen_ai.*` spans,
+proto3-JSON encoding (int enums, int64-as-string, 32-hex traceId, typed AnyValue).
+`gen_ai.provider.name`, `gen_ai.request.model` + `gen_ai.response.model`,
+`gen_ai.usage.input_tokens`/`output_tokens`, `gen_ai.response.finish_reasons` (array),
+`gen_ai.conversation.id` (session); **cost → `terminus.cost.usd`** (not standard); span start/end
+from `startedAtMs`/`finishedAtMs`. 200 may carry `partial_success` — log, never fail.
 
 ### PostHog (capture API) — _Phase 1_
 
 `POST {host}/i/v0/e/` (single) or `/batch/` (fan-out). **No auth header — project key (`phc_…`) goes
-in the JSON body field `api_key`.** Event `$ai_generation`. Props (inside `properties`): **split**
-`$ai_model` (bare) + `$ai_provider`; `$ai_input_tokens`/`$ai_output_tokens`;
-**`$ai_total_cost_usd`** (we set it → overrides PostHog auto-calc); **`$ai_latency` in SECONDS
-(divide ms by 1000)**; **`$ai_stop_reason`** (NOT `$ai_finish_reason`); `$ai_trace_id`;
-`$ai_session_id`; optional `$ai_input` / `$ai_output_choices` (array of `{role,content}`). `host`
-runtime-configurable (us/eu/self-host). LiteLLM `posthog.py` is the reference. _Gotcha: no
-`$ai_total_tokens`; omit it._
-
-### R2 / S3 (object storage) — _Phase 1 (R2-native binding)_
-
-**Path A (Phase 1): R2 native binding** `await env.BUCKET.put(key, body, opts)` — no creds, no
-signing, Worker-local. **Path B (later): S3 SigV4 over `fetch`** via `crypto.subtle` (HMAC-SHA256 +
-SHA-256) for external/customer buckets. One JSON object per trace (`Content-Type: application/json`,
-optional `Content-Encoding: gzip` via `CompressionStream`). Date-partitioned key
-`traces/{tenant|_}/{YYYY}/{MM}/{DD}/{sessionId}/{traceId}.json` (traceId guarantees uniqueness).
-LiteLLM `s3_v2.py` (manual SigV4 over fetch) proves the no-SDK path; Helicone proves gzip + key
-hierarchy. Requires an R2 bucket binding in `workers-terminus.tf` (terraform module already supports
-`r2_buckets`).
+in the JSON body field `api_key`** (from `secret_encrypted`). Event `$ai_generation`. Props (inside
+`properties`): **split** `$ai_model` (bare) + `$ai_provider`;
+`$ai_input_tokens`/`$ai_output_tokens`; **`$ai_total_cost_usd`** (we set it → overrides PostHog
+auto-calc); **`$ai_latency` in SECONDS (divide ms by 1000)**; **`$ai_stop_reason`** (NOT
+`$ai_finish_reason`); `$ai_trace_id`; `$ai_session_id`. `host` runtime-configurable
+(us/eu/self-host). LiteLLM `posthog.py` reference. _Gotcha: no `$ai_total_tokens`; omit it._
+(`$ai_input`/`$ai_output_choices` only once content is ungated, §1.)
 
 ### Generic webhook — _Phase 1_
 
-`POST {url}` JSON body = the canonical record (or a small metric subset). **HMAC-SHA256 signature**
-over the body via `crypto.subtle`, sent as a signature header (Helicone-style). **SSRF guard
-(non-optional):** HTTPS-only + reject localhost/0.0.0.0, private IPv4 (10/8, 172.16–31, 192.168/16),
-link-local 169.254/16, cloud-metadata IPs, and `.local/.internal/.corp/.lan` suffixes. Body
-truncation at a size cap when content is included.
+`POST {url}` JSON body = the metric subset of the canonical record. **HMAC-SHA256 signature** over
+the body via `crypto.subtle` (key from `secret_encrypted`), sent as a signature header
+(Helicone-style). **SSRF guard (non-optional):** HTTPS-only + reject localhost/0.0.0.0, private IPv4
+(10/8, 172.16–31, 192.168/16), link-local 169.254/16, cloud-metadata IPs, and
+`.local/.internal/.corp/.lan` suffixes.
+
+### Object storage (S3 / S3-compatible, incl. R2) — _Phase 2_
+
+The **runtime-configurable** path is **S3 SigV4 over `fetch`** (`crypto.subtle` HMAC-SHA256 +
+SHA-256) — works for AWS S3, MinIO/GCS/B2/Wasabi, **and R2's S3 endpoint**; access-key-id + secret
+in `secret_encrypted`; fully runtime-addable. One JSON object per trace
+(`Content-Type: application/json`, optional `Content-Encoding: gzip` via `CompressionStream`),
+date-partitioned key `traces/{tenant|_}/{YYYY}/{MM}/{DD}/{sessionId}/{traceId}.json`. LiteLLM
+`s3_v2.py` (manual SigV4 over fetch) proves the no-SDK path; Helicone proves gzip + key hierarchy.
+**R2 _native binding_** (`env.BUCKET.put`, no creds/signing) is a **deploy-time** fast-path for _our
+own_ bucket only — a binding is declared in `Env`/`workers-terminus.tf` and needs a redeploy, so it
+**cannot** satisfy "add a destination at runtime." Offered later as an optimization that references
+a pre-bound bucket by name; it does not replace the SigV4 path.
 
 ### LangSmith — _Phase 2_
 
@@ -309,22 +348,23 @@ LiteLLM `langsmith.py` reference. _Our computed cost has no native field → sta
 ### Langfuse — _Phase 2_
 
 **Native batch (recommended):** `POST /api/public/ingestion` body
-`{batch:[trace-create, generation-create]}`. Basic auth `btoa(pk:sk)` (`pk-lf-…:sk-lf-…`). Use the
-split **`usageDetails`** (`{input,output,total}` ints) + **`costDetails`** (`{input,output,total}`
-USD — send our computed cost). String ids (no OTLP hex/nanosecond ceremony). Generation `id` must
-differ from trace `id`. Region base URL must match the keys. (OTLP mode also available via the
-shared serializer → `/api/public/otel/v1/traces`.) LiteLLM `langfuse.py` reference.
+`{batch:[trace-create, generation-create]}`. Basic auth `btoa(pk:sk)` (`pk-lf-…:sk-lf-…`). Split
+**`usageDetails`** (`{input,output,total}` ints) + **`costDetails`**. We carry only a **total**
+gateway cost, so send **`costDetails: { total: costUsd }`** (per-direction `input`/`output` cost is
+a deferred enhancement — adding it would require splitting cost in the canonical record, §13.6; we
+do _not_ re-price per destination). String ids (no OTLP hex/nanosecond ceremony). Generation `id`
+must differ from trace `id`. Region base URL must match the keys. (OTLP mode also via the shared
+serializer → `/api/public/otel/v1/traces`.) LiteLLM `langfuse.py` reference.
 
 ### Datadog LLM Observability — _Phase 2_
 
 `POST https://api.{DD_SITE}/api/intake/llm-obs/v1/trace/spans`. Header **`DD-API-KEY`** (raw key,
 colon, not Bearer). Proprietary span JSON
 `{data:{type:"span",attributes:{ml_app, tags, spans:[…]}}}`. **`start_ns`/`duration` in
-NANOSECONDS** (`latencyMs * 1e6`). **`model_name` nested at `meta.metadata.model_name`** (not
-`meta.model_name`). `metrics` floats (`input_tokens`, `total_cost`…). `ml_app` REQUIRED. Success =
-**HTTP 202, empty body**. Keep payload < 1 MB (spans
-
-> 1 MB silently dropped). LiteLLM `datadog_llm_obs.py` reference.
+NANOSECONDS** (`startedAtMs * 1e6`, `latencyMs * 1e6`). **`model_name` nested at
+`meta.metadata.model_name`** (not `meta.model_name`). `metrics` floats (`input_tokens`,
+`total_cost`…). `ml_app` REQUIRED. Success = **HTTP 202, empty body**. Keep each POST under 1 MB
+(spans over ~1 MB are silently dropped). LiteLLM `datadog_llm_obs.py` reference.
 
 ### ClickHouse — _Deferred (batching)_
 
@@ -353,28 +393,35 @@ or a build-time check that the endpoint accepts OTLP/JSON. Also: **cost has no W
   subrequests/call — fine at this scale. This is _why_ any future batching must live on a Durable
   Object or Cloudflare Queue, not an in-isolate array (a request-scoped isolate is evicted; module
   globals don't persist). Helicone moved fan-out off-edge for exactly this reason.
-- **Best-effort everywhere:** dispatch in `ctx.waitUntil`, `Promise.allSettled`, per-`send`
-  try/catch + `AbortController` timeout. A destination error logs; it never adds latency and never
-  fails the LLM call. (Matches the `LoggingUsageSink`/`NoopTraceSink` "must never throw" contract.)
+- **Best-effort everywhere:** `dispatch()` is void; the fan-out runs in `ctx.waitUntil` with
+  `Promise.allSettled`, per-`send` try/catch + `AbortController` timeout. A destination error logs;
+  it never adds latency and never fails the LLM call. (Matches the
+  `LoggingUsageSink`/`NoopTraceSink` "must never throw" contract.)
 - **Credentials** encrypted at rest (reuse `encryptSecret`/`decryptSecret`), decrypted only in
   isolate at send time. SSRF guard on every URL/webhook destination is non-optional.
 
 ## 10. Phasing — **the decision for Nejc**
 
-8 destinations + framework + D1 + admin + SSRF + HMAC + sampling + sanitizer + test-connection +
-terraform is more than one reviewable PR. Proposed cut (one PR = Phase 1; the rest fast-follow):
+8 destinations + framework + D1 + admin + SSRF + HMAC + sampling + test-connection + terraform is
+more than one reviewable PR. Proposed cut (one PR = Phase 1; the rest fast-follow):
 
-- **Phase 1 (this PR): the seam end-to-end + a reference set that exercises every concern once.**
-  Canonical record + `chat.ts` changes (latency/traceId/finish/dispatch) + dispatcher
-  (`allSettled`/`waitUntil`/sampling/filtering) + D1 `broadcast_destinations` + `DestinationStore` +
-  admin CRUD + test-connection + SSRF + HMAC + optional sanitizer hook. **Reference adapters:
-  generic OTLP/JSON, PostHog capture, R2-native binding, generic webhook** — proves _both_ protocol
-  families and every cross-cutting concern.
-- **Phase 2 (fast-follow): the clean proprietary adapters** — LangSmith, Langfuse, Datadog. Against
-  the now-frozen `BroadcastDestination` interface → ideal **Workflow fan-out** (one agent per
-  adapter, TDD).
+- **Phase 1 (this PR): the seam end-to-end, metrics-only, + a reference set that exercises every
+  concern once.** Completion helper + `chat.ts` changes (span timing / traceId / finish /
+  dispatch) + dispatcher (void, `allSettled`/`waitUntil`/sampling/filtering) + D1
+  `broadcast_destinations` + `DestinationStore` + admin CRUD + test-connection + SSRF + HMAC.
+  **Reference adapters: generic OTLP/JSON, PostHog capture, generic webhook** — proves _both_
+  protocol families and every cross-cutting concern (SSRF, HMAC, sampling, encryption,
+  test-connection, config CRUD). The content tier is plumbed but gated OFF (§1).
+- **Phase 2 (fast-follow): object storage (S3 SigV4) + the clean proprietary adapters** — S3,
+  LangSmith, Langfuse, Datadog. Against the now-frozen `BroadcastDestination` interface → ideal
+  **Workflow fan-out** (one agent per adapter, TDD).
 - **Deferred (own issues): ClickHouse** (needs Queue/DO batching) and **W&B Weave** (needs a
-  protobuf path). Both are flagged with the precise blocker above.
+  protobuf path). Both flagged with the precise blocker above.
+
+Why drop R2/object-storage from Phase 1: the R2 _native binding_ is deploy-time, not runtime (§8),
+so it can't represent the "added at runtime" requirement; the honest runtime path is S3 SigV4, which
+is heavier (hand-rolled signing) and better landed with the other Phase-2 adapters.
+`{OTLP, PostHog, webhook}` already proves both families and every concern.
 
 ## 11. Testing (TDD)
 
@@ -382,36 +429,40 @@ terraform is more than one reviewable PR. Proposed cut (one PR = Phase 1; the re
   research flagged (PostHog latency-in-seconds + `$ai_stop_reason` + model split; OTLP int64-as-
   string + 32-hex traceId; Datadog ns + nested `model_name` + 202; Langfuse `costDetails`;
   SigV4/HMAC signatures via known vectors).
-- **Unit, dispatcher:** `allSettled` isolation (one throwing dest doesn't affect others),
-  deterministic sampling (same traceId → stable in/out), event-type/property filtering,
-  default-empty = no-op.
-- **Unit, record:** `toEmissionRecord` composition (no re-derivation), content gated by capture
-  flag, provider-from-model split, latency semantics with an injected clock.
-- **Integration (real D1, Miniflare):** `DestinationStore` CRUD + admin routes + `afterEach` table
-  cleanup, mirroring `admin.test.ts`. Fake destinations via `createApp({ broadcast })`.
-- Fakes use the injectable `now`/`newId` (latency + traceId become deterministic in tests).
+- **Unit, dispatcher:** `dispatch()` is void (returns before sends run); `allSettled` isolation (one
+  throwing dest doesn't affect others); deterministic sampling (same `(dest, trace)` → stable; two
+  dests at the same rate select _different_ sets); success-only filtering; default-empty = no-op.
+- **Unit, record:** `toEmissionRecord` composition (no re-derivation); content gated OFF;
+  provider-from-model split; span-timing/latency with injected `now`/clock.
+- **Integration (real D1, Miniflare):** `DestinationStore` CRUD + admin routes + secret-in-config
+  rejection + `afterEach` table cleanup, mirroring `admin.test.ts`. Fake destinations via
+  `createApp({ broadcast })`.
+- Fakes use the injectable `now`/`newTraceId` (span timing + traceId become deterministic).
 
 ## 12. Deployment & safety
 
 - **Default-empty = safe to ship.** Zero configured destinations → the dispatcher is a no-op;
   merging Phase 1 changes nothing operationally until an operator adds a destination via the admin
   API.
-- D1 migration auto-applies (terraform sha-trigger). R2-native destination needs a bucket binding in
-  `workers-terminus.tf` (module already supports `r2_buckets`) — only when an R2 destination is
-  used.
-- Content capture stays default-OFF (`TERMINUS_TRACE_CAPTURE_ENABLED`); metrics-only destinations
-  are unaffected by it.
+- D1 migration auto-applies (terraform sha-trigger). Phase-1 destinations (OTLP/PostHog/webhook)
+  need **no new binding** — creds live in the encrypted column. Phase-2 S3 uses SigV4 (still no
+  binding); the optional R2 _native_ fast-path is the only one that needs a deploy-time binding.
+- **Phase 1 is metrics-only.** Content capture stays default-OFF (`TERMINUS_TRACE_CAPTURE_ENABLED`)
+  and is not broadcast at all until CON-43 (§1).
 
 ## 13. Open decisions (for Nejc's review)
 
-1. **Phase-1 cut (lead question).** OK to land Phase 1 = seam + {OTLP, PostHog, R2, webhook}, with
-   LangSmith/Langfuse/Datadog as a fast-follow Workflow and ClickHouse/W&B deferred to their own
-   issues? Or do you want a different reference set in the first PR?
-2. **W&B protobuf.** Accept deferral, or should I build a minimal OTLP-protobuf writer now?
+1. **Phase-1 cut (lead question).** OK to land Phase 1 = seam (metrics-only) + {OTLP, PostHog,
+   webhook}, with object-storage(S3 SigV4) + LangSmith/Langfuse/Datadog as a fast-follow Workflow
+   and ClickHouse/W&B deferred to their own issues? Or a different reference set?
+2. **W&B protobuf.** Accept deferral, or build a minimal OTLP-protobuf writer now?
 3. **ClickHouse batching.** Accept deferral to a Queue/DO consumer, or is a per-call `async_insert`
    adapter (accepting the "too many parts" risk) acceptable as an interim?
-4. **Latency semantics.** Confirm `latencyMs` = upstream-request-start → upstream-finish-part (not
-   client-stream-drain). Also emit `ttftMs` for streaming?
-5. **Content tier.** Confirm content stays default-OFF behind `TERMINUS_TRACE_CAPTURE_ENABLED`, with
-   the sanitizer as an optional per-destination transform (CON-43), and per-session consent left to
-   CON-43.
+4. **Latency semantics.** Confirm: non-streaming `latencyMs` = true upstream duration; **streaming
+   `latencyMs` = client-pull-observed** (true upstream-finish needs buffering, which defeats CON-74
+   — rejected), with **`ttftMs` captured at the first-chunk peek** as the streaming signal. OK?
+5. **Content tier (metrics-only Phase 1).** Confirm content is NOT broadcast until CON-43
+   (sanitizer + per-session consent) — even when `TERMINUS_TRACE_CAPTURE_ENABLED` is on — and the
+   seam only plumbs the (gated-off) content field now. OK?
+6. **Langfuse cost.** Forward total only (`costDetails.total`) and defer per-direction input/output
+   cost, or add an input/output cost split to the canonical record now?
