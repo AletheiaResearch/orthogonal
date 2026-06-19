@@ -140,17 +140,27 @@ export function partStartsClientOutput(part: TextStreamPart<ToolSet>): boolean {
  * `onUsage` fires once on finish (for the usage sink); `onError` fires once if the
  * upstream stream errors (so the caller can cool down the failed credential). The
  * streaming-fallback decision happens before this mapper runs (peek-first-chunk,
- * CON-74); once a part reaches here the response has committed. Terminates with
- * `[DONE]`.
+ * CON-74); once a part reaches here the response has committed. `onComplete` fires
+ * once on finish with the accumulated response content (trace capture, CON-61) — when
+ * omitted, nothing is accumulated (zero overhead); it is the same `CompletionParts`
+ * shape the non-streaming path produces, so both feed one capture helper. NB: capture
+ * fires only on `finish` — an errored/partial stream produces no `onComplete`.
+ * Terminates with `[DONE]`.
  */
 export async function* toOpenAIChatStream(
   fullStream: AsyncIterable<TextStreamPart<ToolSet>>,
   meta: ChunkMeta,
   onUsage?: (usage: LanguageModelUsage) => void,
-  onError?: (error: unknown) => void
+  onError?: (error: unknown) => void,
+  onComplete?: (parts: CompletionParts) => void
 ): AsyncGenerator<string> {
   let roleSent = false;
   let toolIndex = 0;
+  // Response content is accumulated ONLY when a consumer (trace capture) is attached;
+  // the off path allocates nothing and does no accumulation (true zero overhead).
+  const capture = onComplete
+    ? { text: "", toolCalls: [] as CompletionParts["toolCalls"] }
+    : undefined;
 
   for await (const part of fullStream) {
     if (part.type === "text-delta") {
@@ -158,6 +168,7 @@ export async function* toOpenAIChatStream(
         ? { content: part.text }
         : { role: "assistant", content: part.text };
       roleSent = true;
+      if (capture) capture.text += part.text;
       yield sse(chunkFrame(meta, delta, null));
     } else if (part.type === "tool-call") {
       const delta: ChoiceDelta = {
@@ -172,9 +183,22 @@ export async function* toOpenAIChatStream(
         ],
       };
       roleSent = true;
+      if (capture)
+        capture.toolCalls.push({
+          toolCallId: part.toolCallId,
+          toolName: part.toolName,
+          input: part.input,
+        });
       yield sse(chunkFrame(meta, delta, null));
     } else if (part.type === "finish") {
       onUsage?.(part.totalUsage);
+      if (capture)
+        onComplete?.({
+          content: capture.text,
+          toolCalls: capture.toolCalls,
+          finishReason: part.finishReason,
+          usage: part.totalUsage,
+        });
       yield sse(chunkFrame(meta, {}, mapFinishReason(part.finishReason)));
       yield sse(usageFrame(meta, mapUsage(part.totalUsage)));
     } else if (part.type === "error") {

@@ -10,6 +10,7 @@ import { policyUnavailable } from "./errors";
 import { createApp } from "./index";
 import { type GuardrailPolicy, parsePolicy } from "./policy/blob";
 import type { PolicyStore } from "./policy/store";
+import type { TraceRecord, TraceSink } from "./trace/sink";
 import type { UsageRecord, UsageSink } from "./usage/sink";
 
 type MockArgs = ConstructorParameters<typeof MockLanguageModelV3>[0];
@@ -741,5 +742,291 @@ describe("terminus chat — guardrail policy (CON-71 L2)", () => {
       chat: { buildModel: () => okModel() },
     });
     expect(res.status).toBe(503);
+  });
+});
+
+function capturingTraceSink(): { sink: TraceSink; traces: TraceRecord[] } {
+  const traces: TraceRecord[] = [];
+  return {
+    traces,
+    sink: {
+      record: (t) => {
+        traces.push(t);
+        return Promise.resolve();
+      },
+    },
+  };
+}
+
+// Flag-on env: enables raw trace content-capture (CON-61). Default `env` leaves it off.
+const captureEnv = { ...env, TERMINUS_TRACE_CAPTURE_ENABLED: "true" } as unknown as Env;
+
+describe("terminus chat — trace content-capture (CON-61)", () => {
+  const textGen = (text: string): MockLanguageModelV3 =>
+    new MockLanguageModelV3({
+      doGenerate: {
+        content: [{ type: "text", text }],
+        finishReason: "stop",
+        usage: LL_USAGE,
+        warnings: [],
+      },
+    } as unknown as MockArgs);
+
+  const textStream = (text: string): MockLanguageModelV3 =>
+    new MockLanguageModelV3({
+      doStream: {
+        stream: simulateReadableStream({
+          chunks: [
+            { type: "stream-start", warnings: [] },
+            { type: "text-start", id: "t" },
+            { type: "text-delta", id: "t", delta: text },
+            { type: "text-end", id: "t" },
+            { type: "finish", finishReason: "stop", usage: LL_USAGE },
+          ],
+        }),
+      },
+    } as unknown as MockArgs);
+
+  async function chat(opts: {
+    model: MockLanguageModelV3;
+    traceSink?: TraceSink;
+    stream?: boolean;
+    env?: Env;
+    tools?: unknown[];
+  }) {
+    const gateway = createApp({
+      loadRegistry: () => Promise.resolve(REGISTRY),
+      buildCredentials: () => credentials,
+      traceSink: opts.traceSink,
+      chat: { buildModel: () => opts.model },
+    });
+    return gateway.request(
+      "/v1/chat/completions",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${await token()}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "anthropic/claude-opus-4-5",
+          messages: [{ role: "user", content: "hi" }],
+          ...(opts.tools ? { tools: opts.tools } : {}),
+          ...(opts.stream ? { stream: true } : {}),
+        }),
+      },
+      opts.env ?? env
+    );
+  }
+
+  const SEARCH_TOOL = [
+    {
+      type: "function",
+      function: {
+        name: "search",
+        parameters: { type: "object", properties: { q: { type: "string" } } },
+      },
+    },
+  ];
+
+  it("captures a non-streaming completion when the flag is on", async () => {
+    const { sink, traces } = capturingTraceSink();
+    const res = await chat({ model: textGen("Hello there"), traceSink: sink, env: captureEnv });
+
+    expect(res.status).toBe(200);
+    expect(traces).toHaveLength(1);
+    expect(traces[0].requestMessages).toEqual([{ role: "user", content: "hi" }]);
+    expect(traces[0].responseText).toBe("Hello there");
+    expect(traces[0].responseToolCalls).toEqual([]);
+    expect(traces[0].finishReason).toBe("stop");
+    expect(traces[0].usage).toMatchObject({
+      sid: "sess_1",
+      model: "anthropic/claude-opus-4-5",
+      inputTokens: 5,
+      outputTokens: 2,
+    });
+    expect(traces[0].usage.costUsd).toBeCloseTo((5 * 5 + 2 * 25) / 1_000_000);
+  });
+
+  it("captures a streaming completion when the flag is on", async () => {
+    const { sink, traces } = capturingTraceSink();
+    const res = await chat({
+      model: textStream("Hello there"),
+      traceSink: sink,
+      stream: true,
+      env: captureEnv,
+    });
+
+    expect(res.status).toBe(200);
+    await res.text(); // drain so the finish part fires onComplete → capture
+    expect(traces).toHaveLength(1);
+    expect(traces[0].requestMessages).toEqual([{ role: "user", content: "hi" }]);
+    expect(traces[0].responseText).toBe("Hello there");
+    expect(traces[0].finishReason).toBe("stop");
+    expect(traces[0].usage.inputTokens).toBe(5);
+  });
+
+  it("does NOT capture a non-streaming completion when the flag is off (default)", async () => {
+    const { sink, traces } = capturingTraceSink();
+    const res = await chat({ model: textGen("Hello there"), traceSink: sink });
+
+    expect(res.status).toBe(200);
+    expect(traces).toEqual([]);
+  });
+
+  it("does NOT capture a streaming completion when the flag is off (default)", async () => {
+    const { sink, traces } = capturingTraceSink();
+    const res = await chat({ model: textStream("Hello there"), traceSink: sink, stream: true });
+
+    expect(res.status).toBe(200);
+    await res.text();
+    expect(traces).toEqual([]);
+  });
+
+  it("still returns 200 when the trace sink rejects (capture must not fail the response)", async () => {
+    const rejectingSink: TraceSink = { record: () => Promise.reject(new Error("trace sink down")) };
+    const res = await chat({
+      model: textGen("Hello there"),
+      traceSink: rejectingSink,
+      env: captureEnv,
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { choices: { message: { content: string } }[] };
+    expect(body.choices[0].message.content).toBe("Hello there");
+  });
+
+  it("does NOT capture a trace when a committed stream errors before finish", async () => {
+    const { sink, traces } = capturingTraceSink();
+    // Emit a text-delta first so the peek (CON-74) commits the 200 SSE, THEN error
+    // before any `finish` part. The committed stream surfaces the error mid-stream
+    // (no fallback) and never reaches `finish` → onComplete never fires → no trace.
+    const errorStream = new MockLanguageModelV3({
+      doStream: {
+        stream: simulateReadableStream({
+          chunks: [
+            { type: "stream-start", warnings: [] },
+            { type: "text-start", id: "t" },
+            { type: "text-delta", id: "t", delta: "partial" },
+            {
+              type: "error",
+              error: new APICallError({
+                message: "rate limited",
+                url: "https://up/v1",
+                requestBodyValues: {},
+                statusCode: 429,
+                isRetryable: true,
+              }),
+            },
+          ],
+        }),
+      },
+    } as unknown as MockArgs);
+
+    const res = await chat({ model: errorStream, traceSink: sink, stream: true, env: captureEnv });
+    expect(res.status).toBe(200);
+    await res.text(); // drain so the error part is consumed
+    expect(traces).toEqual([]);
+  });
+
+  it("captures a non-streaming tool call with the renamed id/name fields", async () => {
+    const { sink, traces } = capturingTraceSink();
+    const toolGen = new MockLanguageModelV3({
+      doGenerate: {
+        content: [
+          { type: "tool-call", toolCallId: "call_1", toolName: "search", input: '{"q":"hi"}' },
+        ],
+        finishReason: "tool-calls",
+        usage: LL_USAGE,
+        warnings: [],
+      },
+    } as unknown as MockArgs);
+
+    const res = await chat({
+      model: toolGen,
+      traceSink: sink,
+      env: captureEnv,
+      tools: SEARCH_TOOL,
+    });
+
+    expect(res.status).toBe(200);
+    expect(traces).toHaveLength(1);
+    // Asserts captureTrace's {toolCallId,toolName} -> {id,name} rename, the only new
+    // mapping logic in the seam — and that finishReason maps to the OpenAI value.
+    expect(traces[0].responseToolCalls).toEqual([
+      { id: "call_1", name: "search", input: { q: "hi" } },
+    ]);
+  });
+
+  it("captures a streaming tool call with the renamed id/name fields", async () => {
+    const { sink, traces } = capturingTraceSink();
+    const toolStream = new MockLanguageModelV3({
+      doStream: {
+        stream: simulateReadableStream({
+          chunks: [
+            { type: "stream-start", warnings: [] },
+            {
+              type: "tool-call",
+              toolCallId: "call_1",
+              toolName: "search",
+              input: '{"q":"hi"}',
+            },
+            { type: "finish", finishReason: "tool-calls", usage: LL_USAGE },
+          ],
+        }),
+      },
+    } as unknown as MockArgs);
+
+    const res = await chat({
+      model: toolStream,
+      traceSink: sink,
+      stream: true,
+      env: captureEnv,
+      tools: SEARCH_TOOL,
+    });
+
+    expect(res.status).toBe(200);
+    await res.text(); // drain so the finish part fires onComplete → capture
+    expect(traces).toHaveLength(1);
+    expect(traces[0].responseToolCalls).toEqual([
+      { id: "call_1", name: "search", input: { q: "hi" } },
+    ]);
+  });
+
+  it("does not corrupt a live SSE stream when the trace sink throws/rejects mid-stream", async () => {
+    // The streaming tap fires captureTrace from INSIDE the generator at the `finish`
+    // part, before the finish/usage/[DONE] frames. A throwing OR rejecting sink must
+    // not break the committed stream (spec §6/§8 — the load-bearing isolation seam).
+    const hostileSink: TraceSink = {
+      record: () => {
+        throw new Error("trace sink exploded");
+      },
+    };
+
+    const res = await chat({
+      model: textStream("Hello there"),
+      traceSink: hostileSink,
+      stream: true,
+      env: captureEnv,
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+    const text = await res.text();
+
+    const frames = text
+      .split("\n\n")
+      .filter((f) => f.startsWith("data: ") && !f.includes("[DONE]"))
+      .map(
+        (f) =>
+          JSON.parse(f.slice("data: ".length)) as {
+            choices?: { delta?: { content?: string } }[];
+            usage?: { prompt_tokens: number };
+          }
+      );
+    const content = frames
+      .map((f) => f.choices?.[0]?.delta?.content)
+      .filter(Boolean)
+      .join("");
+    expect(content).toBe("Hello there");
+    expect(frames.some((f) => f.usage)).toBe(true);
+    expect(text).toContain("[DONE]");
   });
 });
