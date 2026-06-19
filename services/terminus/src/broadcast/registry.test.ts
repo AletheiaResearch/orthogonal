@@ -55,13 +55,13 @@ function captureFetch() {
 const signal = new AbortController().signal;
 
 describe("buildDestination", () => {
-  it("builds an OTLP destination, merging secret auth headers over config headers", async () => {
+  it("builds an OTLP destination with headers taken from the encrypted secret", async () => {
     const f = captureFetch();
     const d = buildDestination(
       row({
         type: "otlp",
-        config: { endpoint: "https://c.example.com", headers: { "x-extra": "1" } },
-        secret: { headers: { authorization: "Bearer tok" } },
+        config: { endpoint: "https://c.example.com" },
+        secret: { headers: { authorization: "Bearer tok", "x-extra": "1" } },
       }),
       f.impl
     );

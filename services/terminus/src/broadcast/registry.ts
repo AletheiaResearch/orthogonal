@@ -13,6 +13,8 @@
  */
 import { drizzle } from "drizzle-orm/d1";
 
+import type { BroadcastDestinationRow } from "../db/schema";
+import { PLATFORM_OWNER } from "../db/vault";
 import type { Env } from "../env";
 import { OtlpDestination } from "./adapters/otlp";
 import { PosthogDestination } from "./adapters/posthog";
@@ -59,7 +61,7 @@ export function buildDestination(
           ...base,
           endpoint,
           serviceName: asString(config.serviceName),
-          headers: { ...asHeaders(config.headers), ...asHeaders(secret.headers) },
+          headers: asHeaders(secret.headers),
         },
         fetchImpl
       );
@@ -80,7 +82,7 @@ export function buildDestination(
           ...base,
           url,
           hmacKey: asString(secret.hmacKey),
-          headers: { ...asHeaders(config.headers), ...asHeaders(secret.headers) },
+          headers: asHeaders(secret.headers),
         },
         fetchImpl
       );
@@ -95,12 +97,28 @@ export function buildDestination(
  * per call, off the response path) and map each to its adapter. A row that fails to
  * map is skipped, not fatal.
  */
+/** Short per-isolate TTL for the enabled-rows cache (CON-73). */
+const ENABLED_ROWS_TTL_MS = 30_000;
+const enabledRowsCache = new Map<string, { atMs: number; rows: BroadcastDestinationRow[] }>();
+
 export function buildBroadcastDispatcher(env: Env): BroadcastDispatcher {
   const store = new DestinationStore(drizzle(env.DB), env.CREDENTIALS_ENCRYPTION_KEY);
   return new CompositeDispatcher({
     resolve: async () => {
-      const rows = await store.listEnabled();
-      return rows
+      // Cache the ENCRYPTED enabled rows per isolate for a short TTL, so a zero- or
+      // low-config deployment does not do a D1 read on every LLM call (this worker
+      // fronts all traffic). Config edits propagate within ENABLED_ROWS_TTL_MS. No
+      // decrypted secret is cached — decryption happens per call below, transiently.
+      const key = `${PLATFORM_OWNER.type}:${PLATFORM_OWNER.id}`;
+      const nowMs = Date.now();
+      let entry = enabledRowsCache.get(key);
+      if (!entry || nowMs - entry.atMs > ENABLED_ROWS_TTL_MS) {
+        entry = { atMs: nowMs, rows: await store.listEnabledRaw() };
+        enabledRowsCache.set(key, entry);
+      }
+      if (entry.rows.length === 0) return [];
+      const resolved = await Promise.all(entry.rows.map((row) => store.decryptRow(row)));
+      return resolved
         .map((row) => buildDestination(row))
         .filter((d): d is BroadcastDestination => d !== null);
     },

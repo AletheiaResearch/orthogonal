@@ -443,9 +443,17 @@ cross-cutting concern. The R2 _native binding_ remains an optional deploy-time o
 
 ## 12. Deployment & safety
 
-- **Default-empty = safe to ship.** Zero configured destinations → the dispatcher is a no-op;
-  merging Phase 1 changes nothing operationally until an operator adds a destination via the admin
-  API.
+- **Default-empty = near-no-op, safe to ship.** With zero configured destinations the fan-out does
+  no work and never touches the response path. The dispatcher reads the enabled set from D1, but the
+  registry caches the (encrypted) enabled rows per isolate with a short TTL (`ENABLED_ROWS_TTL_MS`,
+  30s), so a zero-destination deployment costs at most one cached D1 read per TTL window per isolate
+  — not one per request. Config edits propagate within the TTL. Merging Phase 1 adds no destination
+  until an operator creates one via the admin API.
+- **SSRF + secret hygiene.** Every runtime-configured URL (webhook `url`, OTLP `endpoint`, PostHog
+  `host`) is checked by the SSRF guard at create time AND immediately before each adapter fetch
+  (HTTPS-only; rejects loopback/private/link-local/metadata, IPv4-mapped IPv6, trailing-dot hosts,
+  and URL userinfo). Auth material lives only in the encrypted `secret`; the admin create path
+  rejects any `headers` in `config` and any secret-looking key anywhere in `config`.
 - D1 migration auto-applies (terraform sha-trigger). Phase-1 destinations (OTLP/PostHog/webhook)
   need **no new binding** — creds live in the encrypted column. Phase-2 S3 uses SigV4 (still no
   binding); the optional R2 _native_ fast-path is the only one that needs a deploy-time binding.

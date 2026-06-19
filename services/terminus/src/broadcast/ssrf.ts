@@ -28,9 +28,17 @@ export function checkDestinationUrl(raw: string): UrlCheck {
   if (url.protocol !== "https:") {
     return { ok: false, reason: "destination must use https" };
   }
+  // A URL must not smuggle credentials (and userinfo can mask the real host).
+  if (url.username || url.password) {
+    return { ok: false, reason: "url must not contain credentials" };
+  }
 
-  // URL.hostname keeps brackets for IPv6 literals (e.g. "[::1]"); strip them.
-  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  // URL.hostname keeps brackets for IPv6 literals (e.g. "[::1]"); strip them. Also
+  // strip a trailing dot (the FQDN root, e.g. "localhost.") so it can't dodge the checks.
+  const host = url.hostname
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "")
+    .replace(/\.+$/, "");
 
   if (BLOCKED_EXACT_HOSTS.has(host)) {
     return { ok: false, reason: `blocked host: ${host}` };
@@ -71,5 +79,23 @@ function isBlockedIpv6(host: string): boolean {
   if (host.startsWith("fc") || host.startsWith("fd")) return true; // fc00::/7
   // fe80::/10 → first hextet fe80..febf.
   if (/^fe[89ab]/.test(host)) return true;
+  // IPv4-mapped IPv6 (::ffff:a.b.c.d) — WHATWG URL normalizes the embedded v4 to two
+  // hex hextets (e.g. "::ffff:10.0.0.1" → "::ffff:a00:1"). Decode + reuse the v4 guard
+  // so a mapped private/loopback/metadata target can't slip through.
+  if (host.startsWith("::ffff:")) {
+    const mapped = mappedIpv4(host.slice("::ffff:".length));
+    if (mapped !== undefined) return isBlockedIpv4(mapped);
+  }
   return false;
+}
+
+/** Decode the IPv4 embedded in an `::ffff:` mapped address (dotted or two hex hextets). */
+function mappedIpv4(suffix: string): string | undefined {
+  if (suffix.includes(".")) return suffix; // dotted form, e.g. "10.0.0.1"
+  const parts = suffix.split(":");
+  if (parts.length !== 2) return undefined;
+  const hi = Number.parseInt(parts[0], 16);
+  const lo = Number.parseInt(parts[1], 16);
+  if (!Number.isFinite(hi) || !Number.isFinite(lo)) return undefined;
+  return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
 }

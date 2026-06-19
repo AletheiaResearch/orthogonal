@@ -328,11 +328,14 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
           peeked.stream,
           meta,
           (usage, finishReason) => {
+            // Stamp the finish boundary BEFORE the sinks, so a slow usage/trace sink
+            // can't inflate the broadcast's latency.
+            const finishedAtMs = deps.now?.() ?? Date.now();
             void emit(usage);
             background(deps.credentials.recordSuccess?.(candidate.id));
             // Streaming latency is client-pull-observed (finish fires as the client
             // drains the committed stream); `ttftMs` above is the upstream signal (§5).
-            dispatchBroadcast(usage, finishReason, startedAtMs, deps.now?.() ?? Date.now(), ttftMs);
+            dispatchBroadcast(usage, finishReason, startedAtMs, finishedAtMs, ttftMs);
           },
           // Mid-stream error after commit: no fallback, just cool down for the next request.
           (err) => void coolDownIfRetryable(candidate, err),
@@ -367,6 +370,9 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
         // The gateway owns resilience via cross-candidate fallback, so disable the SDK's
         // same-target retry (it would add hidden backoff before we fall back).
         const result = await generateText({ ...callOptionsFor(model), maxRetries: 0 });
+        // Stamp the finish boundary at completion, BEFORE the sinks, so a slow
+        // usage/trace sink can't inflate the broadcast's latency.
+        const finishedAtMs = deps.now?.() ?? Date.now();
         background(deps.credentials.recordSuccess?.(candidate.id));
         const completion: CompletionParts = {
           content: result.text,
@@ -376,12 +382,7 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
         };
         await emit(result.totalUsage);
         captureTrace(completion);
-        dispatchBroadcast(
-          result.totalUsage,
-          result.finishReason,
-          startedAtMs,
-          deps.now?.() ?? Date.now()
-        );
+        dispatchBroadcast(result.totalUsage, result.finishReason, startedAtMs, finishedAtMs);
         return Response.json(toOpenAIChatCompletion(meta, completion));
       } catch (err) {
         if (!coolDownIfRetryable(candidate, err)) throw err;

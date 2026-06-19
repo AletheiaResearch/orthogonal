@@ -77,15 +77,20 @@ const isStringArray = (v: unknown): v is string[] =>
   Array.isArray(v) && v.every((m) => typeof m === "string");
 
 /**
- * Header names that look like a credential and must live in the encrypted `secret`,
- * not plaintext `config` (CON-73). Best-effort pattern guard — it catches the common
- * auth headers (Authorization, *-key/-secret/-token, api_key); it cannot enumerate
- * every vendor's bespoke key header, so auth headers belong in `secret.headers`.
+ * Key names that look like a credential — rejected ANYWHERE in plaintext `config`
+ * (CON-73). Auth material belongs in the encrypted `secret`; `config` is non-secret.
+ * (Headers are rejected wholesale from `config` separately, since a vendor's bespoke
+ * auth header — e.g. `x-honeycomb-team` — needn't match this pattern.)
  */
-const SECRET_HEADER_RE = /^(authorization|cookie|api[-_]?key|x-api-key|.*-(key|secret|token))$/i;
-function configHasSecretHeader(config: unknown): boolean {
-  if (!isRecord(config) || !isRecord(config.headers)) return false;
-  return Object.keys(config.headers).some((k) => SECRET_HEADER_RE.test(k));
+const SECRET_KEY_RE =
+  /(authorization|cookie|password|secret|token|hmac|api[-_]?key|projectapikey|[-_](key|secret|token))/i;
+/** Recursively scan a config value for a secret-looking key. */
+function configHasSecret(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(configHasSecret);
+  if (isRecord(value)) {
+    return Object.entries(value).some(([k, v]) => SECRET_KEY_RE.test(k) || configHasSecret(v));
+  }
+  return false;
 }
 
 /** Walk the message + `cause` chain — Drizzle wraps the D1 error, so the SQLite text is in `cause`. */
@@ -339,27 +344,55 @@ export function buildAdminApp(deps: AdminDeps = {}) {
         400
       );
     }
-    // Secrets belong in `secret`, never plaintext `config` (mirrors the vault model).
-    if (configHasSecretHeader(body.config)) {
+    // Headers carry auth → they belong in the encrypted `secret.headers`, never `config`.
+    if ("headers" in body.config) {
       return c.json(
         {
           error: {
-            message: "auth headers must be set in `secret`, not plaintext `config`",
+            message: "headers must be set in `secret.headers`, not plaintext `config`",
             type: "bad_request",
           },
         },
         400
       );
     }
-    // A runtime-configured URL is an SSRF vector — validate the webhook URL at create.
-    if (type === "webhook") {
-      const url = str((body.config as Record<string, unknown>).url);
+    // No secret-looking field may sit in plaintext `config` (it would also leak via list).
+    if (configHasSecret(body.config)) {
+      return c.json(
+        {
+          error: {
+            message: "secret-looking fields must be set in `secret`, not plaintext `config`",
+            type: "bad_request",
+          },
+        },
+        400
+      );
+    }
+    // Every runtime-configured URL is an SSRF vector — validate it at create time.
+    const cfg = body.config as Record<string, unknown>;
+    const requiredUrlField = type === "webhook" ? "url" : type === "otlp" ? "endpoint" : null;
+    if (requiredUrlField) {
+      const url = str(cfg[requiredUrlField]);
       const check = url
         ? checkDestinationUrl(url)
-        : ({ ok: false, reason: "url is required" } as const);
+        : ({ ok: false, reason: `${requiredUrlField} is required` } as const);
       if (!check.ok) {
         return c.json(
-          { error: { message: `invalid webhook url: ${check.reason}`, type: "bad_request" } },
+          {
+            error: {
+              message: `invalid ${type} ${requiredUrlField}: ${check.reason}`,
+              type: "bad_request",
+            },
+          },
+          400
+        );
+      }
+    }
+    if (type === "posthog" && cfg.host !== undefined) {
+      const check = checkDestinationUrl(str(cfg.host) ?? "");
+      if (!check.ok) {
+        return c.json(
+          { error: { message: `invalid posthog host: ${check.reason}`, type: "bad_request" } },
           400
         );
       }

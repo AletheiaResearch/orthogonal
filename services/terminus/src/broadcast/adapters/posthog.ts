@@ -11,6 +11,7 @@
  */
 import type { BroadcastDestination, TestConnectionResult } from "../destination";
 import type { EmissionMetrics, EmissionRecord } from "../record";
+import { checkDestinationUrl } from "../ssrf";
 
 /** PostHog default ingestion host (US cloud). */
 const DEFAULT_POSTHOG_HOST = "https://us.i.posthog.com";
@@ -79,6 +80,8 @@ export class PosthogDestination implements BroadcastDestination {
   }
 
   async send(record: EmissionRecord, signal: AbortSignal): Promise<void> {
+    const safe = checkDestinationUrl(this.captureUrl);
+    if (!safe.ok) throw new Error(`unsafe posthog host: ${safe.reason}`);
     const { metrics } = record;
     const body = {
       api_key: this.projectApiKey,
@@ -98,6 +101,8 @@ export class PosthogDestination implements BroadcastDestination {
   }
 
   async testConnection(): Promise<TestConnectionResult> {
+    const safe = checkDestinationUrl(this.captureUrl);
+    if (!safe.ok) return { ok: false, error: safe.reason };
     const body = {
       api_key: this.projectApiKey,
       event: AI_GENERATION_EVENT,

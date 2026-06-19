@@ -57,4 +57,26 @@ describe("checkDestinationUrl", () => {
     expect(checkDestinationUrl("not a url").ok).toBe(false);
     expect(checkDestinationUrl("").ok).toBe(false);
   });
+
+  it("rejects trailing-dot variants of blocked hosts", () => {
+    expect(checkDestinationUrl("https://localhost./x").ok).toBe(false);
+    expect(checkDestinationUrl("https://metadata.google.internal./x").ok).toBe(false);
+    expect(checkDestinationUrl("https://foo.internal./x").ok).toBe(false);
+  });
+
+  it("rejects IPv4-mapped IPv6 of private/loopback/metadata", () => {
+    expect(checkDestinationUrl("https://[::ffff:10.0.0.1]/x").ok).toBe(false);
+    expect(checkDestinationUrl("https://[::ffff:127.0.0.1]/x").ok).toBe(false);
+    expect(checkDestinationUrl("https://[::ffff:169.254.169.254]/x").ok).toBe(false);
+    expect(checkDestinationUrl("https://[::ffff:192.168.1.1]/x").ok).toBe(false);
+  });
+
+  it("allows an IPv4-mapped public address", () => {
+    expect(checkDestinationUrl("https://[::ffff:8.8.8.8]/x").ok).toBe(true);
+  });
+
+  it("rejects a URL carrying credentials (userinfo)", () => {
+    expect(checkDestinationUrl("https://user:pass@example.com/x").ok).toBe(false);
+    expect(checkDestinationUrl("https://user@example.com/x").ok).toBe(false);
+  });
 });

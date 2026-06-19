@@ -365,3 +365,33 @@ describe("OtlpDestination.testConnection", () => {
     expect(result.error).toContain("unreachable");
   });
 });
+
+describe("OtlpDestination — SSRF guard + response model", () => {
+  it("rejects an unsafe (private) endpoint in send() without fetching", async () => {
+    const { fetchImpl, calls } = recordingFetch();
+    const d = new OtlpDestination(config({ endpoint: "https://10.0.0.1" }), fetchImpl);
+    await expect(d.send(record(), new AbortController().signal)).rejects.toThrow(/unsafe/i);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("testConnection reports an unsafe endpoint without fetching", async () => {
+    const { fetchImpl, calls } = recordingFetch();
+    const d = new OtlpDestination(config({ endpoint: "https://169.254.169.254" }), fetchImpl);
+    const result = await d.testConnection();
+    expect(result.ok).toBe(false);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("emits gen_ai.response.model alongside gen_ai.request.model", async () => {
+    const { fetchImpl, calls } = recordingFetch();
+    const d = new OtlpDestination(config(), fetchImpl);
+    await d.send(record(), new AbortController().signal);
+    const span = spanOf(bodyOf(calls[0].init));
+    expect(attr(span, "gen_ai.request.model")).toEqual({
+      stringValue: "anthropic/claude-opus-4-5",
+    });
+    expect(attr(span, "gen_ai.response.model")).toEqual({
+      stringValue: "anthropic/claude-opus-4-5",
+    });
+  });
+});

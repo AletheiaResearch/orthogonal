@@ -118,9 +118,15 @@ export class DestinationStore {
       );
   }
 
-  /** Enabled destinations, decrypted + parsed — the dispatcher's per-call fan-out set. */
-  async listEnabled(owner: CredentialOwner = PLATFORM_OWNER): Promise<ResolvedDestinationRow[]> {
-    const rows = await this.db
+  /**
+   * Enabled rows, still encrypted (no decryption). The registry caches THESE per-isolate
+   * with a short TTL so a zero-destination deployment costs no per-request D1 read and no
+   * decrypted secret is ever held in a cache (decryption happens per call, transiently).
+   */
+  async listEnabledRaw(
+    owner: CredentialOwner = PLATFORM_OWNER
+  ): Promise<BroadcastDestinationRow[]> {
+    return this.db
       .select()
       .from(broadcastDestinations)
       .where(
@@ -130,7 +136,12 @@ export class DestinationStore {
           eq(broadcastDestinations.enabled, true)
         )
       );
-    return Promise.all(rows.map((row) => this.resolveRow(row, owner)));
+  }
+
+  /** Enabled destinations, decrypted + parsed — the dispatcher's per-call fan-out set. */
+  async listEnabled(owner: CredentialOwner = PLATFORM_OWNER): Promise<ResolvedDestinationRow[]> {
+    const rows = await this.listEnabledRaw(owner);
+    return Promise.all(rows.map((row) => this.decryptRow(row, owner)));
   }
 
   /** Decrypt one destination by id (owner-scoped) — for the admin test-connection action. */
@@ -149,7 +160,7 @@ export class DestinationStore {
         )
       )
       .limit(1);
-    return row ? this.resolveRow(row, owner) : null;
+    return row ? this.decryptRow(row, owner) : null;
   }
 
   /** Enable/disable a destination (owner-scoped). Returns whether a row matched. */
@@ -187,9 +198,11 @@ export class DestinationStore {
     return deleted.length > 0;
   }
 
-  private async resolveRow(
+  /** Decrypt + parse one raw row (owner-scoped). Used by `listEnabled`/`getDecrypted`
+   * and by the registry when resolving cached raw rows. */
+  async decryptRow(
     row: BroadcastDestinationRow,
-    owner: CredentialOwner
+    owner: CredentialOwner = PLATFORM_OWNER
   ): Promise<ResolvedDestinationRow> {
     const secretPlain = await decryptSecret(
       row.secretEncrypted,

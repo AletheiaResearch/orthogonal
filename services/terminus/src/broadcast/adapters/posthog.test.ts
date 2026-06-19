@@ -294,3 +294,20 @@ describe("PosthogDestination", () => {
     });
   });
 });
+
+describe("PosthogDestination — SSRF guard", () => {
+  it("rejects an unsafe (private) host in send() without fetching", async () => {
+    const { fetchImpl, calls } = captureFetch(new Response(null, { status: 200 }));
+    const dest = new PosthogDestination(config({ host: "https://10.0.0.1" }), fetchImpl);
+    await expect(dest.send(record(), new AbortController().signal)).rejects.toThrow(/unsafe/i);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("testConnection reports an unsafe host without fetching", async () => {
+    const { fetchImpl, calls } = captureFetch(new Response(null, { status: 200 }));
+    const dest = new PosthogDestination(config({ host: "https://169.254.169.254" }), fetchImpl);
+    const result = await dest.testConnection();
+    expect(result.ok).toBe(false);
+    expect(calls).toHaveLength(0);
+  });
+});

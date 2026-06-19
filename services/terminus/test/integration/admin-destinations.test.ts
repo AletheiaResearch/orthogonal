@@ -153,4 +153,42 @@ describe("admin broadcast destinations API (CON-73)", () => {
   it("404s test-connection for a missing destination", async () => {
     expect((await req("/destinations/missing/test", { method: "POST" })).status).toBe(404);
   });
+
+  it("rejects an unsafe OTLP endpoint with 400 (SSRF at create)", async () => {
+    const res = await req("/destinations", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "otlp",
+        config: { endpoint: "https://169.254.169.254/v1/traces" },
+        secret: {},
+      }),
+    });
+    expect(res.status).toBe(400);
+    expect(await db.select().from(broadcastDestinations)).toEqual([]);
+  });
+
+  it("rejects an unsafe PostHog host with 400 (SSRF at create)", async () => {
+    const res = await req("/destinations", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "posthog",
+        config: { host: "https://10.0.0.1" },
+        secret: { projectApiKey: "phc_x" },
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a secret-looking field anywhere in plaintext config with 400 (no write)", async () => {
+    const res = await req("/destinations", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "posthog",
+        config: { host: "https://us.i.posthog.com", projectApiKey: "phc_leak" },
+        secret: { projectApiKey: "phc_x" },
+      }),
+    });
+    expect(res.status).toBe(400);
+    expect(await db.select().from(broadcastDestinations)).toEqual([]);
+  });
 });

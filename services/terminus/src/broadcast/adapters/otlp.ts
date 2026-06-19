@@ -21,6 +21,7 @@
  */
 import type { BroadcastDestination, TestConnectionResult } from "../destination";
 import type { EmissionMetrics, EmissionRecord } from "../record";
+import { checkDestinationUrl } from "../ssrf";
 
 export interface OtlpConfig {
   id: string;
@@ -119,6 +120,8 @@ export class OtlpDestination implements BroadcastDestination {
   }
 
   async send(record: EmissionRecord, signal: AbortSignal): Promise<void> {
+    const safe = checkDestinationUrl(this.url);
+    if (!safe.ok) throw new Error(`unsafe OTLP endpoint: ${safe.reason}`);
     const payload = this.buildPayload(record.metrics);
     const res = await this.fetchImpl(this.url, {
       method: "POST",
@@ -132,6 +135,8 @@ export class OtlpDestination implements BroadcastDestination {
   }
 
   async testConnection(): Promise<TestConnectionResult> {
+    const safe = checkDestinationUrl(this.url);
+    if (!safe.ok) return { ok: false, error: safe.reason };
     try {
       const res = await this.fetchImpl(this.url, {
         method: "POST",
@@ -175,6 +180,7 @@ function buildAttributes(metrics: EmissionMetrics): KeyValue[] {
   const attributes: KeyValue[] = [
     { key: "gen_ai.provider.name", value: { stringValue: metrics.provider } },
     { key: "gen_ai.request.model", value: { stringValue: metrics.model } },
+    { key: "gen_ai.response.model", value: { stringValue: metrics.model } },
     { key: "gen_ai.usage.input_tokens", value: { intValue: String(metrics.inputTokens) } },
     { key: "gen_ai.usage.output_tokens", value: { intValue: String(metrics.outputTokens) } },
     { key: "gen_ai.conversation.id", value: { stringValue: metrics.sessionId } },
