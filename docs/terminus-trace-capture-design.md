@@ -67,7 +67,8 @@ capture (CON-40), and the broadcast consumer (CON-73). No DB schema, no migratio
 ## 4. `TraceRecord` + `TraceSink` — new file `src/trace/sink.ts`
 
 A dedicated `trace/` directory (CON-43's sanitizer + store will land here); imports `UsageRecord`
-from `../usage/sink` and `OpenAIChatMessage` / `OpenAIFinishReason` from `../openai/protocol`.
+from `../usage/sink`, `OpenAIChatMessage` from `../openai/protocol`, and the raw `FinishReason` from
+`ai`.
 
 ```ts
 export interface TraceToolCall {
@@ -86,7 +87,14 @@ export interface TraceRecord {
   responseText: string;
   /** Assistant tool calls. Unsanitized PII. */
   responseToolCalls: TraceToolCall[];
-  finishReason: OpenAIFinishReason;
+  /**
+   * Raw AI SDK finish reason, preserved verbatim — NOT coerced to the OpenAI wire enum.
+   * Capture fires on the `finish` part, which can carry a non-success reason
+   * (`"error"`/`"other"`/`"unknown"`/absent); storing it raw lets a downstream consumer
+   * (CON-43) tell those from a clean `"stop"`. The seam neither gates nor coerces; the
+   * client SSE/JSON still maps the reason to the OpenAI enum independently.
+   */
+  finishReason: FinishReason | undefined;
 }
 
 export interface TraceSink {
@@ -173,7 +181,8 @@ const captureTrace = (parts: CompletionParts): void => {
         name: tc.toolName,
         input: tc.input,
       })),
-      finishReason: mapFinishReason(parts.finishReason),
+      // Raw, NOT coerced: the client wire format maps it, the trace preserves it.
+      finishReason: parts.finishReason,
     };
     const p = deps.traceSink.record(trace).catch((e) => {
       console.error(JSON.stringify({ event: "terminus.trace.sink_error", message: errMsg(e) }));
@@ -223,8 +232,14 @@ export async function* toOpenAIChatStream(
 
 - **Fires only on `finish`.** A stream that hits the `error` part returns early → `onComplete` never
   fires → **no trace** for errored/partial streams. Non-streaming failures (retryable fallback,
-  thrown `GatewayError`) never reach `captureTrace` → **no trace**. Captured ⇒ the client got a
-  complete, successful response.
+  thrown `GatewayError`) never reach `captureTrace` → **no trace**. Captured ⇒ the generation
+  reached a `finish` (the client got a committed response).
+- **Finish reason is raw, not gated/coerced.** A `finish` can still carry a non-success reason
+  (`"error"`/`"other"`/`"unknown"`/absent); the seam captures it and stores `parts.finishReason`
+  **verbatim** (the client wire format maps it to the OpenAI enum independently). The seam does not
+  decide what counts as "success" — it preserves the signal so CON-43's consumer can filter. (Per
+  Codex review — coercing here would record a failed completion as a clean `"stop"`, uncorrectable
+  downstream.)
 - **Content scope:** request messages (raw) + assistant text + assistant tool calls. **No**
   reasoning content, **no** system-injected guardrail mutations beyond what's in `body.messages`.
 - **Never affects the response:** capture is fire-and-forget via `waitUntil`; build + dispatch are

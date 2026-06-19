@@ -26,7 +26,6 @@ import { toModelMessages, toToolSet } from "../openai/messages";
 import {
   type ChunkMeta,
   type CompletionParts,
-  mapFinishReason,
   type OpenAIChatRequest,
   toOpenAIChatCompletion,
   toOpenAIChatStream,
@@ -224,7 +223,10 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
             name: tc.toolName,
             input: tc.input,
           })),
-          finishReason: mapFinishReason(parts.finishReason),
+          // Store the raw SDK finish reason (not the OpenAI-coerced one): a `finish`
+          // with "error"/"other"/"unknown" is captured here, and a downstream consumer
+          // (CON-43) must be able to tell it apart from a clean "stop".
+          finishReason: parts.finishReason,
         };
         const write = deps.traceSink.record(trace).catch((e) => {
           console.error(

@@ -835,7 +835,6 @@ describe("terminus chat — trace content-capture (CON-61)", () => {
     expect(traces[0].requestMessages).toEqual([{ role: "user", content: "hi" }]);
     expect(traces[0].responseText).toBe("Hello there");
     expect(traces[0].responseToolCalls).toEqual([]);
-    expect(traces[0].finishReason).toBe("stop");
     expect(traces[0].usage).toMatchObject({
       sid: "sess_1",
       model: "anthropic/claude-opus-4-5",
@@ -859,7 +858,6 @@ describe("terminus chat — trace content-capture (CON-61)", () => {
     expect(traces).toHaveLength(1);
     expect(traces[0].requestMessages).toEqual([{ role: "user", content: "hi" }]);
     expect(traces[0].responseText).toBe("Hello there");
-    expect(traces[0].finishReason).toBe("stop");
     expect(traces[0].usage.inputTokens).toBe(5);
   });
 
@@ -1028,5 +1026,21 @@ describe("terminus chat — trace content-capture (CON-61)", () => {
     expect(content).toBe("Hello there");
     expect(frames.some((f) => f.usage)).toBe(true);
     expect(text).toContain("[DONE]");
+  });
+
+  it("does not fabricate a trace finish reason — preserves the raw SDK reason, not a coerced 'stop'", async () => {
+    // mapFinishReason coerces missing/non-success reasons ("error"/"other"/"unknown"/
+    // absent) to "stop" for the OpenAI WIRE format, but the trace must preserve the RAW
+    // reason so a downstream consumer (CON-43) can tell a real success from one. This
+    // SDK mock reports no finish reason, so the trace stores `undefined` — NOT a
+    // fabricated "stop" (pre-fix it was coerced). The client SSE still receives "stop".
+    const { sink, traces } = capturingTraceSink();
+    const res = await chat({ model: textGen("Hello there"), traceSink: sink, env: captureEnv });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { choices: { finish_reason: string }[] };
+    expect(body.choices[0].finish_reason).toBe("stop"); // client wire format: coerced
+    expect(traces).toHaveLength(1);
+    expect(traces[0].finishReason).toBeUndefined(); // trace: raw, not fabricated
   });
 });

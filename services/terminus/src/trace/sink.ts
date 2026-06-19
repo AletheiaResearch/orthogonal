@@ -15,7 +15,9 @@
  * Capturing raw content here is acceptable ONLY because the default sink discards it
  * and the flag is off by default. Do NOT log a `TraceRecord` (unlike `LoggingUsageSink`).
  */
-import type { OpenAIChatMessage, OpenAIFinishReason } from "../openai/protocol";
+import type { FinishReason } from "ai";
+
+import type { OpenAIChatMessage } from "../openai/protocol";
 import type { UsageRecord } from "../usage/sink";
 
 export interface TraceToolCall {
@@ -34,7 +36,13 @@ export interface TraceRecord {
   responseText: string;
   /** Assistant tool calls. Unsanitized PII. */
   responseToolCalls: TraceToolCall[];
-  finishReason: OpenAIFinishReason;
+  /**
+   * Raw AI SDK finish reason, preserved verbatim (NOT coerced to the OpenAI wire enum).
+   * Capture fires on the `finish` part, which can carry a non-success reason
+   * (`"error"` / `"other"` / `"unknown"`); storing it raw lets a downstream consumer
+   * (CON-43) distinguish those from a clean `"stop"`. The seam neither gates nor coerces.
+   */
+  finishReason: FinishReason | undefined;
 }
 
 export interface TraceSink {
