@@ -298,15 +298,16 @@ describe("admin broadcast destinations API (CON-73)", () => {
       }),
     });
     const { id } = (await create.json()) as { id: string };
+    const [before] = await db.select().from(broadcastDestinations);
 
     const patch = await req(`/destinations/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ secret: { projectApiKey: "" } }),
     });
     expect(patch.status).toBe(400);
-    // The original key must be untouched.
-    const [row] = await db.select().from(broadcastDestinations);
-    expect(row.secretEncrypted).not.toContain('""');
+    // The rejected PATCH must have left the encrypted secret byte-for-byte untouched.
+    const [after] = await db.select().from(broadcastDestinations);
+    expect(after.secretEncrypted).toBe(before.secretEncrypted);
   });
 
   it("404s a PATCH config/secret on a missing destination", async () => {
