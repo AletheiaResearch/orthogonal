@@ -45,6 +45,7 @@ describe("checkDestinationUrl", () => {
     expect(checkDestinationUrl("https://db.local/x").ok).toBe(false);
     expect(checkDestinationUrl("https://x.corp/x").ok).toBe(false);
     expect(checkDestinationUrl("https://y.lan/x").ok).toBe(false);
+    expect(checkDestinationUrl("https://foo.localhost/x").ok).toBe(false);
   });
 
   it("rejects IPv6 link-local and unique-local", () => {

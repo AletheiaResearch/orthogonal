@@ -10,6 +10,7 @@ interface CapturedRequest {
   method?: string;
   headers?: HeadersInit;
   signal?: AbortSignal | null;
+  redirect?: string;
   body: Record<string, unknown>;
 }
 
@@ -27,6 +28,7 @@ function captureFetch(response: Response) {
       method: init?.method,
       headers: init?.headers,
       signal: init?.signal,
+      redirect: init?.redirect,
       body: typeof rawBody === "string" ? JSON.parse(rawBody) : {},
     });
     return Promise.resolve(response);
@@ -107,6 +109,7 @@ describe("PosthogDestination", () => {
 
     // Exact equality catches any stray Authorization header in one shot.
     expect(calls[0].headers).toEqual({ "content-type": "application/json" });
+    expect(calls[0].redirect).toBe("manual");
   });
 
   it("carries the project key in body.api_key, never in a header", async () => {

@@ -75,6 +75,7 @@ describe("WebhookDestination.send — wire shape", () => {
     expect(captured.url).toBe(SAFE_URL);
     expect(captured.init?.method).toBe("POST");
     expect(captured.init?.signal).toBe(signal);
+    expect((captured.init as RequestInit).redirect).toBe("manual");
 
     const headers = captured.init?.headers as Record<string, string>;
     expect(headers["content-type"]).toBe("application/json");

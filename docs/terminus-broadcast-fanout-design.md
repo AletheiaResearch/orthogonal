@@ -232,8 +232,10 @@ interface BroadcastDispatcher {
   (not the trace id alone) keeps destinations _independent_ — two destinations at the same rate do
   not select the identical trace set — while staying stable for a given trace.
 - **Filter:** Phase 1 emits on **success only** (no failure record shape exists yet; errors today
-  fall into chat.ts's catch with no emission — a failure-broadcast path is a follow-up). Property
-  filters (send only if all `{key,value}` match) are supported.
+  fall into chat.ts's catch with no emission — a failure-broadcast path is a follow-up). Sampling is
+  the only filter applied in Phase 1. `propertyFilters` / `eventTypes` are **reserved config keys
+  (Phase 2)** — there is no caller-supplied trace metadata to match on yet, so the dispatcher does
+  not evaluate them and they are not advertised as active behavior.
 - **Fan out:** `Promise.allSettled(dests.map(d => withTimeout(d.send(record, signal), timeoutMs)))`.
   Each `send` is independently try/caught with an `AbortController` timeout. A rejection only logs
   (per-dest delivery counter / `console.error`) — it never propagates.
@@ -261,7 +263,7 @@ credentials):
 | `owner_type` / `owner_id`           | text        | `platform` (single-tenant) / BYOK                                                                                                                                                                                 |
 | `type`                              | text        | adapter discriminator (`otlp`/`posthog`/`webhook`/`s3`/…)                                                                                                                                                         |
 | `enabled`                           | bool        | toggle without delete                                                                                                                                                                                             |
-| `config`                            | text (JSON) | **non-secret only**: endpoint/host/region, non-secret headers (e.g. `Content-Type`), `samplingRate` (0–1), `includeContent` (gated, §1), `propertyFilters`, `eventTypes`                                          |
+| `config`                            | text (JSON) | **non-secret only**: endpoint/host/url/region. Headers live in `secret.headers`, never here. Reserved (Phase 2, not yet honored): `includeContent` (gated, §1), `propertyFilters`, `eventTypes`                   |
 | `secret_encrypted`                  | text        | **ALL auth material** — Bearer token / Basic `user:pass` / api key / HMAC key / S3 access+secret keys. AES-256-GCM via `encryptSecret`/`decryptSecret` (`@open-inspect/shared`), owner-as-AAD — same as the vault |
 | `label`, `created_at`, `updated_at` |             | mirror credentials                                                                                                                                                                                                |
 

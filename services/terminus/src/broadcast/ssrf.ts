@@ -15,7 +15,9 @@
 export type UrlCheck = { ok: true } | { ok: false; reason: string };
 
 const BLOCKED_EXACT_HOSTS = new Set(["localhost", "metadata.google.internal"]);
-const BLOCKED_HOST_SUFFIXES = [".local", ".internal", ".corp", ".lan"];
+// `.localhost` is a reserved loopback TLD (RFC 6761) — `foo.localhost` resolves to
+// loopback, so block the suffix too (not just the exact `localhost`).
+const BLOCKED_HOST_SUFFIXES = [".localhost", ".local", ".internal", ".corp", ".lan"];
 
 /** Validate a destination URL. Returns `{ ok: false, reason }` for anything unsafe. */
 export function checkDestinationUrl(raw: string): UrlCheck {

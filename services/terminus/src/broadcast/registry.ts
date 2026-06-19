@@ -3,10 +3,10 @@
  * concrete `BroadcastDestination` adapter, and wires the runtime dispatcher.
  *
  * This is the one place that knows the per-type split between the non-secret `config`
- * (endpoint/host/url + non-secret headers) and the decrypted `secret` (auth material:
- * the PostHog project key, OTLP/webhook auth headers, the webhook HMAC key). Auth
- * material is taken ONLY from `secret`; `config` never carries a credential. Secret
- * headers win over config headers on a key clash.
+ * (endpoint/host/url) and the decrypted `secret` (ALL auth material: the PostHog project
+ * key, the OTLP/webhook request headers, the webhook HMAC key). Headers — auth or not —
+ * come ONLY from `secret.headers`; `config` never carries a credential or a header (the
+ * admin layer rejects `config.headers` outright).
  *
  * An unknown type or a row missing its required field yields `null` (skipped + logged),
  * so a single malformed destination can never break the fan-out for the others.

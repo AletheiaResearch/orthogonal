@@ -62,6 +62,7 @@ export class WebhookDestination implements BroadcastDestination {
       headers,
       body,
       signal,
+      redirect: "manual",
     });
     if (!response.ok) {
       throw new Error(`webhook delivery failed: ${response.status}`);
@@ -85,6 +86,7 @@ export class WebhookDestination implements BroadcastDestination {
         method: "POST",
         headers,
         body,
+        redirect: "manual",
       });
       return { ok: response.ok, status: response.status };
     } catch (e) {

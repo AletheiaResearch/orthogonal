@@ -141,6 +141,7 @@ describe("OtlpDestination.send — request envelope", () => {
     const signal = new AbortController().signal;
     await d.send(record(), signal);
     expect(calls[0].init!.signal).toBe(signal);
+    expect((calls[0].init as RequestInit).redirect).toBe("manual");
   });
 });
 

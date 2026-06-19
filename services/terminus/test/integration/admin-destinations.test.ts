@@ -260,4 +260,57 @@ describe("admin broadcast destinations API (CON-73)", () => {
     const patch = await req(`/destinations/${id}`, { method: "PATCH", body: JSON.stringify({}) });
     expect(patch.status).toBe(400);
   });
+
+  it("PATCH merges config (a partial update can't drop the required endpoint)", async () => {
+    const create = await req("/destinations", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "otlp",
+        config: { endpoint: "https://collector.example.com" },
+        secret: {},
+      }),
+    });
+    const { id } = (await create.json()) as { id: string };
+
+    // Patch only serviceName — the endpoint must survive (merge, not wholesale overwrite).
+    const patch = await req(`/destinations/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ config: { serviceName: "gateway" } }),
+    });
+    expect(patch.status).toBe(204);
+
+    const [row] = await db.select().from(broadcastDestinations);
+    const config = JSON.parse(row.config) as Record<string, unknown>;
+    expect(config.endpoint).toBe("https://collector.example.com");
+    expect(config.serviceName).toBe("gateway");
+  });
+
+  it("PATCH rejects rotating a PostHog secret to an empty project key (400)", async () => {
+    const create = await req("/destinations", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "posthog",
+        config: { host: "https://us.i.posthog.com" },
+        secret: { projectApiKey: "phc_old" },
+      }),
+    });
+    const { id } = (await create.json()) as { id: string };
+
+    const patch = await req(`/destinations/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ secret: { projectApiKey: "" } }),
+    });
+    expect(patch.status).toBe(400);
+    // The original key must be untouched.
+    const [row] = await db.select().from(broadcastDestinations);
+    expect(row.secretEncrypted).not.toContain('""');
+  });
+
+  it("404s a PATCH config/secret on a missing destination", async () => {
+    const patch = await req("/destinations/no-such-id", {
+      method: "PATCH",
+      body: JSON.stringify({ config: { url: "https://hooks.example.com/y" } }),
+    });
+    expect(patch.status).toBe(404);
+  });
 });

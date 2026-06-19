@@ -12,6 +12,7 @@ import { Hono } from "hono";
 
 import type { BroadcastDispatcher } from "./broadcast/dispatcher";
 import { buildBroadcastDispatcher } from "./broadcast/registry";
+import type { DestinationStore } from "./broadcast/store";
 import { buildModelsList } from "./catalog/catalog";
 import { withCodexProvider } from "./catalog/codex";
 import { fetchRegistry } from "./catalog/models-dev";
@@ -43,6 +44,8 @@ export interface AppDeps {
   buildVault?: (env: Env) => CredentialVault;
   /** Per-request guardrail policy store factory (CON-71 L2); defaults to the D1 store. */
   buildPolicyStore?: (env: Env) => PolicyStore;
+  /** Injectable destination store factory for the admin API (tests); defaults to the D1 store. */
+  buildDestinationStore?: (env: Env) => DestinationStore;
   /**
    * Injectable broadcast dispatcher (CON-73); defaults to a D1-backed registry when a
    * DB is bound, else undefined (no fan-out). Tests inject a capturing dispatcher.
@@ -122,7 +125,11 @@ export function createApp(deps: AppDeps = {}) {
   // CON-70 + CON-71 — platform credential + policy admin API (own bearer auth, not /v1).
   app.route(
     "/admin",
-    buildAdminApp({ buildVault: deps.buildVault, buildPolicyStore: deps.buildPolicyStore })
+    buildAdminApp({
+      buildVault: deps.buildVault,
+      buildPolicyStore: deps.buildPolicyStore,
+      buildDestinationStore: deps.buildDestinationStore,
+    })
   );
 
   return app;

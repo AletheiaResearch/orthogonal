@@ -446,6 +446,8 @@ export function buildAdminApp(deps: AdminDeps = {}) {
   // Patch any subset of {enabled, samplingRate, config, secret} — including re-credentialling
   // (rotate the `secret`) and re-pointing (`config.url`/`endpoint`/`host`), without a new id.
   app.patch("/destinations/:id", async (c) => {
+    const id = c.req.param("id");
+    const store = buildDestinationStore(c.env);
     const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
     if (!body) {
       return c.json({ error: { message: "request body is required", type: "bad_request" } }, 400);
@@ -496,28 +498,77 @@ export function buildAdminApp(deps: AdminDeps = {}) {
           400
         );
       }
-      // Re-run the SSRF guard on whichever URL field the new config carries (we don't read
-      // the row's type here — checking url/endpoint/host covers every destination type).
-      for (const field of ["url", "endpoint", "host"]) {
-        const url = str((body.config as Record<string, unknown>)[field]);
-        if (url !== undefined) {
-          const check = checkDestinationUrl(url);
+    }
+    if (body.secret !== undefined && !isRecord(body.secret)) {
+      return c.json({ error: { message: "secret must be an object", type: "bad_request" } }, 400);
+    }
+
+    // Preflight: when config/secret change, MERGE over the existing row and re-validate the
+    // result against the row's type, so a partial PATCH can't drop a required field (e.g. an
+    // OTLP `endpoint`) or rotate a PostHog key to empty — which would persist but never build
+    // (a silent fan-out drop). Merging also means a PATCH only changes the keys it names.
+    if (body.config !== undefined || body.secret !== undefined) {
+      const existing = await store.getDecrypted(id);
+      if (!existing) {
+        return c.json({ error: { message: "not found", type: "not_found" } }, 404);
+      }
+      const existingConfig = isRecord(existing.config) ? existing.config : {};
+      const existingSecret = isRecord(existing.secret) ? existing.secret : {};
+      const mergedConfig =
+        body.config !== undefined
+          ? { ...existingConfig, ...(body.config as Record<string, unknown>) }
+          : existingConfig;
+      const mergedSecret =
+        body.secret !== undefined
+          ? { ...existingSecret, ...(body.secret as Record<string, unknown>) }
+          : existingSecret;
+
+      const requiredUrlField =
+        existing.type === "webhook" ? "url" : existing.type === "otlp" ? "endpoint" : null;
+      if (requiredUrlField) {
+        const url = str(mergedConfig[requiredUrlField]);
+        const check = url
+          ? checkDestinationUrl(url)
+          : ({ ok: false, reason: `${requiredUrlField} is required` } as const);
+        if (!check.ok) {
+          return c.json(
+            {
+              error: {
+                message: `invalid ${existing.type} ${requiredUrlField}: ${check.reason}`,
+                type: "bad_request",
+              },
+            },
+            400
+          );
+        }
+      }
+      if (existing.type === "posthog") {
+        if (mergedConfig.host !== undefined) {
+          const check = checkDestinationUrl(str(mergedConfig.host) ?? "");
           if (!check.ok) {
             return c.json(
-              { error: { message: `invalid ${field}: ${check.reason}`, type: "bad_request" } },
+              { error: { message: `invalid posthog host: ${check.reason}`, type: "bad_request" } },
               400
             );
           }
         }
+        if (!str(mergedSecret.projectApiKey)) {
+          return c.json(
+            {
+              error: {
+                message: "posthog destinations require secret.projectApiKey (string)",
+                type: "bad_request",
+              },
+            },
+            400
+          );
+        }
       }
-      fields.config = body.config;
+
+      if (body.config !== undefined) fields.config = mergedConfig;
+      if (body.secret !== undefined) fields.secret = mergedSecret;
     }
-    if (body.secret !== undefined) {
-      if (!isRecord(body.secret)) {
-        return c.json({ error: { message: "secret must be an object", type: "bad_request" } }, 400);
-      }
-      fields.secret = body.secret;
-    }
+
     if (Object.keys(fields).length === 0) {
       return c.json(
         {
@@ -529,7 +580,7 @@ export function buildAdminApp(deps: AdminDeps = {}) {
         400
       );
     }
-    const ok = await buildDestinationStore(c.env).update(c.req.param("id"), fields);
+    const ok = await store.update(id, fields);
     return ok
       ? c.body(null, 204)
       : c.json({ error: { message: "not found", type: "not_found" } }, 404);

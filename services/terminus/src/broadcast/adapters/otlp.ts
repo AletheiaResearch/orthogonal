@@ -131,6 +131,7 @@ export class OtlpDestination implements BroadcastDestination {
       headers: this.headers,
       body: JSON.stringify(payload),
       signal,
+      redirect: "manual",
     });
     if (!res.ok) {
       throw new Error(`OTLP export to ${this.url} failed: HTTP ${res.status}`);
@@ -145,6 +146,7 @@ export class OtlpDestination implements BroadcastDestination {
         method: "POST",
         headers: this.headers,
         body: JSON.stringify({ resourceSpans: [] }),
+        redirect: "manual",
       });
       // 2xx = accepted; 400 = collector reachable but rejected the (empty) payload —
       // both prove reachability + auth, which is all the probe attests.

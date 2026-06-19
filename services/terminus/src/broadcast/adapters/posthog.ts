@@ -101,6 +101,7 @@ export class PosthogDestination implements BroadcastDestination {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
       signal,
+      redirect: "manual",
     });
     if (!res.ok) {
       throw new Error(`posthog capture failed: ${res.status}`);
@@ -121,6 +122,7 @@ export class PosthogDestination implements BroadcastDestination {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
+        redirect: "manual",
       });
       return { ok: res.ok, status: res.status };
     } catch (e) {
