@@ -20,6 +20,7 @@
  *    OTLP-native id carried through from the record).
  */
 import type { BroadcastDestination, TestConnectionResult } from "../destination";
+import { fetchWithTimeout } from "../probe";
 import type { EmissionMetrics, EmissionRecord } from "../record";
 import { checkDestinationUrl } from "../ssrf";
 
@@ -142,7 +143,7 @@ export class OtlpDestination implements BroadcastDestination {
     const safe = checkDestinationUrl(this.url);
     if (!safe.ok) return { ok: false, error: safe.reason };
     try {
-      const res = await this.fetchImpl(this.url, {
+      const res = await fetchWithTimeout(this.fetchImpl, this.url, {
         method: "POST",
         headers: this.headers,
         body: JSON.stringify({ resourceSpans: [] }),

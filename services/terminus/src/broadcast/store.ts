@@ -145,7 +145,25 @@ export class DestinationStore {
   /** Enabled destinations, decrypted + parsed — the dispatcher's per-call fan-out set. */
   async listEnabled(owner: CredentialOwner = PLATFORM_OWNER): Promise<ResolvedDestinationRow[]> {
     const rows = await this.listEnabledRaw(owner);
-    return Promise.all(rows.map((row) => this.decryptRow(row, owner)));
+    const resolved = await Promise.all(
+      rows.map(async (row) => {
+        try {
+          return await this.decryptRow(row, owner);
+        } catch (e) {
+          // Per-row isolation (matches the registry's `resolveEnabled`): a single corrupt or
+          // key-mismatched row must never drop the whole set — skip + log it.
+          console.error(
+            JSON.stringify({
+              event: "terminus.broadcast.decrypt_error",
+              destinationId: row.id,
+              message: e instanceof Error ? e.message : String(e),
+            })
+          );
+          return null;
+        }
+      })
+    );
+    return resolved.filter((r): r is ResolvedDestinationRow => r !== null);
   }
 
   /** Decrypt one destination by id (owner-scoped) — for the admin test-connection action. */

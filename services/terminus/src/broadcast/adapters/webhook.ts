@@ -10,6 +10,7 @@
  */
 import type { BroadcastDestination, TestConnectionResult } from "../destination";
 import { hmacSha256Hex } from "../hmac";
+import { fetchWithTimeout } from "../probe";
 import type { EmissionRecord } from "../record";
 import { checkDestinationUrl } from "../ssrf";
 
@@ -82,7 +83,7 @@ export class WebhookDestination implements BroadcastDestination {
     const body = JSON.stringify({ test: true });
     try {
       const headers = await this.buildHeaders(body);
-      const response = await this.fetchImpl(this.config.url, {
+      const response = await fetchWithTimeout(this.fetchImpl, this.config.url, {
         method: "POST",
         headers,
         body,

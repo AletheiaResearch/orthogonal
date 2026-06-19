@@ -276,6 +276,7 @@ describe("PosthogDestination", () => {
         properties: { terminus_test: true },
       });
       expect(calls[0].body.event).not.toBe("$ai_generation");
+      expect(calls[0].signal).toBeInstanceOf(AbortSignal);
     });
 
     it("returns ok:false with the status on a non-2xx response (never throws)", async () => {

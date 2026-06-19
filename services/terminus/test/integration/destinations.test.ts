@@ -74,4 +74,31 @@ describe("DestinationStore", () => {
     expect(row.secretEncrypted).not.toContain("topsecret");
     expect(row.config).toContain("x.example.com");
   });
+
+  it("listEnabled skips a row that fails to decrypt and keeps the valid ones", async () => {
+    await store().create({
+      type: "posthog",
+      config: { host: "https://us.i.posthog.com" },
+      secret: { projectApiKey: "phc_ok" },
+      label: "good",
+    });
+    // A deliberately-corrupt row (invalid ciphertext) — must not drop the healthy one.
+    await db.insert(broadcastDestinations).values({
+      id: "corrupt",
+      ownerType: "platform",
+      ownerId: "",
+      type: "posthog",
+      enabled: true,
+      samplingRate: 1,
+      config: "{}",
+      secretEncrypted: "not-valid-ciphertext",
+      label: "bad",
+      createdAt: 0,
+      updatedAt: 0,
+    });
+
+    const resolved = await store().listEnabled();
+    expect(resolved).toHaveLength(1);
+    expect(resolved[0].secret).toEqual({ projectApiKey: "phc_ok" });
+  });
 });

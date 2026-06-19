@@ -10,6 +10,7 @@
  * in the JSON body, NOT an `Authorization` header. The only header is `content-type`.
  */
 import type { BroadcastDestination, TestConnectionResult } from "../destination";
+import { fetchWithTimeout } from "../probe";
 import type { EmissionMetrics, EmissionRecord } from "../record";
 import { checkDestinationUrl } from "../ssrf";
 
@@ -118,7 +119,7 @@ export class PosthogDestination implements BroadcastDestination {
       properties: { terminus_test: true },
     };
     try {
-      const res = await this.fetchImpl(this.captureUrl, {
+      const res = await fetchWithTimeout(this.fetchImpl, this.captureUrl, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),

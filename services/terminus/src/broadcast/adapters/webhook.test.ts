@@ -179,6 +179,7 @@ describe("WebhookDestination.testConnection", () => {
     expect(captured.url).toBe(SAFE_URL);
     expect(captured.init?.method).toBe("POST");
     expect(JSON.parse(captured.init?.body as string)).toEqual({ test: true });
+    expect(captured.init?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it("signs the probe body when hmacKey is set", async () => {

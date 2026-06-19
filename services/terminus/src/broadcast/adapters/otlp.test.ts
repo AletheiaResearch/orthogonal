@@ -348,6 +348,7 @@ describe("OtlpDestination.testConnection", () => {
     expect(calls[0].url).toBe("https://collector.example.com/v1/traces");
     expect(calls[0].init!.method).toBe("POST");
     expect(bodyOf(calls[0].init)).toEqual({ resourceSpans: [] });
+    expect(calls[0].init?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it("treats a 2xx as ok and surfaces the status", async () => {
