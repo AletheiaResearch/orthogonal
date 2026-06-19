@@ -600,6 +600,7 @@ export class SessionDO extends DurableObject<Env> {
       updateSandboxModalObjectId: (id) => this.repository.updateSandboxModalObjectId(id),
       updateSandboxSnapshotImageId: (sandboxId, imageId) =>
         this.repository.updateSandboxSnapshotImageId(sandboxId, imageId),
+      clearSandboxSnapshotImageId: () => this.repository.clearSandboxSnapshotImageId(),
       setRuntimeGatewayCapable: (capable) => this.repository.setRuntimeGatewayCapable(capable),
       updateSandboxLastActivity: (timestamp) =>
         this.repository.updateSandboxLastActivity(timestamp),

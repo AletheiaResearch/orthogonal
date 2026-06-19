@@ -417,6 +417,12 @@ export class SessionRepository {
     this.sql.exec(`UPDATE sandbox SET snapshot_image_id = ? WHERE id = ?`, imageId, sandboxId);
   }
 
+  clearSandboxSnapshotImageId(): void {
+    this.sql.exec(
+      `UPDATE sandbox SET snapshot_image_id = NULL WHERE id = (SELECT id FROM sandbox LIMIT 1)`
+    );
+  }
+
   setRuntimeGatewayCapable(capable: boolean): void {
     this.sql.exec(
       `UPDATE sandbox SET runtime_gateway_capable = ? WHERE id = (SELECT id FROM sandbox LIMIT 1)`,

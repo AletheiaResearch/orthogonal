@@ -90,6 +90,8 @@ export interface SandboxStorage {
   updateSandboxModalObjectId(modalObjectId: string): void;
   /** Update sandbox snapshot image ID */
   updateSandboxSnapshotImageId(sandboxId: string, imageId: string): void;
+  /** Drop the stale snapshot pointer when a fresh spawn boots a new image (CON-72) */
+  clearSandboxSnapshotImageId(): void;
   /** Persist whether this sandbox's boot image bakes the gateway plugin (CON-72) */
   setRuntimeGatewayCapable(capable: boolean): void;
   /** Update last activity timestamp */
@@ -485,14 +487,15 @@ export class SandboxLifecycleManager {
 
       const result = await this.provider.createSandbox(createConfig);
 
-      // Persist this boot image's gateway capability (CON-72) only now that the
-      // spawn succeeded, so a fresh spawn that fails can't leave a stale value on
-      // the row. NOTE: this records the capability of the image that *booted*;
-      // `snapshot_image_id` is not rewritten here (it still points at the prior
-      // snapshot until a new one is taken), so a fresh base boot that dies before
-      // snapshotting can leave capability and snapshot_image_id describing
-      // different images — see CON-72 follow-up on a dedicated per-boot flag.
+      // A fresh spawn boots a brand-new image, so on success record that image's
+      // gateway capability and drop the prior snapshot pointer together (CON-72).
+      // Doing both only after success keeps a failed spawn's restore-fallback
+      // intact, and clearing the stale pointer guarantees a later restore never
+      // reads a capability that describes a different image than the snapshot it
+      // restores — which would mint a gateway token against a pre-gateway image and
+      // black-hole the boot's LLM access (no raw keys, no gateway plugin).
       this.storage.setRuntimeGatewayCapable(runtimeGatewayCapable);
+      this.storage.clearSandboxSnapshotImageId();
 
       this.log.info("Sandbox spawned", {
         event: "sandbox.spawned",
@@ -603,11 +606,13 @@ export class SandboxLifecycleManager {
   }
 
   /**
-   * On the gateway-active path, strip raw LLM-provider credentials from both the
-   * top-level user env and every MCP server's `env` (the latter is copied into the
-   * MCP process environment by the sandbox entrypoint), so no provider is reachable
-   * directly — the gateway's auth/routing/metering boundary holds (CON-72). A no-op
-   * when the gateway is not active: a raw-fallback boot keeps the user's keys.
+   * On the gateway-active path, strip raw LLM-provider credentials from the
+   * top-level user env and every MCP server's credential maps, so no provider is
+   * reachable directly — the gateway's auth/routing/metering boundary holds
+   * (CON-72). Both maps are serialized into the sandbox: a local server's `env` is
+   * copied into the MCP process environment, and a remote server's `headers` (where
+   * `rowToConfig` puts decrypted credentials) are sent on each request. A no-op when
+   * the gateway is not active: a raw-fallback boot keeps the user's keys.
    */
   private stripProviderCredentialsForGateway(
     gatewayActive: boolean,
@@ -622,9 +627,13 @@ export class SandboxLifecycleManager {
     }
     return {
       sandboxEnvVars: userEnvVars ? withoutLlmProviderCredentials(userEnvVars) : userEnvVars,
-      sandboxMcpServers: mcpServers?.map((server) =>
-        server.env ? { ...server, env: withoutLlmProviderCredentials(server.env) } : server
-      ),
+      sandboxMcpServers: mcpServers?.map((server) => {
+        let next = server;
+        if (server.env) next = { ...next, env: withoutLlmProviderCredentials(server.env) };
+        if (server.headers)
+          next = { ...next, headers: withoutLlmProviderCredentials(server.headers) };
+        return next;
+      }),
     };
   }
 

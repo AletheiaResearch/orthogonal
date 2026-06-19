@@ -406,6 +406,21 @@ describe("createSandboxHandler", () => {
     expect(refreshOpenAIToken).toHaveBeenCalledWith(session);
   });
 
+  it("returns 403 from openai token refresh when the gateway is active (no raw token)", async () => {
+    const { handler, getSession, getSandbox, isSessionGatewayEnabled, refreshOpenAIToken } =
+      createHandler();
+    getSession.mockReturnValue({ id: "session-1" } as SessionRow);
+    // Gateway enabled + boot image capable => OpenAI is reached through Terminus,
+    // so a raw OpenAI access token must not be handed back.
+    isSessionGatewayEnabled.mockReturnValue(true);
+    getSandbox.mockReturnValue({ runtime_gateway_capable: 1 } as SandboxRow);
+
+    const response = await handler.openaiTokenRefresh();
+
+    expect(response.status).toBe(403);
+    expect(refreshOpenAIToken).not.toHaveBeenCalled();
+  });
+
   it("returns 404 when gateway token refresh has no session", async () => {
     const { handler, getSession, mintGatewayToken } = createHandler();
     getSession.mockReturnValue(null);

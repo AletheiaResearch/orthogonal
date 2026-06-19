@@ -179,6 +179,19 @@ export function createSandboxHandler(deps: SandboxHandlerDeps): SandboxHandler {
         return Response.json({ error: "No session" }, { status: 404 });
       }
 
+      // In gateway mode OpenAI is reached through Terminus, so a raw OpenAI access
+      // token must never be handed back — same capability gate as the gateway-token
+      // refresh (CON-72). The Codex auth-proxy plugin that legitimately calls this is
+      // only deployed when OPENAI_OAUTH_REFRESH_TOKEN is present, which the
+      // gateway-active path strips, so no legitimate caller exists in that mode.
+      const sandbox = deps.getSandbox();
+      if (deps.isSessionGatewayEnabled(session) && sandbox?.runtime_gateway_capable === 1) {
+        return Response.json(
+          { error: "LLM gateway is active; use the gateway token instead" },
+          { status: 403 }
+        );
+      }
+
       if (!deps.isOpenAISecretsConfigured()) {
         return Response.json({ error: "Secrets not configured" }, { status: 500 });
       }
