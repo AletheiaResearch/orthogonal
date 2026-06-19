@@ -16,6 +16,9 @@ import { DEFAULT_GATEWAY_TOKEN_TTL_SECONDS, mintGatewayToken } from "@open-inspe
 import { drizzle } from "drizzle-orm/d1";
 import { Hono } from "hono";
 
+import { buildDestination } from "../broadcast/registry";
+import { checkDestinationUrl } from "../broadcast/ssrf";
+import { DestinationStore } from "../broadcast/store";
 import { CODEX_PROVIDER, CredentialVault } from "../db/vault";
 import type { Env } from "../env";
 import { PLATFORM_DEFAULT_POLICY_NAME, PolicyStore } from "../policy/store";
@@ -25,6 +28,8 @@ export interface AdminDeps {
   buildVault?: (env: Env) => CredentialVault;
   /** Injectable policy store factory (tests); defaults to the D1-backed store. */
   buildPolicyStore?: (env: Env) => PolicyStore;
+  /** Injectable destination store factory (tests); defaults to the D1-backed store. */
+  buildDestinationStore?: (env: Env) => DestinationStore;
 }
 
 function defaultVault(env: Env): CredentialVault {
@@ -34,6 +39,13 @@ function defaultVault(env: Env): CredentialVault {
 function defaultPolicyStore(env: Env): PolicyStore {
   return new PolicyStore(drizzle(env.DB), env);
 }
+
+function defaultDestinationStore(env: Env): DestinationStore {
+  return new DestinationStore(drizzle(env.DB), env.CREDENTIALS_ENCRYPTION_KEY);
+}
+
+/** Broadcast destination types the admin API accepts (CON-73). */
+const KNOWN_DESTINATION_TYPES = new Set(["otlp", "posthog", "webhook"]);
 
 /** A policy blob that fails validation (vs any other failure) — for a 400 vs 500 split. */
 function isPolicyValidationError(err: unknown): boolean {
@@ -64,6 +76,18 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
 const isStringArray = (v: unknown): v is string[] =>
   Array.isArray(v) && v.every((m) => typeof m === "string");
 
+/**
+ * Header names that look like a credential and must live in the encrypted `secret`,
+ * not plaintext `config` (CON-73). Best-effort pattern guard — it catches the common
+ * auth headers (Authorization, *-key/-secret/-token, api_key); it cannot enumerate
+ * every vendor's bespoke key header, so auth headers belong in `secret.headers`.
+ */
+const SECRET_HEADER_RE = /^(authorization|cookie|api[-_]?key|x-api-key|.*-(key|secret|token))$/i;
+function configHasSecretHeader(config: unknown): boolean {
+  if (!isRecord(config) || !isRecord(config.headers)) return false;
+  return Object.keys(config.headers).some((k) => SECRET_HEADER_RE.test(k));
+}
+
 /** Walk the message + `cause` chain — Drizzle wraps the D1 error, so the SQLite text is in `cause`. */
 function errorChainText(err: unknown): string {
   if (err instanceof Error) return `${err.message} ${errorChainText(err.cause)}`;
@@ -78,6 +102,7 @@ function isUniqueViolation(err: unknown): boolean {
 export function buildAdminApp(deps: AdminDeps = {}) {
   const buildVault = deps.buildVault ?? defaultVault;
   const buildPolicyStore = deps.buildPolicyStore ?? defaultPolicyStore;
+  const buildDestinationStore = deps.buildDestinationStore ?? defaultDestinationStore;
   const app = new Hono<{ Bindings: Env }>();
 
   // Bearer auth against TERMINUS_ADMIN_SECRET. Fail-closed when the secret is unset.
@@ -266,6 +291,149 @@ export function buildAdminApp(deps: AdminDeps = {}) {
     return ok
       ? c.body(null, 204)
       : c.json({ error: { message: "not found", type: "not_found" } }, 404);
+  });
+
+  // CON-73 — configurable broadcast destinations (platform owner). Mirrors credential
+  // CRUD. Auth material lives in the encrypted `secret` blob; `config` is non-secret
+  // (the create path rejects secret-looking headers in `config`). Secrets never leave.
+  app.post("/destinations", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
+    const type = str(body?.type);
+    if (!body || !type || !isRecord(body.config) || !isRecord(body.secret)) {
+      return c.json(
+        {
+          error: {
+            message: "type (string), config (object), and secret (object) are required",
+            type: "bad_request",
+          },
+        },
+        400
+      );
+    }
+    if (!KNOWN_DESTINATION_TYPES.has(type)) {
+      return c.json(
+        { error: { message: `unsupported destination type: ${type}`, type: "bad_request" } },
+        400
+      );
+    }
+    if (
+      body.samplingRate !== undefined &&
+      (typeof body.samplingRate !== "number" || body.samplingRate < 0 || body.samplingRate > 1)
+    ) {
+      return c.json(
+        { error: { message: "samplingRate must be a number in [0,1]", type: "bad_request" } },
+        400
+      );
+    }
+    if (
+      (body.label !== undefined && typeof body.label !== "string") ||
+      (body.enabled !== undefined && typeof body.enabled !== "boolean")
+    ) {
+      return c.json(
+        {
+          error: {
+            message: "label and enabled must have the correct type when present",
+            type: "bad_request",
+          },
+        },
+        400
+      );
+    }
+    // Secrets belong in `secret`, never plaintext `config` (mirrors the vault model).
+    if (configHasSecretHeader(body.config)) {
+      return c.json(
+        {
+          error: {
+            message: "auth headers must be set in `secret`, not plaintext `config`",
+            type: "bad_request",
+          },
+        },
+        400
+      );
+    }
+    // A runtime-configured URL is an SSRF vector — validate the webhook URL at create.
+    if (type === "webhook") {
+      const url = str((body.config as Record<string, unknown>).url);
+      const check = url
+        ? checkDestinationUrl(url)
+        : ({ ok: false, reason: "url is required" } as const);
+      if (!check.ok) {
+        return c.json(
+          { error: { message: `invalid webhook url: ${check.reason}`, type: "bad_request" } },
+          400
+        );
+      }
+    }
+    try {
+      const { id } = await buildDestinationStore(c.env).create({
+        type,
+        config: body.config,
+        secret: body.secret,
+        label: str(body.label),
+        samplingRate: num(body.samplingRate),
+        enabled: bool(body.enabled),
+      });
+      return c.json({ id }, 201);
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        return c.json(
+          {
+            error: {
+              message: "a destination already exists for that type+label",
+              type: "conflict",
+            },
+          },
+          409
+        );
+      }
+      return c.json(
+        { error: { message: "failed to create destination", type: "internal_error" } },
+        500
+      );
+    }
+  });
+
+  app.get("/destinations", async (c) => {
+    return c.json({ destinations: await buildDestinationStore(c.env).listForOwner() });
+  });
+
+  app.patch("/destinations/:id", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
+    const enabled = bool(body?.enabled);
+    if (enabled === undefined) {
+      return c.json(
+        { error: { message: "enabled (boolean) is required", type: "bad_request" } },
+        400
+      );
+    }
+    const ok = await buildDestinationStore(c.env).setEnabled(c.req.param("id"), enabled);
+    return ok
+      ? c.body(null, 204)
+      : c.json({ error: { message: "not found", type: "not_found" } }, 404);
+  });
+
+  app.delete("/destinations/:id", async (c) => {
+    const ok = await buildDestinationStore(c.env).delete(c.req.param("id"));
+    return ok
+      ? c.body(null, 204)
+      : c.json({ error: { message: "not found", type: "not_found" } }, 404);
+  });
+
+  // Validate a destination before relying on it: decrypt, build the adapter, probe.
+  // `testConnection` is best-effort and never throws (a real send is what proves it).
+  app.post("/destinations/:id/test", async (c) => {
+    const row = await buildDestinationStore(c.env).getDecrypted(c.req.param("id"));
+    if (!row) {
+      return c.json({ error: { message: "not found", type: "not_found" } }, 404);
+    }
+    const destination = buildDestination(row);
+    if (!destination) {
+      return c.json(
+        { error: { message: "destination unsupported or misconfigured", type: "bad_request" } },
+        400
+      );
+    }
+    return c.json(await destination.testConnection());
   });
 
   // CON-71 L2 — guardrail policy management (platform owner; versioned + rollback).
