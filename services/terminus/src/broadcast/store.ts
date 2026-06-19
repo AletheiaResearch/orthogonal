@@ -20,7 +20,11 @@ import {
 } from "../db/schema";
 import { type CredentialOwner, PLATFORM_OWNER } from "../db/vault";
 
-/** Owner-visible destination metadata for the admin API — never includes the secret. */
+/**
+ * Owner-visible destination metadata for the admin API — never includes the secret.
+ * `config` is the PARSED non-secret config object (not the raw stored JSON string), so
+ * the `GET` shape matches what was `POST`ed.
+ */
 export type PublicDestinationRow = Pick<
   BroadcastDestinationRow,
   | "id"
@@ -30,10 +34,9 @@ export type PublicDestinationRow = Pick<
   | "label"
   | "enabled"
   | "samplingRate"
-  | "config"
   | "createdAt"
   | "updatedAt"
->;
+> & { config: unknown };
 
 /** A decrypted + parsed destination row — what the registry turns into an adapter. */
 export interface ResolvedDestinationRow {
@@ -63,6 +66,15 @@ export interface CreateDestinationInput {
 /** AES-GCM AAD binding ciphertext to its owner (mirrors `CredentialVault`). */
 function ownerAad(owner: CredentialOwner): string {
   return `${owner.type}:${owner.id}`;
+}
+
+/** Parse a stored JSON config text column; fall back to the raw string if it isn't valid JSON. */
+function safeParseConfig(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
 }
 
 export class DestinationStore {
@@ -100,7 +112,7 @@ export class DestinationStore {
 
   /** Owner-scoped metadata for the admin API — never includes the secret. */
   async listForOwner(owner: CredentialOwner = PLATFORM_OWNER): Promise<PublicDestinationRow[]> {
-    return this.db
+    const rows = await this.db
       .select({
         id: broadcastDestinations.id,
         ownerType: broadcastDestinations.ownerType,
@@ -120,6 +132,9 @@ export class DestinationStore {
           eq(broadcastDestinations.ownerId, owner.id)
         )
       );
+    // `config` is stored as a JSON text column — parse it so the API returns the same
+    // object shape that was POSTed (not a JSON-encoded string).
+    return rows.map((row) => ({ ...row, config: safeParseConfig(row.config) }));
   }
 
   /**

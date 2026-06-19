@@ -27,6 +27,8 @@ describe("DestinationStore", () => {
     const pub = await store().listForOwner();
     expect(pub).toHaveLength(1);
     expect(pub[0]).toMatchObject({ type: "posthog", label: "a", enabled: true, samplingRate: 0.5 });
+    // `config` is returned as a parsed OBJECT, not the raw JSON string.
+    expect(pub[0].config).toEqual({ host: "https://us.i.posthog.com" });
     // The public projection must never carry the secret.
     expect(JSON.stringify(pub)).not.toContain("phc_secret");
 

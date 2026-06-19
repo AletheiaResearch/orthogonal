@@ -64,6 +64,7 @@ describe("admin broadcast destinations API (CON-73)", () => {
         label: string;
         enabled: boolean;
         samplingRate: number;
+        config: unknown;
       }[];
     };
     expect(body.destinations).toHaveLength(1);
@@ -73,6 +74,8 @@ describe("admin broadcast destinations API (CON-73)", () => {
       enabled: true,
       samplingRate: 0.5,
     });
+    // `config` comes back as the parsed object that was POSTed, not a JSON string.
+    expect(body.destinations[0].config).toEqual({ host: "https://us.i.posthog.com" });
     expect(JSON.stringify(body)).not.toContain("phc_secret");
 
     const patch = await req(`/destinations/${id}`, {
