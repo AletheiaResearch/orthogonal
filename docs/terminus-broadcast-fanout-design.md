@@ -1,8 +1,8 @@
 # Terminus broadcast fan-out — design (CON-73, folds CON-54)
 
-> Status: **proposed** — awaiting Nejc's review. Revised once after an adversarial review (codex)
-> against the real source. Spec-driven per `docs/terminus-llm-gateway.md`. Branch:
-> `nejc/con-73-broadcast-fanout`. Lands on `terminus`.
+> Status: **approved — implementing Phase 1.** Revised once after an adversarial review (codex)
+> against the real source; decisions resolved with Nejc (§13). Spec-driven per
+> `docs/terminus-llm-gateway.md`. Branch: `nejc/con-73-broadcast-fanout`. Lands on `terminus`.
 
 ## 1. Goal
 
@@ -11,8 +11,9 @@ produces one canonical record that is fanned out, fire-and-forget, to zero-or-mo
 operator-configured destinations (analytics, observability, object storage, a metrics DB, a custom
 webhook). Destinations are added, toggled, sampled, and re-credentialled **at runtime** (no
 redeploy) — this is the literal answer to "the DB is just one configurable destination, why would a
-DB choice block us." (One exception, called out in §8: an R2 _native binding_ is a deploy-time
-optimization, not a runtime path — the runtime object-storage path is S3 SigV4.)
+DB choice block us." This includes **R2**: it is S3-compatible, so it is configured at runtime like
+any S3 destination — endpoint + access keys (via the admin API, later a UI), no binding (§8). The R2
+_native binding_ exists only as an optional deploy-time optimization, never a requirement.
 
 This **unifies two issues**:
 
@@ -418,10 +419,11 @@ more than one reviewable PR. Proposed cut (one PR = Phase 1; the rest fast-follo
 - **Deferred (own issues): ClickHouse** (needs Queue/DO batching) and **W&B Weave** (needs a
   protobuf path). Both flagged with the precise blocker above.
 
-Why drop R2/object-storage from Phase 1: the R2 _native binding_ is deploy-time, not runtime (§8),
-so it can't represent the "added at runtime" requirement; the honest runtime path is S3 SigV4, which
-is heavier (hand-rolled signing) and better landed with the other Phase-2 adapters.
-`{OTLP, PostHog, webhook}` already proves both families and every concern.
+On object storage (R2/S3): R2 **is** supported — as an S3 destination configured at runtime with
+creds (endpoint + access keys), no binding (§1, §8). It sits in Phase 2 (the **first** fast-follow,
+not "dropped") only because its SigV4 signing is heavier hand-rolled crypto, kept out of the PR-1
+critical path; `{OTLP, PostHog, webhook}` already proves both protocol families and every
+cross-cutting concern. The R2 _native binding_ remains an optional deploy-time optimization.
 
 ## 11. Testing (TDD)
 
@@ -450,19 +452,22 @@ is heavier (hand-rolled signing) and better landed with the other Phase-2 adapte
 - **Phase 1 is metrics-only.** Content capture stays default-OFF (`TERMINUS_TRACE_CAPTURE_ENABLED`)
   and is not broadcast at all until CON-43 (§1).
 
-## 13. Open decisions (for Nejc's review)
+## 13. Resolved decisions
 
-1. **Phase-1 cut (lead question).** OK to land Phase 1 = seam (metrics-only) + {OTLP, PostHog,
-   webhook}, with object-storage(S3 SigV4) + LangSmith/Langfuse/Datadog as a fast-follow Workflow
-   and ClickHouse/W&B deferred to their own issues? Or a different reference set?
-2. **W&B protobuf.** Accept deferral, or build a minimal OTLP-protobuf writer now?
-3. **ClickHouse batching.** Accept deferral to a Queue/DO consumer, or is a per-call `async_insert`
-   adapter (accepting the "too many parts" risk) acceptable as an interim?
-4. **Latency semantics.** Confirm: non-streaming `latencyMs` = true upstream duration; **streaming
-   `latencyMs` = client-pull-observed** (true upstream-finish needs buffering, which defeats CON-74
-   — rejected), with **`ttftMs` captured at the first-chunk peek** as the streaming signal. OK?
-5. **Content tier (metrics-only Phase 1).** Confirm content is NOT broadcast until CON-43
-   (sanitizer + per-session consent) — even when `TERMINUS_TRACE_CAPTURE_ENABLED` is on — and the
-   seam only plumbs the (gated-off) content field now. OK?
-6. **Langfuse cost.** Forward total only (`costDetails.total`) and defer per-direction input/output
-   cost, or add an input/output cost split to the canonical record now?
+1. **Phase-1 cut** — ✅ **Land Phase 1 = seam (metrics-only) + {OTLP, PostHog, webhook}.**
+   Object-storage (S3 SigV4, serves R2) + LangSmith/Langfuse/Datadog are the fast-follow Workflow;
+   ClickHouse + W&B deferred to their own issues.
+2. **W&B protobuf** — ✅ **Deferred** (no protobuf writer now).
+3. **ClickHouse batching** — ✅ **Deferred to "later," and the interim per-call `async_insert`
+   adapter is approved** for when it lands ("fine-ish") rather than requiring a Queue/DO consumer
+   first.
+4. **Latency semantics** — ✅ non-streaming `latencyMs` = true upstream duration; **streaming
+   `latencyMs` = client-pull-observed** (no upstream buffering — keeps CON-74 passthrough), with
+   **`ttftMs` at the first-chunk peek** as the streaming signal.
+5. **Content tier** — ✅ **metrics-only**; content is NOT broadcast until CON-43 (sanitizer +
+   per-session consent), even with `TERMINUS_TRACE_CAPTURE_ENABLED` on; the seam only plumbs the
+   gated-off field now.
+6. **Langfuse cost** — ✅ **forward total only** (`costDetails.total`); per-direction input/output
+   cost split deferred (do not re-price per destination).
+7. **R2** — ✅ R2 is an **S3 destination via creds** (endpoint + access keys, runtime-configurable,
+   no binding); the native binding is an optional deploy-time optimization only.
