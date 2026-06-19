@@ -38,6 +38,7 @@ import {
 } from "../providers/router";
 import { computeCostUsd } from "../usage/pricing";
 import type { UsageRecord, UsageSink } from "../usage/sink";
+import { asReadable, peekStream } from "./stream-fallback";
 
 export interface ChatDeps {
   loadRegistry: typeof fetchRegistry;
@@ -179,44 +180,63 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       }
     };
 
-    // Streaming: single candidate, fail-fast. A mid-stream upstream error surfaces
-    // only after the SSE Response commits, so cross-candidate fallback for streaming
-    // is a separate redesign (CON-74); v1 keeps today's behavior.
-    if (body.stream) {
-      const candidate = candidates[0];
-      const cred = await candidate.resolve();
-      if (!cred) return errorResponse(providerUnconfigured(ref.providerId));
-      const model = buildModel(ref, cred.apiKey, {
-        accountId: cred.accountId,
-        sessionId: claims.sid,
-      });
-      const result = streamText(callOptionsFor(model));
-      // No mid-stream fallback in v1 (CON-74), but keep pool health correct: clear the
-      // candidate's failure state on a successful finish, and cool it down on a
-      // *retryable* stream error so the NEXT request rotates to a live candidate.
-      const sse = toOpenAIChatStream(
-        result.fullStream,
-        meta,
-        (usage) => {
-          void emit(usage);
-          background(deps.credentials.recordSuccess?.(candidate.id));
-        },
-        (err) => {
-          if (!isRetryableUpstreamError(err)) return;
-          background(
-            deps.credentials.recordFailure?.(
-              candidate.id,
-              cooldownUntilFromError(err, deps.now?.() ?? Date.now(), candidate.failureCount)
-            )
-          );
-        }
+    // Cool down a candidate on a *retryable* upstream error (best-effort, off the hot
+    // path). Returns true if retryable (cooled down), false if terminal. Shared by the
+    // streaming peek loop, the streaming mid-stream error, and the non-streaming loop.
+    const coolDownIfRetryable = (candidate: (typeof candidates)[number], err: unknown): boolean => {
+      if (!isRetryableUpstreamError(err)) return false;
+      // Fresh clock at failure time (not request-start nowMs): a slow failure would
+      // otherwise write a cooldown that is already in the past.
+      background(
+        deps.credentials.recordFailure?.(
+          candidate.id,
+          cooldownUntilFromError(err, deps.now?.() ?? Date.now(), candidate.failureCount)
+        )
       );
-      return new Response(asReadable(sse), {
-        headers: {
-          "content-type": "text/event-stream; charset=utf-8",
-          "cache-control": "no-cache",
-        },
-      });
+      return true;
+    };
+
+    // Streaming: peek-first-chunk fallback (CON-74). Mirror the non-streaming candidate
+    // loop — drive each candidate's stream until the first client-output part (commit)
+    // or a pre-output error. A retryable pre-output error rotates to the next candidate;
+    // a terminal one throws → clean HTTP status (nothing was streamed). Once committed, a
+    // later error surfaces mid-stream (no restart → no double-billing / duplicated output).
+    if (body.stream) {
+      let lastStreamError: unknown;
+      for (const candidate of candidates) {
+        const cred = await candidate.resolve();
+        if (!cred) continue;
+        const model = buildModel(ref, cred.apiKey, {
+          accountId: cred.accountId,
+          sessionId: claims.sid,
+        });
+        // Gateway owns streaming fallback now, so disable the SDK's same-target retry
+        // (it would add hidden backoff before the peek detects the failure).
+        const result = streamText({ ...callOptionsFor(model), maxRetries: 0 });
+        const peeked = await peekStream(result.fullStream);
+        if (peeked.kind === "error") {
+          if (!coolDownIfRetryable(candidate, peeked.error)) throw peeked.error;
+          lastStreamError = peeked.error;
+          continue;
+        }
+        const sse = toOpenAIChatStream(
+          peeked.stream,
+          meta,
+          (usage) => {
+            void emit(usage);
+            background(deps.credentials.recordSuccess?.(candidate.id));
+          },
+          // Mid-stream error after commit: no fallback, just cool down for the next request.
+          (err) => void coolDownIfRetryable(candidate, err)
+        );
+        return new Response(asReadable(sse), {
+          headers: {
+            "content-type": "text/event-stream; charset=utf-8",
+            "cache-control": "no-cache",
+          },
+        });
+      }
+      throw lastStreamError ?? new Error("all upstream streaming candidates failed");
     }
 
     // Non-streaming: try candidates in priority/weight order; on a retryable upstream
@@ -230,9 +250,8 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
         sessionId: claims.sid,
       });
       try {
-        // The gateway owns resilience here via cross-candidate fallback, so disable the
-        // SDK's same-target retry (it would add hidden backoff before we fall back).
-        // Streaming has no gateway fallback in v1 (CON-74), so it keeps the SDK default.
+        // The gateway owns resilience via cross-candidate fallback, so disable the SDK's
+        // same-target retry (it would add hidden backoff before we fall back).
         const result = await generateText({ ...callOptionsFor(model), maxRetries: 0 });
         background(deps.credentials.recordSuccess?.(candidate.id));
         await emit(result.totalUsage);
@@ -245,16 +264,8 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
           })
         );
       } catch (err) {
-        if (!isRetryableUpstreamError(err)) throw err;
+        if (!coolDownIfRetryable(candidate, err)) throw err;
         lastError = err;
-        // Use a fresh clock at failure time (not request-start nowMs): a slow failure
-        // would otherwise write a cooldown that is already in the past.
-        background(
-          deps.credentials.recordFailure?.(
-            candidate.id,
-            cooldownUntilFromError(err, deps.now?.() ?? Date.now(), candidate.failureCount)
-          )
-        );
       }
     }
     throw lastError ?? new Error("all upstream candidates failed");
@@ -287,21 +298,4 @@ function usageRecord(
     costUsd: computeCostUsd({ inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens }, cost),
     createdAt,
   };
-}
-
-function asReadable(gen: AsyncGenerator<string>): ReadableStream<Uint8Array> {
-  const encoder = new TextEncoder();
-  return new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      const { value, done } = await gen.next();
-      if (done) {
-        controller.close();
-        return;
-      }
-      controller.enqueue(encoder.encode(value));
-    },
-    async cancel() {
-      await gen.return?.(undefined);
-    },
-  });
 }

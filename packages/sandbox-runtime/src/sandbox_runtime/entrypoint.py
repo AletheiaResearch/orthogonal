@@ -25,6 +25,8 @@ import httpx
 from .constants import (
     CODE_SERVER_PORT,
     EXPECTED_TUNNEL_PORTS_ENV_VAR,
+    GATEWAY_ACTIVE_ENV,
+    GATEWAY_PROVIDER_ID,
     TTYD_PORT,
     TTYD_PROXY_PORT,
     TUNNEL_ENV_FILE_PATH,
@@ -33,6 +35,11 @@ from .log_config import configure_logging, get_logger
 from .repo_image_callback import RepoImageBuildCallback
 
 configure_logging()
+
+# Terminus gateway plugin baked into the sandbox image. Absent on snapshots taken
+# before the gateway shipped — its presence (+ GATEWAY_TOKEN) is the gate for
+# activating gateway mode in this sandbox.
+GATEWAY_PLUGIN_SOURCE = Path("/app/sandbox_runtime/plugins/gateway-plugin.js")
 
 
 AGENT_TOOLS_GATED_ON_ENV: dict[str, str] = {
@@ -829,17 +836,11 @@ class SandboxSupervisor:
             shutil.copy(plugin_source, plugin_dir / "codex-auth-plugin.js")
             self.log.info("openai_oauth.plugin_deployed")
 
-        # Deploy Terminus gateway plugin if the per-session LLM gateway is on. Only
-        # re-key the model to the gateway provider when the plugin is actually present
-        # (an old snapshot image may predate it) — otherwise OpenCode would select the
-        # original provider, which has no raw key in gateway mode, and fail.
-        gateway_plugin_source = Path("/app/sandbox_runtime/plugins/gateway-plugin.js")
-        if gateway_plugin_source.exists() and os.environ.get("GATEWAY_TOKEN"):
-            plugin_dir = opencode_dir / "plugins"
-            plugin_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copy(gateway_plugin_source, plugin_dir / "gateway-plugin.js")
-            opencode_config["model"] = f"gateway/{provider}/{model}"
-            self.log.info("gateway.plugin_deployed", model=opencode_config["model"])
+        # Deploy the Terminus gateway plugin + re-key the default model when the
+        # per-session LLM gateway is live in this sandbox.
+        routed_model = self._deploy_gateway_plugin(opencode_dir, provider, model)
+        if routed_model is not None:
+            opencode_config["model"] = routed_model
 
         env = {
             **os.environ,
@@ -874,6 +875,32 @@ class SandboxSupervisor:
         await self._wait_for_health()
         self.opencode_ready.set()
         self.log.info("opencode.ready")
+
+    def _deploy_gateway_plugin(self, opencode_dir: Path, provider: str, model: str) -> str | None:
+        """Activate the Terminus gateway in this sandbox, if available.
+
+        The per-session LLM gateway is live only when ``gateway-plugin.js`` is present
+        in the image (an old snapshot may predate it) AND ``GATEWAY_TOKEN`` is set. When
+        it is: copy the plugin into OpenCode's plugin dir, mark the gateway active for
+        the rest of the runtime via ``GATEWAY_ACTIVE`` (the single authoritative signal
+        the bridge reads to re-key per-prompt models too — CON-75), and return the
+        gateway-routed default model ``"<GATEWAY_PROVIDER_ID>/<provider>/<model>"``.
+
+        Otherwise return ``None`` (no re-key — OpenCode keeps the original provider,
+        which still holds the raw key) and clear any stale or user-spoofed
+        ``GATEWAY_ACTIVE`` so the bridge never re-keys without a live gateway.
+        """
+        if not (GATEWAY_PLUGIN_SOURCE.exists() and os.environ.get("GATEWAY_TOKEN")):
+            os.environ.pop(GATEWAY_ACTIVE_ENV, None)
+            return None
+
+        plugin_dir = opencode_dir / "plugins"
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy(GATEWAY_PLUGIN_SOURCE, plugin_dir / "gateway-plugin.js")
+        os.environ[GATEWAY_ACTIVE_ENV] = "1"
+        routed_model = f"{GATEWAY_PROVIDER_ID}/{provider}/{model}"
+        self.log.info("gateway.plugin_deployed", model=routed_model)
+        return routed_model
 
     async def _forward_opencode_logs(self) -> None:
         """Forward OpenCode stdout to supervisor stdout."""

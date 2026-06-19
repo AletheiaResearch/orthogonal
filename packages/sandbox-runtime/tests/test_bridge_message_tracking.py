@@ -13,6 +13,7 @@ events to the correct prompt.
 import pytest
 
 from sandbox_runtime.bridge import AgentBridge, OpenCodeIdentifier
+from sandbox_runtime.constants import GATEWAY_ACTIVE_ENV, GATEWAY_PROVIDER_ID
 
 
 def create_text_part(part_id: str, text: str) -> dict:
@@ -240,6 +241,133 @@ class TestBuildPromptRequestBody:
             "thinking": {"type": "adaptive"},
             "outputConfig": {"effort": "high"},
         }
+
+
+class TestBuildPromptRequestBodyGateway:
+    """Per-prompt model overrides must route through the gateway provider when the
+    LLM gateway is active (CON-75). The entrypoint sets GATEWAY_ACTIVE when it deploys
+    gateway-plugin.js and re-keys the default model; without this, an explicit
+    per-prompt model selects the bare provider, which has no raw key in gateway mode.
+    """
+
+    def test_active_rekeys_full_form_to_gateway_provider(
+        self, bridge: AgentBridge, monkeypatch: pytest.MonkeyPatch
+    ):
+        """provider/model is re-keyed to providerID=gateway, modelID=provider/model."""
+        monkeypatch.setenv(GATEWAY_ACTIVE_ENV, "1")
+        body = bridge._build_prompt_request_body("Hello", "anthropic/claude-opus-4-8")
+
+        assert body["model"] == {
+            "providerID": GATEWAY_PROVIDER_ID,
+            "modelID": "anthropic/claude-opus-4-8",
+        }
+
+    def test_active_rekeys_short_form_with_default_provider(
+        self, bridge: AgentBridge, monkeypatch: pytest.MonkeyPatch
+    ):
+        """A bare model name defaults to anthropic, then re-keys to the gateway."""
+        monkeypatch.setenv(GATEWAY_ACTIVE_ENV, "1")
+        body = bridge._build_prompt_request_body("Hello", "claude-haiku-4-5")
+
+        assert body["model"] == {
+            "providerID": GATEWAY_PROVIDER_ID,
+            "modelID": "anthropic/claude-haiku-4-5",
+        }
+
+    def test_inactive_keeps_bare_provider(
+        self, bridge: AgentBridge, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Without the gateway, the model keeps the bare provider id (unchanged)."""
+        monkeypatch.delenv(GATEWAY_ACTIVE_ENV, raising=False)
+        body = bridge._build_prompt_request_body("Hello", "openai/gpt-4")
+
+        assert body["model"] == {
+            "providerID": "openai",
+            "modelID": "gpt-4",
+        }
+
+    def test_active_preserves_anthropic_reasoning_options(
+        self, bridge: AgentBridge, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Reasoning options are computed from the original provider and preserved."""
+        monkeypatch.setenv(GATEWAY_ACTIVE_ENV, "1")
+        body = bridge._build_prompt_request_body(
+            "Hello", "anthropic/claude-sonnet-4-6", reasoning_effort="high"
+        )
+
+        assert body["model"]["providerID"] == GATEWAY_PROVIDER_ID
+        assert body["model"]["modelID"] == "anthropic/claude-sonnet-4-6"
+        assert body["model"]["options"] == {
+            "thinking": {"type": "adaptive"},
+            "outputConfig": {"effort": "high"},
+        }
+
+    def test_active_preserves_openai_reasoning_options(
+        self, bridge: AgentBridge, monkeypatch: pytest.MonkeyPatch
+    ):
+        """OpenAI reasoning options survive the gateway re-key."""
+        monkeypatch.setenv(GATEWAY_ACTIVE_ENV, "1")
+        body = bridge._build_prompt_request_body(
+            "Hello", "openai/gpt-5-codex", reasoning_effort="high"
+        )
+
+        assert body["model"]["providerID"] == GATEWAY_PROVIDER_ID
+        assert body["model"]["modelID"] == "openai/gpt-5-codex"
+        assert body["model"]["options"] == {
+            "reasoningEffort": "high",
+            "reasoningSummary": "auto",
+        }
+
+    def test_active_preserves_nested_model_id(
+        self, bridge: AgentBridge, monkeypatch: pytest.MonkeyPatch
+    ):
+        """A nested provider/sub/model keeps its full id as the gateway modelID."""
+        monkeypatch.setenv(GATEWAY_ACTIVE_ENV, "1")
+        body = bridge._build_prompt_request_body("Hello", "openrouter/anthropic/claude-3")
+
+        assert body["model"] == {
+            "providerID": GATEWAY_PROVIDER_ID,
+            "modelID": "openrouter/anthropic/claude-3",
+        }
+
+    def test_active_does_not_double_key_already_gateway_model(
+        self, bridge: AgentBridge, monkeypatch: pytest.MonkeyPatch
+    ):
+        """An already gateway-prefixed model is left as-is, not double-prefixed."""
+        monkeypatch.setenv(GATEWAY_ACTIVE_ENV, "1")
+        body = bridge._build_prompt_request_body("Hello", "gateway/anthropic/claude-opus-4-8")
+
+        assert body["model"] == {
+            "providerID": GATEWAY_PROVIDER_ID,
+            "modelID": "anthropic/claude-opus-4-8",
+        }
+
+    def test_active_gateway_prefixed_model_keeps_reasoning_options(
+        self, bridge: AgentBridge, monkeypatch: pytest.MonkeyPatch
+    ):
+        """A caller passing an already gateway-prefixed model still gets reasoning
+        options computed from the real provider (they must not be silently dropped
+        just because the provider id reads "gateway")."""
+        monkeypatch.setenv(GATEWAY_ACTIVE_ENV, "1")
+        body = bridge._build_prompt_request_body(
+            "Hello", "gateway/openai/gpt-5-codex", reasoning_effort="high"
+        )
+
+        assert body["model"]["providerID"] == GATEWAY_PROVIDER_ID
+        assert body["model"]["modelID"] == "openai/gpt-5-codex"
+        assert body["model"]["options"] == {
+            "reasoningEffort": "high",
+            "reasoningSummary": "auto",
+        }
+
+    def test_active_with_no_model_omits_model_key(
+        self, bridge: AgentBridge, monkeypatch: pytest.MonkeyPatch
+    ):
+        """No model override means no model spec, even when the gateway is active."""
+        monkeypatch.setenv(GATEWAY_ACTIVE_ENV, "1")
+        body = bridge._build_prompt_request_body("Hello", None)
+
+        assert "model" not in body
 
 
 class TestOpenCodeIdentifier:

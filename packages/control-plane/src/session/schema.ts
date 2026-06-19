@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS sandbox (
   tunnel_urls TEXT,                                 -- JSON mapping of port -> tunnel URL for extra ports
   ttyd_url TEXT,                                    -- ttyd proxy tunnel URL
   ttyd_token TEXT,                                  -- Encrypted JWT token for ttyd auth
+  runtime_gateway_capable INTEGER,                  -- 1 = boot image bakes the gateway plugin (fresh base spawn); NULL/0 = not (legacy snapshot / repo image)
   created_at INTEGER NOT NULL
 );
 
@@ -387,6 +388,14 @@ export const MIGRATIONS: readonly SchemaMigration[] = [
     id: 31,
     description: "Add github_app_installation_id to session",
     run: `ALTER TABLE session ADD COLUMN github_app_installation_id TEXT`,
+  },
+  {
+    id: 32,
+    description: "Add runtime_gateway_capable to sandbox",
+    // No default: existing (legacy) rows stay NULL = not gateway-capable, so a
+    // restore of a pre-gateway snapshot never drops raw keys into a plugin-less
+    // image (CON-72). Fresh base spawns set it to 1 explicitly.
+    run: `ALTER TABLE sandbox ADD COLUMN runtime_gateway_capable INTEGER`,
   },
 ];
 

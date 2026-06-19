@@ -480,6 +480,114 @@ Deferred to the BYOK PR (gated on multi-tenancy; see spec §3b): `forced`/`unfor
 `provider_credentials`, per-tenant owner derivation in `forModelCandidates`, the BYOK→platform
 fallback edge, reading `credentialScope`, service-fee accounting.
 
+## Session 2026-06-18 — pre-toggle-ON blockers (CON-75 + CON-72) — DONE (TDD, green)
+
+The two code-fixable gates before flipping `llmGatewayEnabled` default-ON, bundled into **one PR**
+(two commits, base `terminus`): **CON-75** (sandbox-runtime) + **CON-72** (control-plane +
+`@open-inspect/shared`; **no modal changes**).
+
+### CON-75 — per-prompt model override bypasses the gateway
+
+**Problem:** `entrypoint.py` re-keyed only the OpenCode _default_ model to
+`gateway/<provider>/<model>`. The control plane sends an explicit per-prompt model on every prompt,
+and `bridge.py._build_prompt_request_body` split it to a **bare** `providerID` — so every gateway-ON
+prompt selected the raw provider (no key in gateway mode → fails, or, with a stray repo key, goes
+direct to the provider bypassing Terminus auth/metering).
+
+**Fix (single authoritative signal):** the entrypoint owns the "gateway is live in this sandbox"
+decision. `_deploy_gateway_plugin` (extracted from `start_opencode`, now unit-tested) deploys
+`gateway-plugin.js` + re-keys the default **and** sets the env var `GATEWAY_ACTIVE` (new
+`constants.GATEWAY_ACTIVE_ENV`); it **clears** any stale/user-spoofed `GATEWAY_ACTIVE` when the
+gateway is not live (plugin absent or no `GATEWAY_TOKEN`), so the flag is never trusted from user
+env. `start_bridge` passes `env=os.environ` to the bridge subprocess (started _after_
+`start_opencode`), so the bridge inherits the flag. `_build_prompt_request_body` re-keys per-prompt
+overrides to `providerID=gateway`, `modelID="<provider>/<model>"` when `GATEWAY_ACTIVE` is set
+(matching `gateway-plugin.js`'s model keys → `body.model == "<provider>/<model>"`), skipping an
+already-`gateway/`-prefixed id. `constants.GATEWAY_PROVIDER_ID = "gateway"` (kept in sync with the
+plugin). Reasoning options stay computed from the **original** provider.
+
+**Scope (per advisor):** CON-75's testable deliverable is _only_ that `body.model` is gateway-keyed.
+The "repo-secret provider key → direct-provider bypass is impossible" acceptance is delivered by
+**CON-72 Part B** (stripping user-injected LLM keys), not here — cross-referenced, not claimed in
+this PR.
+
+**New live-verify gap (this PR creates it):** per-prompt requests have never hit the gateway before,
+so "gateway + reasoning options" is unproven — whether OpenCode's openai-compatible gateway provider
+forwards anthropic `thinking` / openai `reasoningEffort` to Terminus (and Terminus translates them
+upstream) is **not CI-coverable**. Added to the smoke-test list alongside the existing
+config-hook-registration + default-model-routing gaps.
+
+### CON-72 — don't drop `llm_secrets` for pre-gateway snapshots + gate user keys
+
+**Part A — image-capability gate on the mint, not the drop.** Gate the gateway-token **mint**
+(control-plane) instead of the secret **drop** (modal): no token → modal keeps `llm_secrets` → no
+plugin re-key → clean raw-key fallback, from one decision with zero modal changes. New **additive**
+DO SQLite column `runtime_gateway_capable` (`session/schema.ts` `SCHEMA_SQL` + migration **32**
+`ALTER TABLE sandbox`, default **NULL** — legacy rows stay not-capable, never dropping keys into a
+plugin-less image). `doSpawn` persists it on every fresh spawn (`repoImageId === null` → base image
+bakes the plugin → capable; repo image → conservatively not-capable), even with the gateway off now,
+so a later restore reads the boot image's capability. `restoreFromSnapshot` reads the persisted
+value (a restore never changes the image).
+`mintGatewayTokenIfEnabled(sid, settings, runtimeGatewayCapable)` returns `{}` + warns when
+enabled-but-not-capable — a deliberate, **bounded fail-OPEN** to raw keys (the boot image is
+control-plane-selected, not attacker-injectable; the leak is the session's own pre-gateway status
+quo). Kept distinct from not-_configured_, which still **throws** (fail-closed).
+
+**Part B — strip user-injected LLM keys on the gateway-active path.** New `@open-inspect/shared`
+`withoutLlmProviderKeys` + a **curated** `LLM_PROVIDER_API_KEY_ENV_VARS` set (the providers the
+gateway fronts; "keep in sync with the terminus catalog"; deliberately excludes ambiguous non-LLM
+keys like `GOOGLE_API_KEY`/`STRIPE_API_KEY`). `doSpawn` + `restoreFromSnapshot` strip these from
+`userEnvVars` **only when a token was minted** (gateway active), so the not-capable raw fallback
+keeps the user's keys. This completes CON-75's acceptance #2 (a repo-secret provider key can no
+longer reach a provider directly when the gateway is ON).
+
+**Verify (bundled, green):** sandbox-runtime 354; shared 204; control-plane **1224 unit + 363
+D1-integration** (incl. a migration-32 column round-trip); typecheck/fmt/lint clean. **TDD
+throughout.**
+
+**Known, logged gaps (advisor):** (1) a legacy session (NULL capability) never routes through the
+gateway and keeps snapshotting its legacy image — the gateway applies to sessions whose **first**
+spawn is plugin-bearing; confirm the eventual default-ON flip is **new-sessions-only**. (2)
+repo-image spawns are conservatively not-capable → those sessions never use the gateway (a follow-up
+could stamp repo-image capability at build time). (3) the fail-open in Part A wants the focused
+security review's nod.
+
+**Adversarial review (4-lens workflow) — 1 of 7 findings confirmed, fixed in this PR:** the curated
+`LLM_PROVIDER_API_KEY_ENV_VARS` omitted `GOOGLE_API_KEY`, but models.dev's `google` provider accepts
+it as a Gemini credential — so a user-injected `GOOGLE_API_KEY` survived the strip on the
+gateway-active path (a direct-provider-reach leak). Added it (the gateway-mode "no provider
+reachable directly" invariant outweighs its non-LLM Maps/Cloud uses). **Logged follow-ups (not
+blocking):** (a) the strip set is static and can drift from the dynamic models.dev catalog — derive
+it from the catalog's provider `env` arrays so the control-plane strip set and the gateway's accept
+set stay identical by construction; (b) defense-in-depth — have `entrypoint.py` restrict OpenCode to
+**only** the `gateway` provider in gateway mode (so a complete strip list isn't the sole barrier to
+in-sandbox provider selection; the env strip still guards out-of-band calls).
+
+## Session 2026-06-18 — CON-74 (streaming-request fallback) — DONE (TDD, green)
+
+Branch `nejc/con-74-streaming-fallback` (off `terminus`). Full design spec:
+[`docs/terminus-streaming-fallback-design.md`](terminus-streaming-fallback-design.md).
+
+CON-71's cross-candidate fallback covered non-streaming only — `streamText().fullStream` is consumed
+after the SSE `Response` commits, so a streaming candidate couldn't fall back. **Peek-first-chunk:**
+`peekStream` (new, pure — `routes/stream-fallback.ts`) drives a candidate's stream until the first
+client-output part (commit) or a pre-output error/throw (fall back). Leading non-output parts
+(`start`/`reasoning`) are discarded (mapper ignores them); the committed stream re-emits the peeked
+part + the rest losslessly. The streaming branch is now the same candidate loop as non-streaming,
+sharing retry classification + cooldown via a `coolDownIfRetryable` helper. A retryable pre-output
+error rotates to the next candidate; a terminal one (or all-exhausted) **throws → clean HTTP
+status** (decision: nothing was streamed, so a real status beats today's `200`+SSE-error-frame).
+Post-commit errors surface mid-stream (no restart → no double-billing). `streamText` gets
+`maxRetries:0` (gateway owns fallback now). `partStartsClientOutput` is exported from the mapper
+(drift-guarded) so the commit set can't diverge. **Cancellation chain**
+(`asReadable.cancel → toOpenAIChatStream.return → drain.return → upstream.return`) is load-bearing
+and **e2e-tested** — a client disconnect releases the upstream iterator instead of leaking it
+(`asReadable` moved into `stream-fallback.ts` to co-locate the chain). SDK error-surfacing verified
+vs the installed `ai@6.0.199` `.d.ts` (robust to both a thrown `.next()` and an `error` part).
+**Verify:** 167 unit + 67 D1-integration; typecheck / fmt:check / lint clean. **Follow-up (logged,
+not in scope):** a first-token watchdog for a silent-hang upstream (peek delays header flush until
+the first token).
+
 ## Continuation prompt (paste into a fresh session) — post-PR-#16
 
 > Continue Linear epic **CON-41** (Terminus LLM gateway). **Work in a git worktree off the

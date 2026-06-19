@@ -179,6 +179,19 @@ export function createSandboxHandler(deps: SandboxHandlerDeps): SandboxHandler {
         return Response.json({ error: "No session" }, { status: 404 });
       }
 
+      // In gateway mode OpenAI is reached through Terminus, so a raw OpenAI access
+      // token must never be handed back — same capability gate as the gateway-token
+      // refresh (CON-72). The Codex auth-proxy plugin that legitimately calls this is
+      // only deployed when OPENAI_OAUTH_REFRESH_TOKEN is present, which the
+      // gateway-active path strips, so no legitimate caller exists in that mode.
+      const sandbox = deps.getSandbox();
+      if (deps.isSessionGatewayEnabled(session) && sandbox?.runtime_gateway_capable === 1) {
+        return Response.json(
+          { error: "LLM gateway is active; use the gateway token instead" },
+          { status: 403 }
+        );
+      }
+
       if (!deps.isOpenAISecretsConfigured()) {
         return Response.json({ error: "Secrets not configured" }, { status: 500 });
       }
@@ -208,12 +221,17 @@ export function createSandboxHandler(deps: SandboxHandlerDeps): SandboxHandler {
         return Response.json({ error: "Gateway not configured" }, { status: 500 });
       }
 
-      // Only sessions that spawned with the gateway enabled may refresh a gateway
+      // Only a boot on which the gateway is actually active may refresh a gateway
       // token — otherwise any sandbox-authenticated session could obtain Terminus
-      // access to platform/Codex credentials it was never granted.
-      if (!deps.isSessionGatewayEnabled(session)) {
+      // access to platform/Codex credentials it was never granted. This mirrors the
+      // spawn-time mint gate (CON-72): the session must have the gateway enabled AND
+      // the current boot image must be gateway-capable. A raw-fallback boot (enabled
+      // but a pre-gateway snapshot / repo image) deliberately runs on raw keys and
+      // must not be able to mint a token here.
+      const sandbox = deps.getSandbox();
+      if (!deps.isSessionGatewayEnabled(session) || sandbox?.runtime_gateway_capable !== 1) {
         return Response.json(
-          { error: "LLM gateway is not enabled for this session" },
+          { error: "LLM gateway is not active for this session" },
           { status: 403 }
         );
       }

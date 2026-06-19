@@ -406,6 +406,21 @@ describe("createSandboxHandler", () => {
     expect(refreshOpenAIToken).toHaveBeenCalledWith(session);
   });
 
+  it("returns 403 from openai token refresh when the gateway is active (no raw token)", async () => {
+    const { handler, getSession, getSandbox, isSessionGatewayEnabled, refreshOpenAIToken } =
+      createHandler();
+    getSession.mockReturnValue({ id: "session-1" } as SessionRow);
+    // Gateway enabled + boot image capable => OpenAI is reached through Terminus,
+    // so a raw OpenAI access token must not be handed back.
+    isSessionGatewayEnabled.mockReturnValue(true);
+    getSandbox.mockReturnValue({ runtime_gateway_capable: 1 } as SandboxRow);
+
+    const response = await handler.openaiTokenRefresh();
+
+    expect(response.status).toBe(403);
+    expect(refreshOpenAIToken).not.toHaveBeenCalled();
+  });
+
   it("returns 404 when gateway token refresh has no session", async () => {
     const { handler, getSession, mintGatewayToken } = createHandler();
     getSession.mockReturnValue(null);
@@ -430,9 +445,11 @@ describe("createSandboxHandler", () => {
   });
 
   it("returns gateway token payload on success", async () => {
-    const { handler, getSession, isGatewayConfigured, mintGatewayToken } = createHandler();
+    const { handler, getSession, getSandbox, isGatewayConfigured, mintGatewayToken } =
+      createHandler();
     const session = { id: "session-1" } as SessionRow;
     getSession.mockReturnValue(session);
+    getSandbox.mockReturnValue({ runtime_gateway_capable: 1 } as SandboxRow);
     isGatewayConfigured.mockReturnValue(true);
     mintGatewayToken.mockResolvedValue({
       token: "gateway-token",
@@ -465,9 +482,26 @@ describe("createSandboxHandler", () => {
     expect(mintGatewayToken).not.toHaveBeenCalled();
   });
 
-  it("returns a structured 500 when minting throws", async () => {
-    const { handler, getSession, isGatewayConfigured, mintGatewayToken } = createHandler();
+  it("returns 403 when the boot image is not gateway-capable (raw fallback)", async () => {
+    const { handler, getSession, getSandbox, isGatewayConfigured, mintGatewayToken } =
+      createHandler();
     getSession.mockReturnValue({ id: "session-1" } as SessionRow);
+    // Gateway enabled in session settings, but the boot ran on a non-capable image
+    // (pre-gateway snapshot / repo image) — that boot uses raw keys and must not mint.
+    getSandbox.mockReturnValue({ runtime_gateway_capable: null } as SandboxRow);
+    isGatewayConfigured.mockReturnValue(true);
+
+    const response = await handler.gatewayToken();
+
+    expect(response.status).toBe(403);
+    expect(mintGatewayToken).not.toHaveBeenCalled();
+  });
+
+  it("returns a structured 500 when minting throws", async () => {
+    const { handler, getSession, getSandbox, isGatewayConfigured, mintGatewayToken } =
+      createHandler();
+    getSession.mockReturnValue({ id: "session-1" } as SessionRow);
+    getSandbox.mockReturnValue({ runtime_gateway_capable: 1 } as SandboxRow);
     isGatewayConfigured.mockReturnValue(true);
     mintGatewayToken.mockRejectedValue(new Error("boom"));
 

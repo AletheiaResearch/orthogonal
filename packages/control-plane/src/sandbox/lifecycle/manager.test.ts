@@ -34,6 +34,7 @@ import {
   type SandboxLifecycleConfig,
   type RepoImageLookup,
   type SlackAgentNotifyLookup,
+  type McpServerLookup,
 } from "./manager";
 
 // ==================== Mock Factories ====================
@@ -89,6 +90,7 @@ function createMockSandbox(
     tunnel_urls: null,
     ttyd_url: null,
     ttyd_token: null,
+    runtime_gateway_capable: null,
     created_at: Date.now() - 60000,
     spawn_failure_count: 0,
     last_spawn_failure: 0,
@@ -145,6 +147,14 @@ function createMockStorage(
     updateSandboxSnapshotImageId: vi.fn((sandboxId: string, imageId: string) => {
       calls.push(`updateSandboxSnapshotImageId:${imageId}`);
       if (sandbox) sandbox.snapshot_image_id = imageId;
+    }),
+    setRuntimeGatewayCapable: vi.fn((capable: boolean) => {
+      calls.push(`setRuntimeGatewayCapable:${capable}`);
+      if (sandbox) sandbox.runtime_gateway_capable = capable ? 1 : 0;
+    }),
+    clearSandboxSnapshotImageId: vi.fn(() => {
+      calls.push("clearSandboxSnapshotImageId");
+      if (sandbox) sandbox.snapshot_image_id = null;
     }),
     updateSandboxLastActivity: vi.fn((timestamp: number) => {
       calls.push("updateSandboxLastActivity");
@@ -2171,10 +2181,12 @@ describe("SandboxLifecycleManager", () => {
       sandbox?: ReturnType<typeof createMockSandbox>;
       config?: Partial<SandboxLifecycleConfig>;
       provider?: ReturnType<typeof createMockProvider>;
+      userEnvVars?: Record<string, string>;
+      repoImageLookup?: RepoImageLookup;
     }) {
       const sandbox =
         opts.sandbox ?? createMockSandbox({ status: "pending", created_at: Date.now() - 60000 });
-      const storage = createMockStorage(opts.session, sandbox);
+      const storage = createMockStorage(opts.session, sandbox, opts.userEnvVars);
       const provider = opts.provider ?? createMockProvider();
       const config = { ...createTestConfig(), ...opts.config };
       const manager = new SandboxLifecycleManager(
@@ -2184,9 +2196,11 @@ describe("SandboxLifecycleManager", () => {
         createMockWebSocketManager(false),
         createMockAlarmScheduler(),
         createMockIdGenerator(),
-        config
+        config,
+        {},
+        opts.repoImageLookup
       );
-      return { manager, provider };
+      return { manager, provider, storage };
     }
 
     it("mints and injects a gateway token when enabled and secrets are present (fresh spawn)", async () => {
@@ -2205,10 +2219,14 @@ describe("SandboxLifecycleManager", () => {
       expect(claims.sid).toBe("test-session");
     });
 
-    it("mints and injects a gateway token on snapshot restore", async () => {
+    it("mints and injects a gateway token on restore from a gateway-capable snapshot", async () => {
       const { manager, provider } = buildManager({
         session: gatewayEnabledSession(),
-        sandbox: createMockSandbox({ status: "stopped", snapshot_image_id: "img-abc123" }),
+        sandbox: createMockSandbox({
+          status: "stopped",
+          snapshot_image_id: "img-abc123",
+          runtime_gateway_capable: 1,
+        }),
         config: TERMINUS_SECRETS,
       });
 
@@ -2217,6 +2235,105 @@ describe("SandboxLifecycleManager", () => {
       const call = vi.mocked(provider.restoreFromSnapshot!).mock.calls[0]?.[0];
       expect(call?.gatewayBaseUrl).toBe("https://gateway.test");
       expect(typeof call?.gatewayToken).toBe("string");
+    });
+
+    // CON-72 Part A — image-capability gate on the mint (= the secret drop).
+    it("persists runtime_gateway_capable=true on a fresh base spawn", async () => {
+      const { manager, storage } = buildManager({
+        session: gatewayEnabledSession(),
+        config: TERMINUS_SECRETS,
+      });
+
+      await manager.spawnSandbox();
+
+      expect(storage.calls).toContain("setRuntimeGatewayCapable:true");
+    });
+
+    it("does NOT mint on restore from a pre-gateway (not-capable) snapshot — raw fallback", async () => {
+      const { manager, provider } = buildManager({
+        session: gatewayEnabledSession(),
+        sandbox: createMockSandbox({
+          status: "stopped",
+          snapshot_image_id: "img-legacy",
+          runtime_gateway_capable: null,
+        }),
+        config: TERMINUS_SECRETS,
+      });
+
+      await manager.spawnSandbox();
+
+      // The restore still happens — but with raw keys, not the gateway, because the
+      // legacy image can't register the gateway provider.
+      const call = vi.mocked(provider.restoreFromSnapshot!).mock.calls[0]?.[0];
+      expect(call).toBeDefined();
+      expect(call?.gatewayToken).toBeUndefined();
+      expect(call?.gatewayBaseUrl).toBeUndefined();
+    });
+
+    it("does NOT mint on a fresh spawn from a repo image (conservatively not capable)", async () => {
+      const repoImageLookup: RepoImageLookup = {
+        getLatestReady: vi.fn(async () => ({
+          provider_image_id: "img-repo",
+          base_sha: "sha-1",
+        })),
+      };
+      const { manager, provider, storage } = buildManager({
+        session: gatewayEnabledSession(),
+        config: TERMINUS_SECRETS,
+        repoImageLookup,
+      });
+
+      await manager.spawnSandbox();
+
+      const call = vi.mocked(provider.createSandbox).mock.calls[0]?.[0];
+      expect(call?.repoImageId).toBe("img-repo");
+      expect(call?.gatewayToken).toBeUndefined();
+      expect(storage.calls).toContain("setRuntimeGatewayCapable:false");
+    });
+
+    // CON-72 Part B — strip user-injected LLM keys only on the gateway-active path.
+    it("strips user-injected LLM provider keys when the gateway is active (fresh spawn)", async () => {
+      const { manager, provider } = buildManager({
+        session: gatewayEnabledSession(),
+        config: TERMINUS_SECRETS,
+        userEnvVars: { ANTHROPIC_API_KEY: "sk-user", MY_APP_TOKEN: "keep" },
+      });
+
+      await manager.spawnSandbox();
+
+      const call = vi.mocked(provider.createSandbox).mock.calls[0]?.[0];
+      expect(call?.userEnvVars).toEqual({ MY_APP_TOKEN: "keep" });
+    });
+
+    it("keeps user LLM keys on the not-capable raw fallback (restore from legacy snapshot)", async () => {
+      const { manager, provider } = buildManager({
+        session: gatewayEnabledSession(),
+        sandbox: createMockSandbox({
+          status: "stopped",
+          snapshot_image_id: "img-legacy",
+          runtime_gateway_capable: null,
+        }),
+        config: TERMINUS_SECRETS,
+        userEnvVars: { ANTHROPIC_API_KEY: "sk-user", MY_APP_TOKEN: "keep" },
+      });
+
+      await manager.spawnSandbox();
+
+      const call = vi.mocked(provider.restoreFromSnapshot!).mock.calls[0]?.[0];
+      expect(call?.userEnvVars).toEqual({ ANTHROPIC_API_KEY: "sk-user", MY_APP_TOKEN: "keep" });
+    });
+
+    it("does not strip user LLM keys when the gateway is disabled", async () => {
+      const { manager, provider } = buildManager({
+        session: createMockSession({ sandbox_settings: null }),
+        config: TERMINUS_SECRETS,
+        userEnvVars: { ANTHROPIC_API_KEY: "sk-user" },
+      });
+
+      await manager.spawnSandbox();
+
+      const call = vi.mocked(provider.createSandbox).mock.calls[0]?.[0];
+      expect(call?.userEnvVars).toEqual({ ANTHROPIC_API_KEY: "sk-user" });
     });
 
     it("does not mint when the gateway is disabled in sandbox settings", async () => {
@@ -2261,6 +2378,175 @@ describe("SandboxLifecycleManager", () => {
       } finally {
         mintSpy.mockRestore();
       }
+    });
+
+    // CON-72 follow-up (E) — the gateway-active strip must cover per-server MCP env
+    // too, not just top-level user env: the entrypoint copies it into the MCP process.
+    function mcpServerLookupWith(env: Record<string, string>): McpServerLookup {
+      return {
+        getDecryptedForSession: vi.fn(async () => [
+          {
+            id: "mcp-1",
+            name: "local-mcp",
+            type: "local" as const,
+            command: ["run"],
+            env,
+            enabled: true,
+          },
+        ]),
+      };
+    }
+
+    it("strips LLM provider keys from MCP server env when the gateway is active", async () => {
+      const { manager, provider } = buildManager({
+        session: gatewayEnabledSession(),
+        config: {
+          ...TERMINUS_SECRETS,
+          mcpServerLookup: mcpServerLookupWith({ ANTHROPIC_API_KEY: "sk-mcp", KEEP: "v" }),
+        },
+      });
+
+      await manager.spawnSandbox();
+
+      const call = vi.mocked(provider.createSandbox).mock.calls[0]?.[0];
+      expect(call?.mcpServers?.[0]?.env).toEqual({ KEEP: "v" });
+    });
+
+    it("keeps MCP server env on the raw fallback (gateway not active)", async () => {
+      const { manager, provider } = buildManager({
+        session: gatewayEnabledSession(),
+        sandbox: createMockSandbox({
+          status: "stopped",
+          snapshot_image_id: "img-legacy",
+          runtime_gateway_capable: null,
+        }),
+        config: {
+          ...TERMINUS_SECRETS,
+          mcpServerLookup: mcpServerLookupWith({ ANTHROPIC_API_KEY: "sk-mcp", KEEP: "v" }),
+        },
+      });
+
+      await manager.spawnSandbox();
+
+      const call = vi.mocked(provider.restoreFromSnapshot!).mock.calls[0]?.[0];
+      expect(call?.mcpServers?.[0]?.env).toEqual({ ANTHROPIC_API_KEY: "sk-mcp", KEEP: "v" });
+    });
+
+    // CON-72 follow-up (B) — persist capability only once the spawn succeeds, so a
+    // failed fresh spawn can't overwrite the capability tied to the stored snapshot.
+    it("does not persist runtime_gateway_capable when the fresh spawn fails", async () => {
+      const provider = createMockProvider();
+      vi.mocked(provider.createSandbox).mockRejectedValue(new Error("spawn boom"));
+      const { manager, storage } = buildManager({
+        session: gatewayEnabledSession(),
+        config: TERMINUS_SECRETS,
+        provider,
+      });
+
+      await manager.spawnSandbox();
+
+      expect(provider.createSandbox).toHaveBeenCalled();
+      expect(storage.calls).not.toContain("setRuntimeGatewayCapable:true");
+      expect(storage.calls).not.toContain("setRuntimeGatewayCapable:false");
+    });
+
+    // CON-72 follow-up (H) — remote MCP servers carry credentials on `headers`, not
+    // `env` (rowToConfig); the gateway-active strip must cover those too.
+    function remoteMcpServerLookupWith(headers: Record<string, string>): McpServerLookup {
+      return {
+        getDecryptedForSession: vi.fn(async () => [
+          {
+            id: "mcp-remote-1",
+            name: "remote-mcp",
+            type: "remote" as const,
+            url: "https://mcp.example.com",
+            headers,
+            enabled: true,
+          },
+        ]),
+      };
+    }
+
+    it("strips LLM provider keys from remote MCP server headers when the gateway is active", async () => {
+      const { manager, provider } = buildManager({
+        session: gatewayEnabledSession(),
+        config: {
+          ...TERMINUS_SECRETS,
+          mcpServerLookup: remoteMcpServerLookupWith({
+            ANTHROPIC_API_KEY: "sk-hdr",
+            "X-Tenant": "keep",
+          }),
+        },
+      });
+
+      await manager.spawnSandbox();
+
+      const call = vi.mocked(provider.createSandbox).mock.calls[0]?.[0];
+      expect(call?.mcpServers?.[0]?.headers).toEqual({ "X-Tenant": "keep" });
+    });
+
+    it("keeps remote MCP headers on the raw fallback (gateway not active)", async () => {
+      const { manager, provider } = buildManager({
+        session: gatewayEnabledSession(),
+        sandbox: createMockSandbox({
+          status: "stopped",
+          snapshot_image_id: "img-legacy",
+          runtime_gateway_capable: null,
+        }),
+        config: {
+          ...TERMINUS_SECRETS,
+          mcpServerLookup: remoteMcpServerLookupWith({
+            ANTHROPIC_API_KEY: "sk-hdr",
+            "X-Tenant": "keep",
+          }),
+        },
+      });
+
+      await manager.spawnSandbox();
+
+      const call = vi.mocked(provider.restoreFromSnapshot!).mock.calls[0]?.[0];
+      expect(call?.mcpServers?.[0]?.headers).toEqual({
+        ANTHROPIC_API_KEY: "sk-hdr",
+        "X-Tenant": "keep",
+      });
+    });
+
+    // CON-72 follow-up (G) — a fresh spawn boots a brand-new image, so on success we
+    // must drop the prior snapshot pointer together with the capability write. Else a
+    // later restore reads capable=1 against a stale (legacy) snapshot → full LLM
+    // outage (Greptile P1). The failure path must keep the snapshot for restore.
+    it("clears the stale snapshot pointer on a successful fresh spawn", async () => {
+      const { manager, storage } = buildManager({
+        session: gatewayEnabledSession(),
+        sandbox: createMockSandbox({
+          status: "ready",
+          snapshot_image_id: "img-legacy",
+          runtime_gateway_capable: null,
+          created_at: Date.now() - 120000,
+        }),
+        config: TERMINUS_SECRETS,
+      });
+
+      await manager.spawnSandbox();
+
+      // A fresh doSpawn ran (not a restore) and cleared the prior snapshot pointer.
+      expect(storage.calls).toContain("clearSandboxSnapshotImageId");
+      expect(storage.calls).toContain("setRuntimeGatewayCapable:true");
+    });
+
+    it("does not clear the snapshot pointer when the fresh spawn fails", async () => {
+      const provider = createMockProvider();
+      vi.mocked(provider.createSandbox).mockRejectedValue(new Error("spawn boom"));
+      const { manager, storage } = buildManager({
+        session: gatewayEnabledSession(),
+        config: TERMINUS_SECRETS,
+        provider,
+      });
+
+      await manager.spawnSandbox();
+
+      expect(provider.createSandbox).toHaveBeenCalled();
+      expect(storage.calls).not.toContain("clearSandboxSnapshotImageId");
     });
   });
 });

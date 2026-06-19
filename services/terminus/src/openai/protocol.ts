@@ -124,10 +124,24 @@ function sse(payload: unknown): string {
 }
 
 /**
+ * True for the `fullStream` part types `toOpenAIChatStream` turns into a client SSE
+ * frame: `text-delta` (content), `tool-call` (tool_calls), `finish` (finish_reason +
+ * usage). The streaming-fallback peek (CON-74) commits the response on the first such
+ * part, so this MUST stay in sync with the part types handled below (drift-guarded by
+ * a test). `error` is deliberately excluded — the peek treats it as a retry/fail
+ * decision, not a commit.
+ */
+export function partStartsClientOutput(part: TextStreamPart<ToolSet>): boolean {
+  return part.type === "text-delta" || part.type === "tool-call" || part.type === "finish";
+}
+
+/**
  * Map an AI SDK `fullStream` to OpenAI `chat.completion.chunk` SSE frames.
  * `onUsage` fires once on finish (for the usage sink); `onError` fires once if the
- * upstream stream errors (so the caller can cool down the failed credential — there
- * is no mid-stream fallback in v1). Terminates with `[DONE]`.
+ * upstream stream errors (so the caller can cool down the failed credential). The
+ * streaming-fallback decision happens before this mapper runs (peek-first-chunk,
+ * CON-74); once a part reaches here the response has committed. Terminates with
+ * `[DONE]`.
  */
 export async function* toOpenAIChatStream(
   fullStream: AsyncIterable<TextStreamPart<ToolSet>>,
