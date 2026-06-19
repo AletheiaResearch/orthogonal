@@ -25,6 +25,7 @@ import type { TerminusContext } from "../middleware/auth";
 import { toModelMessages, toToolSet } from "../openai/messages";
 import {
   type ChunkMeta,
+  type CompletionParts,
   type OpenAIChatRequest,
   toOpenAIChatCompletion,
   toOpenAIChatStream,
@@ -36,12 +37,21 @@ import {
   buildLanguageModel,
   codexProviderOptions,
 } from "../providers/router";
+import { type TraceSink, toTraceRecord } from "../trace/sink";
 import { computeCostUsd } from "../usage/pricing";
 import type { UsageRecord, UsageSink } from "../usage/sink";
+import { asReadable, peekStream } from "./stream-fallback";
 
 export interface ChatDeps {
   loadRegistry: typeof fetchRegistry;
   usageSink: UsageSink;
+  /**
+   * Raw trace content-capture sink (CON-61). Present ONLY when the operator flag
+   * `TERMINUS_TRACE_CAPTURE_ENABLED` is on (gated at the handler edge in `index.ts`),
+   * so chat capture is enabled iff this is set — undefined = zero content handling.
+   * Content is raw/unsanitized; see `trace/sink.ts`.
+   */
+  traceSink?: TraceSink;
   /** Resolves the upstream credential for a model + session (vault-backed in prod). */
   credentials: CredentialProvider;
   /**
@@ -179,44 +189,107 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       }
     };
 
-    // Streaming: single candidate, fail-fast. A mid-stream upstream error surfaces
-    // only after the SSE Response commits, so cross-candidate fallback for streaming
-    // is a separate redesign (CON-74); v1 keeps today's behavior.
-    if (body.stream) {
-      const candidate = candidates[0];
-      const cred = await candidate.resolve();
-      if (!cred) return errorResponse(providerUnconfigured(ref.providerId));
-      const model = buildModel(ref, cred.apiKey, {
-        accountId: cred.accountId,
-        sessionId: claims.sid,
-      });
-      const result = streamText(callOptionsFor(model));
-      // No mid-stream fallback in v1 (CON-74), but keep pool health correct: clear the
-      // candidate's failure state on a successful finish, and cool it down on a
-      // *retryable* stream error so the NEXT request rotates to a live candidate.
-      const sse = toOpenAIChatStream(
-        result.fullStream,
-        meta,
-        (usage) => {
-          void emit(usage);
-          background(deps.credentials.recordSuccess?.(candidate.id));
-        },
-        (err) => {
-          if (!isRetryableUpstreamError(err)) return;
-          background(
-            deps.credentials.recordFailure?.(
-              candidate.id,
-              cooldownUntilFromError(err, deps.now?.() ?? Date.now(), candidate.failureCount)
-            )
-          );
-        }
+    // Cool down a candidate on a *retryable* upstream error (best-effort, off the hot
+    // path). Returns true if retryable (cooled down), false if terminal. Shared by the
+    // streaming peek loop, the streaming mid-stream error, and the non-streaming loop.
+    const coolDownIfRetryable = (candidate: (typeof candidates)[number], err: unknown): boolean => {
+      if (!isRetryableUpstreamError(err)) return false;
+      // Fresh clock at failure time (not request-start nowMs): a slow failure would
+      // otherwise write a cooldown that is already in the past.
+      background(
+        deps.credentials.recordFailure?.(
+          candidate.id,
+          cooldownUntilFromError(err, deps.now?.() ?? Date.now(), candidate.failureCount)
+        )
       );
-      return new Response(asReadable(sse), {
-        headers: {
-          "content-type": "text/event-stream; charset=utf-8",
-          "cache-control": "no-cache",
-        },
-      });
+      return true;
+    };
+
+    // Raw trace content-capture (CON-61), active ONLY when a sink is wired (operator
+    // flag on). Best-effort and fully isolated: the try/catch wraps BOTH the record
+    // build AND the dispatch, because the streaming path calls this from inside the
+    // generator during a stream pull — a throw here must never corrupt the live
+    // response. Content is raw/unsanitized; a real consumer must sanitize first
+    // (see trace/sink.ts). Fires only on a successful completion (the `finish` part).
+    const captureTrace = (parts: CompletionParts): void => {
+      if (!deps.traceSink) return;
+      try {
+        // toTraceRecord does the content mapping (tool-call rename + verbatim, NON-coerced
+        // finish reason) — pure + unit-tested in trace/sink.test.ts.
+        const trace = toTraceRecord(
+          usageRecord(claims, body.model, parts.usage, nowMs, ref.model.cost),
+          body.messages,
+          parts
+        );
+        const write = deps.traceSink.record(trace).catch((e) => {
+          console.error(
+            JSON.stringify({
+              event: "terminus.trace.sink_error",
+              message: e instanceof Error ? e.message : String(e),
+            })
+          );
+        });
+        try {
+          c.executionCtx.waitUntil(write);
+        } catch {
+          // no ExecutionContext (unit tests); the record still runs to completion
+        }
+      } catch (e) {
+        console.error(
+          JSON.stringify({
+            event: "terminus.trace.capture_error",
+            message: e instanceof Error ? e.message : String(e),
+          })
+        );
+      }
+    };
+
+    // Streaming: peek-first-chunk fallback (CON-74). Mirror the non-streaming candidate
+    // loop — drive each candidate's stream until the first client-output part (commit)
+    // or a pre-output error. A retryable pre-output error rotates to the next candidate;
+    // a terminal one throws → clean HTTP status (nothing was streamed). Once committed, a
+    // later error surfaces mid-stream (no restart → no double-billing / duplicated output).
+    if (body.stream) {
+      let lastStreamError: unknown;
+      for (const candidate of candidates) {
+        const cred = await candidate.resolve();
+        if (!cred) continue;
+        const model = buildModel(ref, cred.apiKey, {
+          accountId: cred.accountId,
+          sessionId: claims.sid,
+        });
+        // Gateway owns streaming fallback now, so disable the SDK's same-target retry
+        // (it would add hidden backoff before the peek detects the failure).
+        const result = streamText({ ...callOptionsFor(model), maxRetries: 0 });
+        const peeked = await peekStream(result.fullStream);
+        if (peeked.kind === "error") {
+          if (!coolDownIfRetryable(candidate, peeked.error)) throw peeked.error;
+          lastStreamError = peeked.error;
+          continue;
+        }
+        const sse = toOpenAIChatStream(
+          peeked.stream,
+          meta,
+          (usage) => {
+            void emit(usage);
+            background(deps.credentials.recordSuccess?.(candidate.id));
+          },
+          // Mid-stream error after commit: no fallback, just cool down for the next request.
+          (err) => void coolDownIfRetryable(candidate, err),
+          // Trace capture (CON-61): accumulate + capture on finish, only when a sink is
+          // wired. Omitted when off so the mapper does no accumulation (zero overhead).
+          // The peeked first chunk is re-yielded into this stream (CON-74 `drain`), so
+          // accumulation sees every client-output part including chunk 1.
+          deps.traceSink ? captureTrace : undefined
+        );
+        return new Response(asReadable(sse), {
+          headers: {
+            "content-type": "text/event-stream; charset=utf-8",
+            "cache-control": "no-cache",
+          },
+        });
+      }
+      throw lastStreamError ?? new Error("all upstream streaming candidates failed");
     }
 
     // Non-streaming: try candidates in priority/weight order; on a retryable upstream
@@ -230,31 +303,22 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
         sessionId: claims.sid,
       });
       try {
-        // The gateway owns resilience here via cross-candidate fallback, so disable the
-        // SDK's same-target retry (it would add hidden backoff before we fall back).
-        // Streaming has no gateway fallback in v1 (CON-74), so it keeps the SDK default.
+        // The gateway owns resilience via cross-candidate fallback, so disable the SDK's
+        // same-target retry (it would add hidden backoff before we fall back).
         const result = await generateText({ ...callOptionsFor(model), maxRetries: 0 });
         background(deps.credentials.recordSuccess?.(candidate.id));
+        const completion: CompletionParts = {
+          content: result.text,
+          toolCalls: result.toolCalls,
+          finishReason: result.finishReason,
+          usage: result.totalUsage,
+        };
         await emit(result.totalUsage);
-        return Response.json(
-          toOpenAIChatCompletion(meta, {
-            content: result.text,
-            toolCalls: result.toolCalls,
-            finishReason: result.finishReason,
-            usage: result.totalUsage,
-          })
-        );
+        captureTrace(completion);
+        return Response.json(toOpenAIChatCompletion(meta, completion));
       } catch (err) {
-        if (!isRetryableUpstreamError(err)) throw err;
+        if (!coolDownIfRetryable(candidate, err)) throw err;
         lastError = err;
-        // Use a fresh clock at failure time (not request-start nowMs): a slow failure
-        // would otherwise write a cooldown that is already in the past.
-        background(
-          deps.credentials.recordFailure?.(
-            candidate.id,
-            cooldownUntilFromError(err, deps.now?.() ?? Date.now(), candidate.failureCount)
-          )
-        );
       }
     }
     throw lastError ?? new Error("all upstream candidates failed");
@@ -287,21 +351,4 @@ function usageRecord(
     costUsd: computeCostUsd({ inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens }, cost),
     createdAt,
   };
-}
-
-function asReadable(gen: AsyncGenerator<string>): ReadableStream<Uint8Array> {
-  const encoder = new TextEncoder();
-  return new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      const { value, done } = await gen.next();
-      if (done) {
-        controller.close();
-        return;
-      }
-      controller.enqueue(encoder.encode(value));
-    },
-    async cancel() {
-      await gen.return?.(undefined);
-    },
-  });
 }

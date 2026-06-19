@@ -10,7 +10,12 @@
  * spawn attempts within the same request.
  */
 
-import { mintGatewayToken, type McpServerConfig, type SandboxSettings } from "@open-inspect/shared";
+import {
+  mintGatewayToken,
+  withoutLlmProviderCredentials,
+  type McpServerConfig,
+  type SandboxSettings,
+} from "@open-inspect/shared";
 
 import { hashToken } from "../../auth/crypto";
 import { mintJwt } from "../../auth/jwt";
@@ -85,6 +90,10 @@ export interface SandboxStorage {
   updateSandboxModalObjectId(modalObjectId: string): void;
   /** Update sandbox snapshot image ID */
   updateSandboxSnapshotImageId(sandboxId: string, imageId: string): void;
+  /** Drop the stale snapshot pointer when a fresh spawn boots a new image (CON-72) */
+  clearSandboxSnapshotImageId(): void;
+  /** Persist whether this sandbox's boot image bakes the gateway plugin (CON-72) */
+  setRuntimeGatewayCapable(capable: boolean): void;
   /** Update last activity timestamp */
   updateSandboxLastActivity(timestamp: number): void;
   /** Increment circuit breaker failure count */
@@ -432,9 +441,26 @@ export class SandboxLifecycleManager {
       const codeServerEnabled = session.code_server_enabled === 1;
       const agentSlackNotifyEnabled = await this.resolveAgentSlackNotifyEnabled(session);
       const sandboxSettings = this.parseSandboxSettings(session);
+
+      // A fresh spawn from the base image always bakes the current gateway plugin;
+      // a repo image is SHA-pinned and may predate it, so treat it as not-capable
+      // (CON-72). Persisted only once the spawn succeeds (below) so a fresh spawn
+      // that fails can't overwrite the capability of the snapshot still on the row
+      // — a later restore must read the capability of the image it actually boots.
+      const runtimeGatewayCapable = repoImageId === null;
+
       const { gatewayToken, gatewayBaseUrl } = await this.mintGatewayTokenIfEnabled(
         sessionId,
-        sandboxSettings
+        sandboxSettings,
+        runtimeGatewayCapable
+      );
+      // When the gateway is active, strip user-injected raw LLM credentials from the
+      // top-level env and every MCP server env so no provider is reachable directly
+      // (Modal already drops the platform llm_secrets).
+      const { sandboxEnvVars, sandboxMcpServers } = this.stripProviderCredentialsForGateway(
+        gatewayToken !== undefined,
+        userEnvVars,
+        mcpServers
       );
       const createConfig: CreateSandboxConfig = {
         sessionId,
@@ -445,14 +471,14 @@ export class SandboxLifecycleManager {
         sandboxAuthToken,
         provider,
         model: modelId,
-        userEnvVars,
+        userEnvVars: sandboxEnvVars,
         repoImageId,
         repoImageSha,
         timeoutSeconds,
         branch: session.base_branch,
         codeServerEnabled,
         agentSlackNotifyEnabled,
-        mcpServers,
+        mcpServers: sandboxMcpServers,
         sandboxSettings,
         githubAppInstallationId: session.github_app_installation_id ?? undefined,
         gatewayToken,
@@ -460,6 +486,16 @@ export class SandboxLifecycleManager {
       };
 
       const result = await this.provider.createSandbox(createConfig);
+
+      // A fresh spawn boots a brand-new image, so on success record that image's
+      // gateway capability and drop the prior snapshot pointer together (CON-72).
+      // Doing both only after success keeps a failed spawn's restore-fallback
+      // intact, and clearing the stale pointer guarantees a later restore never
+      // reads a capability that describes a different image than the snapshot it
+      // restores — which would mint a gateway token against a pre-gateway image and
+      // black-hole the boot's LLM access (no raw keys, no gateway plugin).
+      this.storage.setRuntimeGatewayCapable(runtimeGatewayCapable);
+      this.storage.clearSandboxSnapshotImageId();
 
       this.log.info("Sandbox spawned", {
         event: "sandbox.spawned",
@@ -570,6 +606,38 @@ export class SandboxLifecycleManager {
   }
 
   /**
+   * On the gateway-active path, strip raw LLM-provider credentials from the
+   * top-level user env and every MCP server's credential maps, so no provider is
+   * reachable directly — the gateway's auth/routing/metering boundary holds
+   * (CON-72). Both maps are serialized into the sandbox: a local server's `env` is
+   * copied into the MCP process environment, and a remote server's `headers` (where
+   * `rowToConfig` puts decrypted credentials) are sent on each request. A no-op when
+   * the gateway is not active: a raw-fallback boot keeps the user's keys.
+   */
+  private stripProviderCredentialsForGateway(
+    gatewayActive: boolean,
+    userEnvVars: Record<string, string> | undefined,
+    mcpServers: McpServerConfig[] | undefined
+  ): {
+    sandboxEnvVars: Record<string, string> | undefined;
+    sandboxMcpServers: McpServerConfig[] | undefined;
+  } {
+    if (!gatewayActive) {
+      return { sandboxEnvVars: userEnvVars, sandboxMcpServers: mcpServers };
+    }
+    return {
+      sandboxEnvVars: userEnvVars ? withoutLlmProviderCredentials(userEnvVars) : userEnvVars,
+      sandboxMcpServers: mcpServers?.map((server) => {
+        let next = server;
+        if (server.env) next = { ...next, env: withoutLlmProviderCredentials(server.env) };
+        if (server.headers)
+          next = { ...next, headers: withoutLlmProviderCredentials(server.headers) };
+        return next;
+      }),
+    };
+  }
+
+  /**
    * Restore a sandbox from a filesystem snapshot.
    */
   private async restoreFromSnapshot(snapshotImageId: string): Promise<void> {
@@ -622,9 +690,21 @@ export class SandboxLifecycleManager {
       const mcpServers = await this.loadMcpServers(session);
       const sandboxSettings = this.parseSandboxSettings(session);
       const restoreSessionId = session.session_name || session.id;
+
+      // The snapshot's image carries the capability persisted on its producing
+      // spawn (CON-72). NULL = legacy (pre-gateway) snapshot → not capable → no
+      // mint → Modal keeps the raw llm_secrets → the sandbox still works. A restore
+      // never changes the image, so the persisted value is left untouched here.
+      const runtimeGatewayCapable = this.storage.getSandbox()?.runtime_gateway_capable === 1;
       const { gatewayToken, gatewayBaseUrl } = await this.mintGatewayTokenIfEnabled(
         restoreSessionId,
-        sandboxSettings
+        sandboxSettings,
+        runtimeGatewayCapable
+      );
+      const { sandboxEnvVars, sandboxMcpServers } = this.stripProviderCredentialsForGateway(
+        gatewayToken !== undefined,
+        userEnvVars,
+        mcpServers
       );
       const result = await this.provider.restoreFromSnapshot({
         snapshotImageId,
@@ -636,12 +716,12 @@ export class SandboxLifecycleManager {
         repoName: session.repo_name,
         provider,
         model: modelId,
-        userEnvVars,
+        userEnvVars: sandboxEnvVars,
         timeoutSeconds,
         branch: session.base_branch,
         codeServerEnabled,
         agentSlackNotifyEnabled,
-        mcpServers,
+        mcpServers: sandboxMcpServers,
         sandboxSettings,
         githubAppInstallationId: session.github_app_installation_id ?? undefined,
         gatewayToken,
@@ -1232,15 +1312,30 @@ export class SandboxLifecycleManager {
   }
 
   /**
-   * Mint a gateway token when the session opted into the LLM gateway. Fails CLOSED:
-   * if the gateway is requested but unconfigured or minting fails, this throws so the
-   * spawn aborts — never silently falling back to raw provider-key injection (which
-   * would defeat the gateway's security boundary). When the gateway is not requested,
-   * returns empty fields and the sandbox spawns normally with raw keys.
+   * Mint a gateway token when the session opted into the LLM gateway.
+   *
+   * Fails CLOSED on misconfiguration: if the gateway is requested but unconfigured
+   * (or minting throws), this throws so the spawn aborts — never silently falling
+   * back to raw provider-key injection.
+   *
+   * Fails OPEN on image incapability (CON-72): the gateway only works when the
+   * sandbox's boot image bakes `gateway-plugin.js`. A restore of a pre-gateway
+   * snapshot — or a repo image — can't register the gateway provider, so minting a
+   * token there would make Modal drop the raw `llm_secrets` and leave the sandbox
+   * with no usable provider. For that one boot we return empty fields (raw-key
+   * fallback) and warn. This is a deliberate, bounded fail-open: the boot image is
+   * selected by the control plane (not attacker-injectable), so the only "leak" is
+   * the session's own pre-gateway status quo. (Such a session never routes through
+   * the gateway and keeps snapshotting its legacy image — the gateway applies to
+   * sessions whose first spawn is plugin-bearing.)
+   *
+   * When the gateway is not requested, returns empty fields and the sandbox spawns
+   * normally with raw keys.
    */
   private async mintGatewayTokenIfEnabled(
     sid: string,
-    sandboxSettings: SandboxSettings
+    sandboxSettings: SandboxSettings,
+    runtimeGatewayCapable: boolean
   ): Promise<{ gatewayToken?: string; gatewayBaseUrl?: string }> {
     if (!sandboxSettings.llmGatewayEnabled) {
       return {};
@@ -1252,6 +1347,15 @@ export class SandboxLifecycleManager {
         "llmGatewayEnabled is set but the LLM gateway is not configured " +
           "(TERMINUS_JWT_SECRET / TERMINUS_GATEWAY_URL missing); refusing to spawn with raw keys"
       );
+    }
+
+    if (!runtimeGatewayCapable) {
+      this.log.warn(
+        "llmGatewayEnabled but the boot image lacks the gateway plugin; " +
+          "falling back to raw provider keys for this boot",
+        { event: "sandbox.gateway_not_capable" }
+      );
+      return {};
     }
 
     const gatewayToken = await mintGatewayToken(

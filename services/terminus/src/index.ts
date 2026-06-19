@@ -22,6 +22,7 @@ import { gatewayAuth, type TerminusVars } from "./middleware/auth";
 import { PolicyStore } from "./policy/store";
 import { buildAdminApp } from "./routes/admin";
 import { type ChatDeps, chatCompletions } from "./routes/chat";
+import { NoopTraceSink, parseTraceCaptureEnabled, type TraceSink } from "./trace/sink";
 import { LoggingUsageSink } from "./usage/sink";
 
 export interface AppDeps {
@@ -29,6 +30,11 @@ export interface AppDeps {
   loadRegistry?: typeof fetchRegistry;
   /** Injectable usage sink; defaults to the logging no-op. */
   usageSink?: ChatDeps["usageSink"];
+  /**
+   * Injectable trace content-capture sink (CON-61); defaults to `NoopTraceSink`.
+   * Only routed into the chat handler when `TERMINUS_TRACE_CAPTURE_ENABLED` is on.
+   */
+  traceSink?: TraceSink;
   /** Per-request credential provider factory; defaults to the D1 vault. */
   buildCredentials?: (env: Env) => CredentialProvider;
   /** Injectable vault factory for the admin API (tests); defaults to the D1 vault. */
@@ -48,6 +54,9 @@ function vaultCredentials(env: Env): CredentialProvider {
 export function createApp(deps: AppDeps = {}) {
   const loadRegistry = deps.loadRegistry ?? fetchRegistry;
   const usageSink = deps.usageSink ?? new LoggingUsageSink();
+  // Trace sink is constructed once (the default no-op is free); it is routed into the
+  // chat handler per-request ONLY when the operator flag is on — see the handler below.
+  const traceSink = deps.traceSink ?? new NoopTraceSink();
   const buildCredentials = deps.buildCredentials ?? vaultCredentials;
   // Guardrail policy store (CON-71 L2): the injected factory in tests, else the real D1 store
   // when a DB is bound. No DB (DB-less unit envs) → undefined → chat treats it as no policy.
@@ -84,6 +93,12 @@ export function createApp(deps: AppDeps = {}) {
     chatCompletions(c, {
       loadRegistry,
       usageSink,
+      // Gate trace capture at the edge (CON-61): pass the sink ONLY when the flag is on,
+      // mirroring the env-derived `credentials`/`policy` wiring. Off → undefined → chat
+      // does no content handling.
+      traceSink: parseTraceCaptureEnabled(c.env.TERMINUS_TRACE_CAPTURE_ENABLED)
+        ? traceSink
+        : undefined,
       credentials: buildCredentials(c.env),
       policy: policyStoreFor(c.env),
       ...deps.chat,

@@ -14,6 +14,7 @@ import { policyUnavailable } from "./errors";
 import { createApp } from "./index";
 import { type GuardrailPolicy, parsePolicy } from "./policy/blob";
 import type { PolicyStore } from "./policy/store";
+import type { TraceRecord, TraceSink } from "./trace/sink";
 import type { UsageRecord, UsageSink } from "./usage/sink";
 
 type MockArgs = ConstructorParameters<typeof MockLanguageModelV3>[0];
@@ -462,7 +463,7 @@ describe("terminus chat — credential pool fallback (CON-71)", () => {
     expect(fail).toEqual(["c1", "c2"]);
   });
 
-  it("streaming uses only the first candidate (no fallback in v1)", async () => {
+  it("streaming commits to the first healthy candidate (no fallback needed)", async () => {
     const { provider, ok } = poolProvider();
     const seen: string[] = [];
     const chunks = [
@@ -499,38 +500,81 @@ describe("terminus chat — credential pool fallback (CON-71)", () => {
     expect(res.status).toBe(503);
   });
 
-  it("does NOT cool down a streaming credential on a terminal (non-retryable) error", async () => {
-    const { provider, fail } = poolProvider();
-    const chunks = [
-      { type: "stream-start", warnings: [] },
-      {
-        type: "error",
-        error: new APICallError({
-          message: "bad request",
-          url: "https://up/v1",
-          requestBodyValues: {},
-          statusCode: 400,
-          isRetryable: false,
-        }),
-      },
-    ];
+  // CON-74: streaming-request fallback via peek-first-chunk.
+  const errFirst = (statusCode: number, isRetryable: boolean) => [
+    { type: "stream-start", warnings: [] },
+    {
+      type: "error",
+      error: new APICallError({
+        message: "upstream",
+        url: "https://up/v1",
+        requestBodyValues: {},
+        statusCode,
+        isRetryable,
+      }),
+    },
+  ];
+  const okStream = (text: string) => [
+    { type: "stream-start", warnings: [] },
+    { type: "text-start", id: "t" },
+    { type: "text-delta", id: "t", delta: text },
+    { type: "text-end", id: "t" },
+    { type: "finish", finishReason: "stop", usage: LL_USAGE },
+  ];
+  const streamOf = (chunks: unknown[]) =>
+    new MockLanguageModelV3({
+      doStream: { stream: simulateReadableStream({ chunks }) },
+    } as unknown as MockArgs);
+
+  it("streaming falls back to the next candidate on a pre-first-token retryable error", async () => {
+    const { provider, ok, fail } = poolProvider();
+    const seen: string[] = [];
     const res = await chat(
       provider,
-      () =>
-        new MockLanguageModelV3({
-          doStream: { stream: simulateReadableStream({ chunks }) },
-        } as unknown as MockArgs),
+      (_ref, apiKey) => {
+        seen.push(apiKey);
+        return streamOf(apiKey === "k1" ? errFirst(429, true) : okStream("from-k2"));
+      },
       true
     );
     expect(res.status).toBe(200);
-    await res.text();
-    expect(fail).toEqual([]);
+    expect(await res.text()).toContain("from-k2");
+    expect(seen).toEqual(["k1", "k2"]); // rotated to the healthy candidate
+    expect(fail).toEqual(["c1"]);
+    expect(ok).toEqual(["c2"]);
   });
 
-  it("cools down the credential when a streaming request errors (no fallback, next request rotates)", async () => {
+  it("streaming returns a clean error status on a pre-first-token terminal error (no fallback)", async () => {
+    const { provider, ok, fail } = poolProvider();
+    const seen: string[] = [];
+    const res = await chat(
+      provider,
+      (_ref, apiKey) => {
+        seen.push(apiKey);
+        return streamOf(errFirst(400, false));
+      },
+      true
+    );
+    expect(res.status).toBe(502); // clean status, no SSE bytes sent
+    expect(seen).toEqual(["k1"]); // terminal → no fallback
+    expect(fail).toEqual([]); // not cooled down (deterministic failure)
+    expect(ok).toEqual([]);
+  });
+
+  it("streaming returns a clean error status when all candidates fail before the first token", async () => {
     const { provider, fail } = poolProvider();
+    const res = await chat(provider, () => streamOf(errFirst(429, true)), true);
+    expect(res.status).toBe(502);
+    expect(fail).toEqual(["c1", "c2"]); // both cooled down after exhausting the pool
+  });
+
+  it("streaming does NOT retry after the first token; surfaces the error mid-stream", async () => {
+    const { provider, fail } = poolProvider();
+    const seen: string[] = [];
     const chunks = [
       { type: "stream-start", warnings: [] },
+      { type: "text-start", id: "t" },
+      { type: "text-delta", id: "t", delta: "partial" },
       {
         type: "error",
         error: new APICallError({
@@ -544,15 +588,16 @@ describe("terminus chat — credential pool fallback (CON-71)", () => {
     ];
     const res = await chat(
       provider,
-      () =>
-        new MockLanguageModelV3({
-          doStream: { stream: simulateReadableStream({ chunks }) },
-        } as unknown as MockArgs),
+      (_ref, apiKey) => {
+        seen.push(apiKey);
+        return streamOf(chunks);
+      },
       true
     );
-    expect(res.status).toBe(200);
-    await res.text(); // drain so the error part is consumed
-    expect(fail).toEqual(["c1"]);
+    expect(res.status).toBe(200); // already committed
+    expect(await res.text()).toContain("partial"); // the committed token was delivered
+    expect(seen).toEqual(["k1"]); // no fallback after commit
+    expect(fail).toEqual(["c1"]); // cooled down for the NEXT request only
   });
 });
 
@@ -828,5 +873,307 @@ describe("terminus admin — mint-token (CON-77)", () => {
       { TERMINUS_ADMIN_SECRET: ADMIN } as unknown as Env
     );
     expect(res.status).toBe(500);
+  });
+});
+
+function capturingTraceSink(): { sink: TraceSink; traces: TraceRecord[] } {
+  const traces: TraceRecord[] = [];
+  return {
+    traces,
+    sink: {
+      record: (t) => {
+        traces.push(t);
+        return Promise.resolve();
+      },
+    },
+  };
+}
+
+// Flag-on env: enables raw trace content-capture (CON-61). Default `env` leaves it off.
+const captureEnv = { ...env, TERMINUS_TRACE_CAPTURE_ENABLED: "true" } as unknown as Env;
+
+describe("terminus chat — trace content-capture (CON-61)", () => {
+  const textGen = (text: string): MockLanguageModelV3 =>
+    new MockLanguageModelV3({
+      doGenerate: {
+        content: [{ type: "text", text }],
+        finishReason: "stop",
+        usage: LL_USAGE,
+        warnings: [],
+      },
+    } as unknown as MockArgs);
+
+  const textStream = (text: string): MockLanguageModelV3 =>
+    new MockLanguageModelV3({
+      doStream: {
+        stream: simulateReadableStream({
+          chunks: [
+            { type: "stream-start", warnings: [] },
+            { type: "text-start", id: "t" },
+            { type: "text-delta", id: "t", delta: text },
+            { type: "text-end", id: "t" },
+            { type: "finish", finishReason: "stop", usage: LL_USAGE },
+          ],
+        }),
+      },
+    } as unknown as MockArgs);
+
+  async function chat(opts: {
+    model: MockLanguageModelV3;
+    traceSink?: TraceSink;
+    stream?: boolean;
+    env?: Env;
+    tools?: unknown[];
+  }) {
+    const gateway = createApp({
+      loadRegistry: () => Promise.resolve(REGISTRY),
+      buildCredentials: () => credentials,
+      traceSink: opts.traceSink,
+      chat: { buildModel: () => opts.model },
+    });
+    return gateway.request(
+      "/v1/chat/completions",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${await token()}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "anthropic/claude-opus-4-5",
+          messages: [{ role: "user", content: "hi" }],
+          ...(opts.tools ? { tools: opts.tools } : {}),
+          ...(opts.stream ? { stream: true } : {}),
+        }),
+      },
+      opts.env ?? env
+    );
+  }
+
+  const SEARCH_TOOL = [
+    {
+      type: "function",
+      function: {
+        name: "search",
+        parameters: { type: "object", properties: { q: { type: "string" } } },
+      },
+    },
+  ];
+
+  it("captures a non-streaming completion when the flag is on", async () => {
+    const { sink, traces } = capturingTraceSink();
+    const res = await chat({ model: textGen("Hello there"), traceSink: sink, env: captureEnv });
+
+    expect(res.status).toBe(200);
+    expect(traces).toHaveLength(1);
+    expect(traces[0].requestMessages).toEqual([{ role: "user", content: "hi" }]);
+    expect(traces[0].responseText).toBe("Hello there");
+    expect(traces[0].responseToolCalls).toEqual([]);
+    expect(traces[0].usage).toMatchObject({
+      sid: "sess_1",
+      model: "anthropic/claude-opus-4-5",
+      inputTokens: 5,
+      outputTokens: 2,
+    });
+    expect(traces[0].usage.costUsd).toBeCloseTo((5 * 5 + 2 * 25) / 1_000_000);
+  });
+
+  it("captures a streaming completion when the flag is on", async () => {
+    const { sink, traces } = capturingTraceSink();
+    const res = await chat({
+      model: textStream("Hello there"),
+      traceSink: sink,
+      stream: true,
+      env: captureEnv,
+    });
+
+    expect(res.status).toBe(200);
+    await res.text(); // drain so the finish part fires onComplete → capture
+    expect(traces).toHaveLength(1);
+    expect(traces[0].requestMessages).toEqual([{ role: "user", content: "hi" }]);
+    expect(traces[0].responseText).toBe("Hello there");
+    expect(traces[0].usage.inputTokens).toBe(5);
+  });
+
+  it("does NOT capture a non-streaming completion when the flag is off (default)", async () => {
+    const { sink, traces } = capturingTraceSink();
+    const res = await chat({ model: textGen("Hello there"), traceSink: sink });
+
+    expect(res.status).toBe(200);
+    expect(traces).toEqual([]);
+  });
+
+  it("does NOT capture a streaming completion when the flag is off (default)", async () => {
+    const { sink, traces } = capturingTraceSink();
+    const res = await chat({ model: textStream("Hello there"), traceSink: sink, stream: true });
+
+    expect(res.status).toBe(200);
+    await res.text();
+    expect(traces).toEqual([]);
+  });
+
+  it("still returns 200 when the trace sink rejects (capture must not fail the response)", async () => {
+    const rejectingSink: TraceSink = { record: () => Promise.reject(new Error("trace sink down")) };
+    const res = await chat({
+      model: textGen("Hello there"),
+      traceSink: rejectingSink,
+      env: captureEnv,
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { choices: { message: { content: string } }[] };
+    expect(body.choices[0].message.content).toBe("Hello there");
+  });
+
+  it("does NOT capture a trace when a committed stream errors before finish", async () => {
+    const { sink, traces } = capturingTraceSink();
+    // Emit a text-delta first so the peek (CON-74) commits the 200 SSE, THEN error
+    // before any `finish` part. The committed stream surfaces the error mid-stream
+    // (no fallback) and never reaches `finish` → onComplete never fires → no trace.
+    const errorStream = new MockLanguageModelV3({
+      doStream: {
+        stream: simulateReadableStream({
+          chunks: [
+            { type: "stream-start", warnings: [] },
+            { type: "text-start", id: "t" },
+            { type: "text-delta", id: "t", delta: "partial" },
+            {
+              type: "error",
+              error: new APICallError({
+                message: "rate limited",
+                url: "https://up/v1",
+                requestBodyValues: {},
+                statusCode: 429,
+                isRetryable: true,
+              }),
+            },
+          ],
+        }),
+      },
+    } as unknown as MockArgs);
+
+    const res = await chat({ model: errorStream, traceSink: sink, stream: true, env: captureEnv });
+    expect(res.status).toBe(200);
+    await res.text(); // drain so the error part is consumed
+    expect(traces).toEqual([]);
+  });
+
+  it("captures a non-streaming tool call with the renamed id/name fields", async () => {
+    const { sink, traces } = capturingTraceSink();
+    const toolGen = new MockLanguageModelV3({
+      doGenerate: {
+        content: [
+          { type: "tool-call", toolCallId: "call_1", toolName: "search", input: '{"q":"hi"}' },
+        ],
+        finishReason: "tool-calls",
+        usage: LL_USAGE,
+        warnings: [],
+      },
+    } as unknown as MockArgs);
+
+    const res = await chat({
+      model: toolGen,
+      traceSink: sink,
+      env: captureEnv,
+      tools: SEARCH_TOOL,
+    });
+
+    expect(res.status).toBe(200);
+    expect(traces).toHaveLength(1);
+    // Asserts captureTrace's {toolCallId,toolName} -> {id,name} rename, the only new
+    // mapping logic in the seam — and that finishReason maps to the OpenAI value.
+    expect(traces[0].responseToolCalls).toEqual([
+      { id: "call_1", name: "search", input: { q: "hi" } },
+    ]);
+  });
+
+  it("captures a streaming tool call with the renamed id/name fields", async () => {
+    const { sink, traces } = capturingTraceSink();
+    const toolStream = new MockLanguageModelV3({
+      doStream: {
+        stream: simulateReadableStream({
+          chunks: [
+            { type: "stream-start", warnings: [] },
+            {
+              type: "tool-call",
+              toolCallId: "call_1",
+              toolName: "search",
+              input: '{"q":"hi"}',
+            },
+            { type: "finish", finishReason: "tool-calls", usage: LL_USAGE },
+          ],
+        }),
+      },
+    } as unknown as MockArgs);
+
+    const res = await chat({
+      model: toolStream,
+      traceSink: sink,
+      stream: true,
+      env: captureEnv,
+      tools: SEARCH_TOOL,
+    });
+
+    expect(res.status).toBe(200);
+    await res.text(); // drain so the finish part fires onComplete → capture
+    expect(traces).toHaveLength(1);
+    expect(traces[0].responseToolCalls).toEqual([
+      { id: "call_1", name: "search", input: { q: "hi" } },
+    ]);
+  });
+
+  it("does not corrupt a live SSE stream when the trace sink throws/rejects mid-stream", async () => {
+    // The streaming tap fires captureTrace from INSIDE the generator at the `finish`
+    // part, before the finish/usage/[DONE] frames. A throwing OR rejecting sink must
+    // not break the committed stream (spec §6/§8 — the load-bearing isolation seam).
+    const hostileSink: TraceSink = {
+      record: () => {
+        throw new Error("trace sink exploded");
+      },
+    };
+
+    const res = await chat({
+      model: textStream("Hello there"),
+      traceSink: hostileSink,
+      stream: true,
+      env: captureEnv,
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+    const text = await res.text();
+
+    const frames = text
+      .split("\n\n")
+      .filter((f) => f.startsWith("data: ") && !f.includes("[DONE]"))
+      .map(
+        (f) =>
+          JSON.parse(f.slice("data: ".length)) as {
+            choices?: { delta?: { content?: string } }[];
+            usage?: { prompt_tokens: number };
+          }
+      );
+    const content = frames
+      .map((f) => f.choices?.[0]?.delta?.content)
+      .filter(Boolean)
+      .join("");
+    expect(content).toBe("Hello there");
+    expect(frames.some((f) => f.usage)).toBe(true);
+    expect(text).toContain("[DONE]");
+  });
+
+  it("does not fabricate a trace finish reason — client wire coerces, trace stays raw", async () => {
+    // End-to-end guard for the coerce-vs-raw split. NB: MockLanguageModelV3 (ai@6) does
+    // NOT surface a finish reason to result.finishReason — it is `undefined` regardless
+    // of the mock's doGenerate value (verified) — so `undefined` IS the raw value here.
+    // The point: the client SSE/JSON coerces it to "stop" (OpenAI wire), while the trace
+    // stores the raw `undefined` rather than a fabricated "stop". Verbatim preservation
+    // of explicit non-success reasons ("error"/"other") — which this mock
+    // cannot drive — is covered with controlled inputs in trace/sink.test.ts.
+    const { sink, traces } = capturingTraceSink();
+    const res = await chat({ model: textGen("Hello there"), traceSink: sink, env: captureEnv });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { choices: { finish_reason: string }[] };
+    expect(body.choices[0].finish_reason).toBe("stop"); // client wire format: coerced
+    expect(traces).toHaveLength(1);
+    expect(traces[0].finishReason).toBeUndefined(); // trace: raw, not fabricated
   });
 });

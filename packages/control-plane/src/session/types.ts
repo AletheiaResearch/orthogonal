@@ -111,6 +111,11 @@ export interface SandboxRow {
   tunnel_urls: string | null; // JSON mapping of port -> tunnel URL
   ttyd_url: string | null;
   ttyd_token: string | null;
+  // Whether the image this sandbox boots from bakes the Terminus gateway plugin.
+  // 1 = capable (fresh base spawn); 0/NULL = not capable (legacy snapshot or repo
+  // image). Gates whether the gateway token is minted so raw `llm_secrets` are
+  // never dropped into a plugin-less image (CON-72).
+  runtime_gateway_capable: number | null;
   created_at: number;
 }
 

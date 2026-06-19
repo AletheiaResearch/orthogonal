@@ -28,6 +28,7 @@ import websockets
 from websockets import ClientConnection, State
 from websockets.exceptions import InvalidStatus
 
+from .constants import GATEWAY_ACTIVE_ENV, GATEWAY_PROVIDER_ID
 from .log_config import configure_logging, get_logger
 from .types import GitUser
 
@@ -832,6 +833,15 @@ class AgentBridge:
                 provider_id, model_id = model.split("/", 1)
             else:
                 provider_id, model_id = "anthropic", model
+
+            # A caller may hand us an already gateway-prefixed model
+            # ("gateway/<provider>/<model>"). Unwrap it to the real provider so the
+            # reasoning-options branch below keys off "anthropic"/"openai" rather than
+            # "gateway" (otherwise the options are silently dropped). The re-key guard
+            # at the end restores the "gateway" prefix when the gateway is active.
+            if provider_id == GATEWAY_PROVIDER_ID and "/" in model_id:
+                provider_id, model_id = model_id.split("/", 1)
+
             model_spec: dict[str, Any] = {
                 "providerID": provider_id,
                 "modelID": model_id,
@@ -857,6 +867,21 @@ class AgentBridge:
                         "reasoningEffort": reasoning_effort,
                         "reasoningSummary": "auto",
                     }
+
+            # Route per-prompt model overrides through the gateway provider when the
+            # gateway is live. The entrypoint sets GATEWAY_ACTIVE once it deploys
+            # gateway-plugin.js and re-keys the OpenCode default to
+            # "gateway/<provider>/<model>"; this applies the same re-key to the
+            # explicit per-prompt model. The gateway registers models keyed
+            # "<provider>/<model>", so providerID=gateway + that modelID makes
+            # OpenCode emit body.model == "<provider>/<model>" — exactly what Terminus
+            # expects. Without it, an explicit per-prompt model selects the bare
+            # provider, which has no raw key in gateway mode → the prompt bypasses or
+            # fails (CON-75). Reasoning options above stay computed from the original
+            # provider; whether the gateway forwards them upstream is a live-verify gap.
+            if os.environ.get(GATEWAY_ACTIVE_ENV) and provider_id != GATEWAY_PROVIDER_ID:
+                model_spec["modelID"] = f"{provider_id}/{model_id}"
+                model_spec["providerID"] = GATEWAY_PROVIDER_ID
 
             request_body["model"] = model_spec
 

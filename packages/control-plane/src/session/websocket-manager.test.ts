@@ -170,6 +170,7 @@ function createSandboxRow(modalSandboxId: string): SandboxRow {
     tunnel_urls: null,
     ttyd_url: null,
     ttyd_token: null,
+    runtime_gateway_capable: null,
     created_at: Date.now(),
   };
 }
