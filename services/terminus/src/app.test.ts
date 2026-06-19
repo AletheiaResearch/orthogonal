@@ -794,9 +794,11 @@ describe("terminus admin — mint-token (CON-77)", () => {
     expect((await mint({ sid: "sess_1" }, { auth: "nope" })).status).toBe(401);
   });
 
-  it("rejects a body missing sid with 400", async () => {
+  it("rejects a body with a missing or empty sid with 400", async () => {
     expect((await mint({})).status).toBe(400);
     expect((await mint({ tenant: "acme" })).status).toBe(400);
+    // `sid: ""` is a string but not a usable session id — reject it too.
+    expect((await mint({ sid: "" })).status).toBe(400);
   });
 
   it("rejects mistyped fields with 400 (no token minted)", async () => {
@@ -807,6 +809,8 @@ describe("terminus admin — mint-token (CON-77)", () => {
     expect((await mint({ sid: "s", ttlSeconds: "60" })).status).toBe(400);
     expect((await mint({ sid: "s", ttlSeconds: 0 })).status).toBe(400);
     expect((await mint({ sid: "s", ttlSeconds: -5 })).status).toBe(400);
+    // Past 2^53 — an integer JS can't represent precisely, so reject it.
+    expect((await mint({ sid: "s", ttlSeconds: Number.MAX_SAFE_INTEGER + 1 })).status).toBe(400);
   });
 
   it("rejects an invalid JSON body with 400", async () => {

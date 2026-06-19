@@ -104,8 +104,13 @@ export function buildAdminApp(deps: AdminDeps = {}) {
 
     const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
     const sid = str(body?.sid);
+    // `str("")` returns "" (a string), so this also rejects an empty sid — the
+    // message covers both the missing and empty cases accurately.
     if (!body || !sid) {
-      return c.json({ error: { message: "sid (string) is required", type: "bad_request" } }, 400);
+      return c.json(
+        { error: { message: "sid must be a non-empty string", type: "bad_request" } },
+        400
+      );
     }
     // Reject present-but-mistyped optional fields instead of silently dropping them.
     if (body.tenant !== undefined && body.tenant !== null && typeof body.tenant !== "string") {
@@ -120,10 +125,12 @@ export function buildAdminApp(deps: AdminDeps = {}) {
         400
       );
     }
+    // isSafeInteger (not isInteger): reject numbers past 2^53 that would round to
+    // an imprecise `exp`. No upper TTL cap — that's a product decision, deferred.
     if (
       body.ttlSeconds !== undefined &&
       (typeof body.ttlSeconds !== "number" ||
-        !Number.isInteger(body.ttlSeconds) ||
+        !Number.isSafeInteger(body.ttlSeconds) ||
         body.ttlSeconds <= 0)
     ) {
       return c.json(
@@ -137,18 +144,27 @@ export function buildAdminApp(deps: AdminDeps = {}) {
     // epoch seconds (RFC 7519 NumericDate), matching the minter — with no clock drift.
     const iat = Math.floor(Date.now() / 1000);
     const expiresAt = iat + ttlSeconds;
-    const token = await mintGatewayToken(
-      {
-        sid,
-        // null = single-tenant rollout (mirrors the claims default).
-        tenant: (body.tenant as string | null | undefined) ?? null,
-        // [] = unrestricted (matches the current rollout).
-        allowed_models: isStringArray(body.allowed_models) ? body.allowed_models : [],
-      },
-      secret,
-      { ttlSeconds, now: iat }
-    );
-    return c.json({ token, expiresAt });
+    try {
+      const token = await mintGatewayToken(
+        {
+          sid,
+          // null = single-tenant rollout (mirrors the claims default).
+          tenant: (body.tenant as string | null | undefined) ?? null,
+          // [] = unrestricted (matches the current rollout).
+          allowed_models: isStringArray(body.allowed_models) ? body.allowed_models : [],
+        },
+        secret,
+        { ttlSeconds, now: iat }
+      );
+      return c.json({ token, expiresAt });
+    } catch {
+      // A WebCrypto failure (importKey/sign) shouldn't leak Hono's default error
+      // shape — return the same envelope as the rest of /admin.
+      return c.json(
+        { error: { message: "failed to mint gateway token", type: "internal_error" } },
+        500
+      );
+    }
   });
 
   app.post("/credentials", async (c) => {
