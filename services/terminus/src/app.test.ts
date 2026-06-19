@@ -1,4 +1,8 @@
-import { mintGatewayToken } from "@open-inspect/shared";
+import {
+  DEFAULT_GATEWAY_TOKEN_TTL_SECONDS,
+  mintGatewayToken,
+  verifyGatewayToken,
+} from "@open-inspect/shared";
 import { APICallError } from "ai";
 import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
 import { describe, expect, it } from "vitest";
@@ -742,6 +746,133 @@ describe("terminus chat — guardrail policy (CON-71 L2)", () => {
       chat: { buildModel: () => okModel() },
     });
     expect(res.status).toBe(503);
+  });
+});
+
+describe("terminus admin — mint-token (CON-77)", () => {
+  const ADMIN = "admin-secret-please-rotate";
+  // Standalone-deploy env: the gateway secret to sign with + the admin bearer to gate on.
+  const adminEnv = {
+    TERMINUS_JWT_SECRET: SECRET,
+    TERMINUS_ADMIN_SECRET: ADMIN,
+  } as unknown as Env;
+
+  async function mint(
+    body: unknown,
+    init: { auth?: string; raw?: string } = {}
+  ): Promise<Response> {
+    const { auth = ADMIN, raw } = init;
+    return app().request(
+      "/admin/mint-token",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${auth}`, "content-type": "application/json" },
+        body: raw ?? JSON.stringify(body),
+      },
+      adminEnv
+    );
+  }
+
+  it("mints a token that round-trips through verifyGatewayToken with the requested claims", async () => {
+    const res = await mint({
+      sid: "sess_42",
+      tenant: "acme",
+      allowed_models: ["anthropic/claude-opus-4-5"],
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token: string; expiresAt: number };
+    expect(typeof body.token).toBe("string");
+    expect(typeof body.expiresAt).toBe("number");
+
+    const verified = await verifyGatewayToken(body.token, SECRET);
+    expect(verified.valid).toBe(true);
+    if (!verified.valid) throw new Error("unreachable");
+    expect(verified.claims.sid).toBe("sess_42");
+    expect(verified.claims.tenant).toBe("acme");
+    expect(verified.claims.allowed_models).toEqual(["anthropic/claude-opus-4-5"]);
+    // expiresAt is the token's exp claim (epoch seconds, NumericDate).
+    expect(body.expiresAt).toBe(verified.claims.exp);
+  });
+
+  it("defaults tenant to null and allowed_models to [] when omitted", async () => {
+    const res = await mint({ sid: "sess_1" });
+    expect(res.status).toBe(200);
+    const { token: minted } = (await res.json()) as { token: string };
+    const verified = await verifyGatewayToken(minted, SECRET);
+    if (!verified.valid) throw new Error("expected a valid token");
+    expect(verified.claims.tenant).toBeNull();
+    expect(verified.claims.allowed_models).toEqual([]);
+  });
+
+  it("honors a custom ttlSeconds", async () => {
+    const res = await mint({ sid: "sess_1", ttlSeconds: 60 });
+    expect(res.status).toBe(200);
+    const { token: minted, expiresAt } = (await res.json()) as {
+      token: string;
+      expiresAt: number;
+    };
+    const verified = await verifyGatewayToken(minted, SECRET);
+    if (!verified.valid) throw new Error("expected a valid token");
+    expect(verified.claims.exp - verified.claims.iat).toBe(60);
+    expect(expiresAt).toBe(verified.claims.exp);
+  });
+
+  it("defaults the TTL to DEFAULT_GATEWAY_TOKEN_TTL_SECONDS when ttlSeconds is omitted", async () => {
+    const res = await mint({ sid: "sess_1" });
+    const { token: minted } = (await res.json()) as { token: string };
+    const verified = await verifyGatewayToken(minted, SECRET);
+    if (!verified.valid) throw new Error("expected a valid token");
+    expect(verified.claims.exp - verified.claims.iat).toBe(DEFAULT_GATEWAY_TOKEN_TTL_SECONDS);
+  });
+
+  it("rejects a missing or wrong admin bearer with 401", async () => {
+    const noAuth = await app().request(
+      "/admin/mint-token",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sid: "sess_1" }),
+      },
+      adminEnv
+    );
+    expect(noAuth.status).toBe(401);
+    expect((await mint({ sid: "sess_1" }, { auth: "nope" })).status).toBe(401);
+  });
+
+  it("rejects a body with a missing or empty sid with 400", async () => {
+    expect((await mint({})).status).toBe(400);
+    expect((await mint({ tenant: "acme" })).status).toBe(400);
+    // `sid: ""` is a string but not a usable session id — reject it too.
+    expect((await mint({ sid: "" })).status).toBe(400);
+  });
+
+  it("rejects mistyped fields with 400 (no token minted)", async () => {
+    expect((await mint({ sid: 7 })).status).toBe(400);
+    expect((await mint({ sid: "s", tenant: 7 })).status).toBe(400);
+    expect((await mint({ sid: "s", allowed_models: "anthropic/x" })).status).toBe(400);
+    expect((await mint({ sid: "s", allowed_models: [1, 2] })).status).toBe(400);
+    expect((await mint({ sid: "s", ttlSeconds: "60" })).status).toBe(400);
+    expect((await mint({ sid: "s", ttlSeconds: 0 })).status).toBe(400);
+    expect((await mint({ sid: "s", ttlSeconds: -5 })).status).toBe(400);
+    // Past 2^53 — an integer JS can't represent precisely, so reject it.
+    expect((await mint({ sid: "s", ttlSeconds: Number.MAX_SAFE_INTEGER + 1 })).status).toBe(400);
+  });
+
+  it("rejects an invalid JSON body with 400", async () => {
+    expect((await mint(null, { raw: "not json" })).status).toBe(400);
+  });
+
+  it("returns 500 when TERMINUS_JWT_SECRET is unset (cannot sign)", async () => {
+    const res = await app().request(
+      "/admin/mint-token",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${ADMIN}`, "content-type": "application/json" },
+        body: JSON.stringify({ sid: "sess_1" }),
+      },
+      { TERMINUS_ADMIN_SECRET: ADMIN } as unknown as Env
+    );
+    expect(res.status).toBe(500);
   });
 });
 
