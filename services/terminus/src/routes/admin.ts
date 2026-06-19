@@ -7,7 +7,12 @@
  * compare, fail-closed), distinct from the sandbox gateway token. Per-tenant
  * ingestion arrives with multi-tenancy; v1 manages platform credentials only.
  * Secrets are never returned (only `PublicCredentialRow` metadata).
+ *
+ * The mint-token route (CON-77) lets a **standalone** Terminus deploy (no control
+ * plane to broker per-sandbox tokens) issue gateway tokens via API, gated by the
+ * same admin bearer. The minted token is never logged.
  */
+import { DEFAULT_GATEWAY_TOKEN_TTL_SECONDS, mintGatewayToken } from "@open-inspect/shared";
 import { drizzle } from "drizzle-orm/d1";
 import { Hono } from "hono";
 
@@ -56,6 +61,8 @@ const num = (v: unknown): number | undefined => (typeof v === "number" ? v : und
 const bool = (v: unknown): boolean | undefined => (typeof v === "boolean" ? v : undefined);
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
+const isStringArray = (v: unknown): v is string[] =>
+  Array.isArray(v) && v.every((m) => typeof m === "string");
 
 /** Walk the message + `cause` chain — Drizzle wraps the D1 error, so the SQLite text is in `cause`. */
 function errorChainText(err: unknown): string {
@@ -81,6 +88,67 @@ export function buildAdminApp(deps: AdminDeps = {}) {
       return c.json({ error: { message: "unauthorized", type: "unauthorized" } }, 401);
     }
     await next();
+  });
+
+  // CON-77 — mint a gateway token for a standalone deploy (no control plane to
+  // broker per-sandbox tokens). Same admin bearer as the rest of /admin. The
+  // minted token is never logged.
+  app.post("/mint-token", async (c) => {
+    const secret = c.env.TERMINUS_JWT_SECRET;
+    if (!secret) {
+      return c.json(
+        { error: { message: "gateway token secret not configured", type: "internal_error" } },
+        500
+      );
+    }
+
+    const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
+    const sid = str(body?.sid);
+    if (!body || !sid) {
+      return c.json({ error: { message: "sid (string) is required", type: "bad_request" } }, 400);
+    }
+    // Reject present-but-mistyped optional fields instead of silently dropping them.
+    if (body.tenant !== undefined && body.tenant !== null && typeof body.tenant !== "string") {
+      return c.json(
+        { error: { message: "tenant must be a string or null when present", type: "bad_request" } },
+        400
+      );
+    }
+    if (body.allowed_models !== undefined && !isStringArray(body.allowed_models)) {
+      return c.json(
+        { error: { message: "allowed_models must be a string array", type: "bad_request" } },
+        400
+      );
+    }
+    if (
+      body.ttlSeconds !== undefined &&
+      (typeof body.ttlSeconds !== "number" ||
+        !Number.isInteger(body.ttlSeconds) ||
+        body.ttlSeconds <= 0)
+    ) {
+      return c.json(
+        { error: { message: "ttlSeconds must be a positive integer", type: "bad_request" } },
+        400
+      );
+    }
+
+    const ttlSeconds = num(body.ttlSeconds) ?? DEFAULT_GATEWAY_TOKEN_TTL_SECONDS;
+    // Pin `now` so the response's expiresAt is exactly the token's `exp` claim —
+    // epoch seconds (RFC 7519 NumericDate), matching the minter — with no clock drift.
+    const iat = Math.floor(Date.now() / 1000);
+    const expiresAt = iat + ttlSeconds;
+    const token = await mintGatewayToken(
+      {
+        sid,
+        // null = single-tenant rollout (mirrors the claims default).
+        tenant: (body.tenant as string | null | undefined) ?? null,
+        // [] = unrestricted (matches the current rollout).
+        allowed_models: isStringArray(body.allowed_models) ? body.allowed_models : [],
+      },
+      secret,
+      { ttlSeconds, now: iat }
+    );
+    return c.json({ token, expiresAt });
   });
 
   app.post("/credentials", async (c) => {
