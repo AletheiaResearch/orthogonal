@@ -37,7 +37,7 @@ import {
   buildLanguageModel,
   codexProviderOptions,
 } from "../providers/router";
-import type { TraceRecord, TraceSink } from "../trace/sink";
+import { type TraceSink, toTraceRecord } from "../trace/sink";
 import { computeCostUsd } from "../usage/pricing";
 import type { UsageRecord, UsageSink } from "../usage/sink";
 import { asReadable, peekStream } from "./stream-fallback";
@@ -214,20 +214,13 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
     const captureTrace = (parts: CompletionParts): void => {
       if (!deps.traceSink) return;
       try {
-        const trace: TraceRecord = {
-          usage: usageRecord(claims, body.model, parts.usage, nowMs, ref.model.cost),
-          requestMessages: body.messages,
-          responseText: parts.content,
-          responseToolCalls: parts.toolCalls.map((tc) => ({
-            id: tc.toolCallId,
-            name: tc.toolName,
-            input: tc.input,
-          })),
-          // Store the raw SDK finish reason (not the OpenAI-coerced one): a `finish`
-          // with "error"/"other"/"unknown" is captured here, and a downstream consumer
-          // (CON-43) must be able to tell it apart from a clean "stop".
-          finishReason: parts.finishReason,
-        };
+        // toTraceRecord does the content mapping (tool-call rename + verbatim, NON-coerced
+        // finish reason) — pure + unit-tested in trace/sink.test.ts.
+        const trace = toTraceRecord(
+          usageRecord(claims, body.model, parts.usage, nowMs, ref.model.cost),
+          body.messages,
+          parts
+        );
         const write = deps.traceSink.record(trace).catch((e) => {
           console.error(
             JSON.stringify({

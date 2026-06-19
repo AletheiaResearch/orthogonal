@@ -1028,12 +1028,14 @@ describe("terminus chat — trace content-capture (CON-61)", () => {
     expect(text).toContain("[DONE]");
   });
 
-  it("does not fabricate a trace finish reason — preserves the raw SDK reason, not a coerced 'stop'", async () => {
-    // mapFinishReason coerces missing/non-success reasons ("error"/"other"/"unknown"/
-    // absent) to "stop" for the OpenAI WIRE format, but the trace must preserve the RAW
-    // reason so a downstream consumer (CON-43) can tell a real success from one. This
-    // SDK mock reports no finish reason, so the trace stores `undefined` — NOT a
-    // fabricated "stop" (pre-fix it was coerced). The client SSE still receives "stop".
+  it("does not fabricate a trace finish reason — client wire coerces, trace stays raw", async () => {
+    // End-to-end guard for the coerce-vs-raw split. NB: MockLanguageModelV3 (ai@6) does
+    // NOT surface a finish reason to result.finishReason — it is `undefined` regardless
+    // of the mock's doGenerate value (verified) — so `undefined` IS the raw value here.
+    // The point: the client SSE/JSON coerces it to "stop" (OpenAI wire), while the trace
+    // stores the raw `undefined` rather than a fabricated "stop". Verbatim preservation
+    // of explicit non-success reasons ("error"/"other") — which this mock
+    // cannot drive — is covered with controlled inputs in trace/sink.test.ts.
     const { sink, traces } = capturingTraceSink();
     const res = await chat({ model: textGen("Hello there"), traceSink: sink, env: captureEnv });
 

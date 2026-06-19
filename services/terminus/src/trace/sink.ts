@@ -17,7 +17,7 @@
  */
 import type { FinishReason } from "ai";
 
-import type { OpenAIChatMessage } from "../openai/protocol";
+import type { CompletionParts, OpenAIChatMessage } from "../openai/protocol";
 import type { UsageRecord } from "../usage/sink";
 
 export interface TraceToolCall {
@@ -39,7 +39,7 @@ export interface TraceRecord {
   /**
    * Raw AI SDK finish reason, preserved verbatim (NOT coerced to the OpenAI wire enum).
    * Capture fires on the `finish` part, which can carry a non-success reason
-   * (`"error"` / `"other"` / `"unknown"`); storing it raw lets a downstream consumer
+   * (`"error"` / `"other"`, or be absent); storing it raw lets a downstream consumer
    * (CON-43) distinguish those from a clean `"stop"`. The seam neither gates nor coerces.
    */
   finishReason: FinishReason | undefined;
@@ -47,6 +47,33 @@ export interface TraceRecord {
 
 export interface TraceSink {
   record(trace: TraceRecord): Promise<void>;
+}
+
+/**
+ * Build a `TraceRecord` from the pre-built usage record, the raw request messages, and
+ * the completion content both response paths produce (`CompletionParts`). Pure: the
+ * ONLY content mapping the seam performs — the `{ toolCallId, toolName }` → `{ id, name }`
+ * tool-call rename, and **verbatim** finish-reason preservation (NOT coerced to the
+ * OpenAI wire enum, so a non-success `"error"`/`"other"` or absent reason stays
+ * distinguishable downstream). Kept out of the chat route so it is unit-testable with
+ * controlled inputs the SDK test mock cannot drive (e.g. a specific finish reason).
+ */
+export function toTraceRecord(
+  usage: UsageRecord,
+  requestMessages: OpenAIChatMessage[],
+  parts: Pick<CompletionParts, "content" | "toolCalls" | "finishReason">
+): TraceRecord {
+  return {
+    usage,
+    requestMessages,
+    responseText: parts.content,
+    responseToolCalls: parts.toolCalls.map((tc) => ({
+      id: tc.toolCallId,
+      name: tc.toolName,
+      input: tc.input,
+    })),
+    finishReason: parts.finishReason,
+  };
 }
 
 /**

@@ -90,7 +90,7 @@ export interface TraceRecord {
   /**
    * Raw AI SDK finish reason, preserved verbatim — NOT coerced to the OpenAI wire enum.
    * Capture fires on the `finish` part, which can carry a non-success reason
-   * (`"error"`/`"other"`/`"unknown"`/absent); storing it raw lets a downstream consumer
+   * (`"error"`/`"other"`, or absent); storing it raw lets a downstream consumer
    * (CON-43) tell those from a clean `"stop"`. The seam neither gates nor coerces; the
    * client SSE/JSON still maps the reason to the OpenAI enum independently.
    */
@@ -235,7 +235,7 @@ export async function* toOpenAIChatStream(
   thrown `GatewayError`) never reach `captureTrace` → **no trace**. Captured ⇒ the generation
   reached a `finish` (the client got a committed response).
 - **Finish reason is raw, not gated/coerced.** A `finish` can still carry a non-success reason
-  (`"error"`/`"other"`/`"unknown"`/absent); the seam captures it and stores `parts.finishReason`
+  (`"error"`/`"other"`, or absent); the seam captures it and stores `parts.finishReason`
   **verbatim** (the client wire format maps it to the OpenAI enum independently). The seam does not
   decide what counts as "success" — it preserves the signal so CON-43's consumer can filter. (Per
   Codex review — coercing here would record a failed completion as a clean `"stop"`, uncorrectable
