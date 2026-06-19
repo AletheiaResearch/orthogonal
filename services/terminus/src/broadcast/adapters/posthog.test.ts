@@ -265,12 +265,14 @@ describe("PosthogDestination", () => {
       expect(calls).toHaveLength(1);
       expect(calls[0].url).toBe("https://us.i.posthog.com/i/v0/e/");
       expect(calls[0].method).toBe("POST");
+      // The probe must NOT use $ai_generation — that would pollute LLM analytics.
       expect(calls[0].body).toEqual({
         api_key: "phc_k",
-        event: "$ai_generation",
-        distinct_id: "terminus-test",
-        properties: {},
+        event: "terminus_connection_test",
+        distinct_id: "terminus-connection-test",
+        properties: { terminus_test: true },
       });
+      expect(calls[0].body.event).not.toBe("$ai_generation");
     });
 
     it("returns ok:false with the status on a non-2xx response (never throws)", async () => {

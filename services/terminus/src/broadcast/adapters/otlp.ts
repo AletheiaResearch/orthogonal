@@ -88,8 +88,11 @@ interface ExportTraceServiceRequest {
  * already targets `/v1/traces`, otherwise strip a single trailing slash and append.
  */
 function normalizeEndpoint(endpoint: string): string {
-  if (endpoint.endsWith("/v1/traces")) return endpoint;
-  return `${endpoint.replace(/\/$/, "")}/v1/traces`;
+  // Strip ALL trailing slashes first, so a `…/v1/traces/` endpoint isn't double-pathed
+  // into `…/v1/traces/v1/traces`.
+  const base = endpoint.replace(/\/+$/, "");
+  if (base.endsWith("/v1/traces")) return base;
+  return `${base}/v1/traces`;
 }
 
 /** 8 random bytes → 16 lowercase-hex chars (OTLP span id). */

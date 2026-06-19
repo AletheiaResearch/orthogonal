@@ -19,6 +19,13 @@ const DEFAULT_POSTHOG_HOST = "https://us.i.posthog.com";
 /** PostHog's `$ai_generation` event — the LLM-analytics event PostHog expects. */
 const AI_GENERATION_EVENT = "$ai_generation";
 
+/**
+ * The admin test-connection probe event. Deliberately NOT `$ai_generation` (and not a
+ * `$ai_*` name at all), so a connection check never pollutes the project's LLM-analytics
+ * aggregates/funnels with a synthetic generation.
+ */
+const CONNECTION_TEST_EVENT = "terminus_connection_test";
+
 export interface PosthogConfig {
   /** Stable destination id (the D1 row id) — also the sampling salt. */
   id: string;
@@ -105,9 +112,9 @@ export class PosthogDestination implements BroadcastDestination {
     if (!safe.ok) return { ok: false, error: safe.reason };
     const body = {
       api_key: this.projectApiKey,
-      event: AI_GENERATION_EVENT,
-      distinct_id: "terminus-test",
-      properties: {},
+      event: CONNECTION_TEST_EVENT,
+      distinct_id: "terminus-connection-test",
+      properties: { terminus_test: true },
     };
     try {
       const res = await this.fetchImpl(this.captureUrl, {

@@ -59,7 +59,8 @@ export function checkDestinationUrl(raw: string): UrlCheck {
 function isBlockedIpv4(host: string): boolean {
   const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
   if (!m) return false;
-  const [a, b] = [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])];
+  const a = Number(m[1]);
+  const b = Number(m[2]);
   // A malformed/out-of-range literal is treated as unsafe (fail closed).
   if ([m[1], m[2], m[3], m[4]].some((o) => Number(o) > 255)) return true;
   if (a === 0) return true; // 0.0.0.0/8 (unspecified)

@@ -191,4 +191,73 @@ describe("admin broadcast destinations API (CON-73)", () => {
     expect(res.status).toBe(400);
     expect(await db.select().from(broadcastDestinations)).toEqual([]);
   });
+
+  it("rejects a PostHog destination created without a project key (400, no write)", async () => {
+    const res = await req("/destinations", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "posthog",
+        config: { host: "https://us.i.posthog.com" },
+        secret: {},
+      }),
+    });
+    expect(res.status).toBe(400);
+    expect(await db.select().from(broadcastDestinations)).toEqual([]);
+  });
+
+  it("PATCH updates samplingRate + rotates the secret (encrypted, never listed)", async () => {
+    const create = await req("/destinations", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "posthog",
+        config: { host: "https://us.i.posthog.com" },
+        secret: { projectApiKey: "phc_old" },
+      }),
+    });
+    const { id } = (await create.json()) as { id: string };
+
+    const patch = await req(`/destinations/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ samplingRate: 0.2, secret: { projectApiKey: "phc_new" } }),
+    });
+    expect(patch.status).toBe(204);
+
+    const list = await req("/destinations");
+    const body = (await list.json()) as { destinations: { samplingRate: number }[] };
+    expect(body.destinations[0].samplingRate).toBe(0.2);
+    expect(JSON.stringify(body)).not.toContain("phc_new");
+    const [rotated] = await db.select().from(broadcastDestinations);
+    expect(rotated.secretEncrypted).not.toContain("phc_new");
+  });
+
+  it("PATCH rejects an unsafe URL in the updated config (400)", async () => {
+    const create = await req("/destinations", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "webhook",
+        config: { url: "https://hooks.example.com/x" },
+        secret: {},
+      }),
+    });
+    const { id } = (await create.json()) as { id: string };
+    const patch = await req(`/destinations/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ config: { url: "https://10.0.0.1/x" } }),
+    });
+    expect(patch.status).toBe(400);
+  });
+
+  it("PATCH rejects an empty patch (400)", async () => {
+    const create = await req("/destinations", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "webhook",
+        config: { url: "https://hooks.example.com/x" },
+        secret: {},
+      }),
+    });
+    const { id } = (await create.json()) as { id: string };
+    const patch = await req(`/destinations/${id}`, { method: "PATCH", body: JSON.stringify({}) });
+    expect(patch.status).toBe(400);
+  });
 });

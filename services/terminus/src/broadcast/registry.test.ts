@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import type { BroadcastDestinationRow } from "../db/schema";
 import { OtlpDestination } from "./adapters/otlp";
 import { PosthogDestination } from "./adapters/posthog";
 import { WebhookDestination } from "./adapters/webhook";
 import type { EmissionRecord } from "./record";
-import { buildDestination } from "./registry";
+import { buildDestination, resolveEnabled } from "./registry";
 import type { ResolvedDestinationRow } from "./store";
 
 function row(over: Partial<ResolvedDestinationRow>): ResolvedDestinationRow {
@@ -127,5 +128,49 @@ describe("buildDestination", () => {
       row({ type: "webhook", samplingRate: 0.25, config: { url: "https://hooks.example.com/x" } })
     );
     expect(d?.samplingRate).toBe(0.25);
+  });
+});
+
+describe("resolveEnabled", () => {
+  function rawRow(id: string): BroadcastDestinationRow {
+    return {
+      id,
+      ownerType: "platform",
+      ownerId: "",
+      type: "posthog",
+      enabled: true,
+      samplingRate: 1,
+      config: "{}",
+      secretEncrypted: "ciphertext",
+      label: "default",
+      createdAt: 0,
+      updatedAt: 0,
+    };
+  }
+
+  const goodResolved = (id: string): ResolvedDestinationRow => ({
+    id,
+    type: "posthog",
+    label: "default",
+    enabled: true,
+    samplingRate: 1,
+    config: {},
+    secret: { projectApiKey: "phc_x" },
+  });
+
+  it("skips a row whose decryption throws and keeps the healthy ones", async () => {
+    const decryptRow = (r: BroadcastDestinationRow) =>
+      r.id === "bad"
+        ? Promise.reject(new Error("key mismatch"))
+        : Promise.resolve(goodResolved(r.id));
+    const dests = await resolveEnabled([rawRow("a"), rawRow("bad"), rawRow("c")], decryptRow);
+    expect(dests.map((d) => d.id).sort()).toEqual(["a", "c"]);
+  });
+
+  it("skips a row that maps to an unknown type without throwing", async () => {
+    const decryptRow = (r: BroadcastDestinationRow) =>
+      Promise.resolve({ ...goodResolved(r.id), type: "mystery" });
+    const dests = await resolveEnabled([rawRow("a")], decryptRow);
+    expect(dests).toEqual([]);
   });
 });

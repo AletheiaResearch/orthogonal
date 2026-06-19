@@ -13,7 +13,11 @@ import { decryptSecret, encryptSecret } from "@open-inspect/shared";
 import { and, eq } from "drizzle-orm";
 import type { DrizzleD1Database } from "drizzle-orm/d1";
 
-import { type BroadcastDestinationRow, broadcastDestinations } from "../db/schema";
+import {
+  type BroadcastDestinationRow,
+  type NewBroadcastDestinationRow,
+  broadcastDestinations,
+} from "../db/schema";
 import { type CredentialOwner, PLATFORM_OWNER } from "../db/vault";
 
 /** Owner-visible destination metadata for the admin API — never includes the secret. */
@@ -169,9 +173,33 @@ export class DestinationStore {
     enabled: boolean,
     owner: CredentialOwner = PLATFORM_OWNER
   ): Promise<boolean> {
+    return this.update(id, { enabled }, owner);
+  }
+
+  /**
+   * Patch a destination's mutable fields (owner-scoped) — any subset of `enabled`,
+   * `samplingRate`, non-secret `config`, and the encrypted `secret` (re-credentialling).
+   * Only the provided fields change; `secret` is re-encrypted. Returns whether a row matched.
+   */
+  async update(
+    id: string,
+    fields: { config?: unknown; secret?: unknown; samplingRate?: number; enabled?: boolean },
+    owner: CredentialOwner = PLATFORM_OWNER
+  ): Promise<boolean> {
+    const set: Partial<NewBroadcastDestinationRow> = { updatedAt: this.now() };
+    if (fields.enabled !== undefined) set.enabled = fields.enabled;
+    if (fields.samplingRate !== undefined) set.samplingRate = fields.samplingRate;
+    if (fields.config !== undefined) set.config = JSON.stringify(fields.config);
+    if (fields.secret !== undefined) {
+      set.secretEncrypted = await encryptSecret(
+        JSON.stringify(fields.secret),
+        this.encryptionKey,
+        ownerAad(owner)
+      );
+    }
     const updated = await this.db
       .update(broadcastDestinations)
-      .set({ enabled, updatedAt: this.now() })
+      .set(set)
       .where(
         and(
           eq(broadcastDestinations.id, id),

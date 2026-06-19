@@ -397,6 +397,19 @@ export function buildAdminApp(deps: AdminDeps = {}) {
         );
       }
     }
+    // Per-type required auth: a PostHog destination needs a project key in `secret`, or it
+    // would be persisted-but-inert (the registry skips it as misconfigured at resolve time).
+    if (type === "posthog" && !str((body.secret as Record<string, unknown>).projectApiKey)) {
+      return c.json(
+        {
+          error: {
+            message: "posthog destinations require secret.projectApiKey (string)",
+            type: "bad_request",
+          },
+        },
+        400
+      );
+    }
     try {
       const { id } = await buildDestinationStore(c.env).create({
         type,
@@ -430,16 +443,93 @@ export function buildAdminApp(deps: AdminDeps = {}) {
     return c.json({ destinations: await buildDestinationStore(c.env).listForOwner() });
   });
 
+  // Patch any subset of {enabled, samplingRate, config, secret} — including re-credentialling
+  // (rotate the `secret`) and re-pointing (`config.url`/`endpoint`/`host`), without a new id.
   app.patch("/destinations/:id", async (c) => {
     const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
-    const enabled = bool(body?.enabled);
-    if (enabled === undefined) {
+    if (!body) {
+      return c.json({ error: { message: "request body is required", type: "bad_request" } }, 400);
+    }
+    const fields: { config?: unknown; secret?: unknown; samplingRate?: number; enabled?: boolean } =
+      {};
+    if (body.enabled !== undefined) {
+      if (typeof body.enabled !== "boolean") {
+        return c.json(
+          { error: { message: "enabled must be a boolean", type: "bad_request" } },
+          400
+        );
+      }
+      fields.enabled = body.enabled;
+    }
+    if (body.samplingRate !== undefined) {
+      if (typeof body.samplingRate !== "number" || body.samplingRate < 0 || body.samplingRate > 1) {
+        return c.json(
+          { error: { message: "samplingRate must be a number in [0,1]", type: "bad_request" } },
+          400
+        );
+      }
+      fields.samplingRate = body.samplingRate;
+    }
+    if (body.config !== undefined) {
+      if (!isRecord(body.config)) {
+        return c.json({ error: { message: "config must be an object", type: "bad_request" } }, 400);
+      }
+      if ("headers" in body.config) {
+        return c.json(
+          {
+            error: {
+              message: "headers must be set in `secret.headers`, not plaintext `config`",
+              type: "bad_request",
+            },
+          },
+          400
+        );
+      }
+      if (configHasSecret(body.config)) {
+        return c.json(
+          {
+            error: {
+              message: "secret-looking fields must be set in `secret`, not plaintext `config`",
+              type: "bad_request",
+            },
+          },
+          400
+        );
+      }
+      // Re-run the SSRF guard on whichever URL field the new config carries (we don't read
+      // the row's type here — checking url/endpoint/host covers every destination type).
+      for (const field of ["url", "endpoint", "host"]) {
+        const url = str((body.config as Record<string, unknown>)[field]);
+        if (url !== undefined) {
+          const check = checkDestinationUrl(url);
+          if (!check.ok) {
+            return c.json(
+              { error: { message: `invalid ${field}: ${check.reason}`, type: "bad_request" } },
+              400
+            );
+          }
+        }
+      }
+      fields.config = body.config;
+    }
+    if (body.secret !== undefined) {
+      if (!isRecord(body.secret)) {
+        return c.json({ error: { message: "secret must be an object", type: "bad_request" } }, 400);
+      }
+      fields.secret = body.secret;
+    }
+    if (Object.keys(fields).length === 0) {
       return c.json(
-        { error: { message: "enabled (boolean) is required", type: "bad_request" } },
+        {
+          error: {
+            message: "at least one of enabled, samplingRate, config, secret is required",
+            type: "bad_request",
+          },
+        },
         400
       );
     }
-    const ok = await buildDestinationStore(c.env).setEnabled(c.req.param("id"), enabled);
+    const ok = await buildDestinationStore(c.env).update(c.req.param("id"), fields);
     return ok
       ? c.body(null, 204)
       : c.json({ error: { message: "not found", type: "not_found" } }, 404);

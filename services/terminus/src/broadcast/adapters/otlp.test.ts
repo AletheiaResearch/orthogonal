@@ -107,6 +107,16 @@ describe("OtlpDestination.send — URL normalization", () => {
     await d.send(record(), new AbortController().signal);
     expect(calls[0].url).toBe("https://collector.example.com/v1/traces");
   });
+
+  it("does not double-path a /v1/traces endpoint that has a trailing slash", async () => {
+    const { fetchImpl, calls } = recordingFetch();
+    const d = new OtlpDestination(
+      config({ endpoint: "https://collector.example.com/v1/traces/" }),
+      fetchImpl
+    );
+    await d.send(record(), new AbortController().signal);
+    expect(calls[0].url).toBe("https://collector.example.com/v1/traces");
+  });
 });
 
 describe("OtlpDestination.send — request envelope", () => {

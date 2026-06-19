@@ -97,6 +97,35 @@ export function buildDestination(
  * per call, off the response path) and map each to its adapter. A row that fails to
  * map is skipped, not fatal.
  */
+/**
+ * Resolve enabled rows to adapters, ISOLATING per-row failures: a row whose decryption
+ * throws (corrupted ciphertext, a rotated/mismatched key, bad AAD) or whose type/fields
+ * are invalid is skipped + logged, never aborting the others. Without this, a single bad
+ * row would reject the whole resolve and silence every healthy destination.
+ */
+export async function resolveEnabled(
+  rows: BroadcastDestinationRow[],
+  decryptRow: (row: BroadcastDestinationRow) => Promise<ResolvedDestinationRow>
+): Promise<BroadcastDestination[]> {
+  const built = await Promise.all(
+    rows.map(async (row) => {
+      try {
+        return buildDestination(await decryptRow(row));
+      } catch (e) {
+        console.error(
+          JSON.stringify({
+            event: "terminus.broadcast.resolve_row_error",
+            destinationId: row.id,
+            message: e instanceof Error ? e.message : String(e),
+          })
+        );
+        return null;
+      }
+    })
+  );
+  return built.filter((d): d is BroadcastDestination => d !== null);
+}
+
 /** Short per-isolate TTL for the enabled-rows cache (CON-73). */
 const ENABLED_ROWS_TTL_MS = 30_000;
 const enabledRowsCache = new Map<string, { atMs: number; rows: BroadcastDestinationRow[] }>();
@@ -117,10 +146,7 @@ export function buildBroadcastDispatcher(env: Env): BroadcastDispatcher {
         enabledRowsCache.set(key, entry);
       }
       if (entry.rows.length === 0) return [];
-      const resolved = await Promise.all(entry.rows.map((row) => store.decryptRow(row)));
-      return resolved
-        .map((row) => buildDestination(row))
-        .filter((d): d is BroadcastDestination => d !== null);
+      return resolveEnabled(entry.rows, (row) => store.decryptRow(row));
     },
   });
 }
