@@ -182,6 +182,11 @@ export const broadcastDestinations = sqliteTable(
       "broadcast_destinations_tenant_owner_id",
       sql`${table.ownerType} = 'platform' OR ${table.ownerId} <> ''`
     ),
+    // Sampling rate is a probability — clamp at the DB layer (the admin API also validates).
+    check(
+      "broadcast_destinations_sampling_rate",
+      sql`${table.samplingRate} >= 0 AND ${table.samplingRate} <= 1`
+    ),
   ]
 );
 

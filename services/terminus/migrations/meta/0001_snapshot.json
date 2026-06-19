@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3f7e5f48-8ee1-455d-b5eb-e1784036c2a2",
+  "id": "d3415f4a-5fb1-4c4a-920a-e2725885fcc6",
   "prevId": "3eead183-2b10-4cd2-a25c-a68bf675d43b",
   "tables": {
     "broadcast_destinations": {
@@ -104,6 +104,10 @@
         "broadcast_destinations_tenant_owner_id": {
           "name": "broadcast_destinations_tenant_owner_id",
           "value": "\"broadcast_destinations\".\"owner_type\" = 'platform' OR \"broadcast_destinations\".\"owner_id\" <> ''"
+        },
+        "broadcast_destinations_sampling_rate": {
+          "name": "broadcast_destinations_sampling_rate",
+          "value": "\"broadcast_destinations\".\"sampling_rate\" >= 0 AND \"broadcast_destinations\".\"sampling_rate\" <= 1"
         }
       }
     },

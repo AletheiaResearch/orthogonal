@@ -59,7 +59,7 @@ Two Worker-specific divergences we adopt deliberately: **fan-out runs _inline_ i
 
 ## 3. Architecture
 
-```
+```text
                        ┌─────────────────────────────────────────────┐
   chat.ts  ──build──►  │  EmissionRecord  (canonical, built ONCE      │
  (completion           │                   at the completion boundary)│
