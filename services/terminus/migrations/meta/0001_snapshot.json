@@ -93,12 +93,7 @@
       "indexes": {
         "broadcast_destinations_owner_type_label": {
           "name": "broadcast_destinations_owner_type_label",
-          "columns": [
-            "owner_type",
-            "owner_id",
-            "type",
-            "label"
-          ],
+          "columns": ["owner_type", "owner_id", "type", "label"],
           "isUnique": true
         }
       },
@@ -171,11 +166,7 @@
       "indexes": {
         "policies_owner_name": {
           "name": "policies_owner_name",
-          "columns": [
-            "owner_type",
-            "owner_id",
-            "name"
-          ],
+          "columns": ["owner_type", "owner_id", "name"],
           "isUnique": true
         }
       },
@@ -239,17 +230,12 @@
       "indexes": {
         "policy_versions_policy_version": {
           "name": "policy_versions_policy_version",
-          "columns": [
-            "policy_id",
-            "version"
-          ],
+          "columns": ["policy_id", "version"],
           "isUnique": true
         },
         "policy_versions_active": {
           "name": "policy_versions_active",
-          "columns": [
-            "policy_id"
-          ],
+          "columns": ["policy_id"],
           "isUnique": true,
           "where": "\"policy_versions\".\"is_active\" = 1"
         }
@@ -386,12 +372,7 @@
       "indexes": {
         "provider_credentials_owner_provider_label": {
           "name": "provider_credentials_owner_provider_label",
-          "columns": [
-            "owner_type",
-            "owner_id",
-            "provider",
-            "label"
-          ],
+          "columns": ["owner_type", "owner_id", "provider", "label"],
           "isUnique": true
         }
       },
