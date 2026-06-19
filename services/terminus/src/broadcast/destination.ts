@@ -4,8 +4,12 @@
  * One interface, two protocol families behind it: a shared OTLP/JSON serializer and
  * per-vendor proprietary adapters. The dispatcher (`dispatcher.ts`) treats every
  * destination uniformly — it maps the canonical `EmissionRecord` to its wire shape
- * and POSTs it. `send` MUST never throw (the dispatcher isolates failures regardless,
- * but adapters swallow their own transport errors to be safe).
+ * and POSTs it.
+ *
+ * `send` MAY reject on a delivery failure (a non-2xx response or a network error) —
+ * the dispatcher isolates and logs the rejection via its `onError` hook, so a failing
+ * destination yields delivery observability without ever affecting the LLM call. It
+ * must not throw *synchronously* (always return the promise).
  */
 import type { EmissionRecord } from "./record";
 
