@@ -1,5 +1,5 @@
 import type { FinishReason } from "ai";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { CompletionParts } from "../openai/protocol";
 import type { UsageRecord } from "../usage/sink";
@@ -78,6 +78,10 @@ describe("toTraceRecord", () => {
 });
 
 describe("NoopTraceSink", () => {
+  // Restore console spies even if an assertion throws, so a mock never leaks into a
+  // later test in this file.
+  afterEach(() => vi.restoreAllMocks());
+
   it("records nothing and logs nothing — content is raw, unsanitized PII", async () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -86,8 +90,6 @@ describe("NoopTraceSink", () => {
 
     expect(logSpy).not.toHaveBeenCalled();
     expect(errSpy).not.toHaveBeenCalled();
-    logSpy.mockRestore();
-    errSpy.mockRestore();
   });
 });
 

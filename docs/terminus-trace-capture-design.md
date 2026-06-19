@@ -7,7 +7,7 @@
 > `TraceSink` interface + no-op default, a capture tap in the chat route, and a default-OFF env
 > flag. It does **not** build any consumer. Sanitization, the trace store (ClickHouse), consent UI,
 > and event-stream capture are **out of scope** and land with CON-43 / CON-40 / CON-73.
-
+>
 > Interacts with → **CON-74** (streaming-request fallback): CON-74 rewrites the streaming _block_ in
 > `chat.ts` but still routes every stream part through `toOpenAIChatStream`. The streaming capture
 > seam therefore lives **inside that mapper**. CON-74 landed first and this branch was rebased onto
