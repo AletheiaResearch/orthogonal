@@ -57,9 +57,14 @@ function timingSafeEqual(a: string, b: string): boolean {
   const enc = new TextEncoder();
   const ab = enc.encode(a);
   const bb = enc.encode(b);
-  if (ab.length !== bb.length) return false;
-  let diff = 0;
-  for (let i = 0; i < ab.length; i++) diff |= ab[i] ^ bb[i];
+  // Fold the length difference into `diff` and iterate to the longer of the two, rather
+  // than branching on a length mismatch — an early `return false` would reject a
+  // wrong-length token in O(1) while a right-length one runs the full loop, leaking the
+  // secret's byte length through response timing.
+  let diff = ab.length ^ bb.length;
+  for (let i = 0; i < ab.length || i < bb.length; i++) {
+    diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0);
+  }
   return diff === 0;
 }
 
