@@ -4,8 +4,11 @@
  * (`streamText` / `generateText`), re-emitting an OpenAI-compatible streaming SSE
  * or JSON response. Per-call usage is emitted to the sink (session-level via `sid`).
  */
-import { type LanguageModelUsage, generateText, streamText } from "ai";
+import { type FinishReason, type LanguageModelUsage, generateText, streamText } from "ai";
 
+import type { BroadcastDispatcher } from "../broadcast/dispatcher";
+import { toEmissionRecord } from "../broadcast/record";
+import { randomTraceId } from "../broadcast/trace-id";
 import { withCodexProvider } from "../catalog/codex";
 import type { fetchRegistry } from "../catalog/models-dev";
 import { type ModelCost, type ResolvedModelRef, resolveModelRef } from "../catalog/registry";
@@ -70,6 +73,14 @@ export interface ChatDeps {
   now?: () => number;
   /** Injectable id source for deterministic tests. */
   newId?: () => string;
+  /** Injectable 16-byte-hex trace-id source for deterministic tests. */
+  newTraceId?: () => string;
+  /**
+   * Configurable multi-destination broadcast fan-out (CON-73). When set, one canonical
+   * `EmissionRecord` (metrics-only in Phase 1) is dispatched per completed call,
+   * fire-and-forget. Undefined = no fan-out (default-empty registry or no DB bound).
+   */
+  broadcast?: BroadcastDispatcher;
 }
 
 export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promise<Response> {
@@ -132,6 +143,9 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       created: Math.floor(nowMs / 1000),
       model: body.model,
     };
+    // One OTLP-native trace id per request (16 random bytes, hex), shared by every
+    // broadcast destination. Distinct from `newId` (the `chatcmpl-…` response id).
+    const traceId = deps.newTraceId?.() ?? randomTraceId();
 
     const buildModel = deps.buildModel ?? buildLanguageModel;
     // Build request-derived options ONCE, before the candidate loop: a malformed request
@@ -244,6 +258,45 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
       }
     };
 
+    // Configurable multi-destination broadcast (CON-73): build ONE canonical record
+    // (metrics-only in Phase 1 — `content` stays gated until CON-43) and hand it to the
+    // dispatcher, which fans out to every enabled destination inside `ctx.waitUntil`.
+    // `dispatch` is void/synchronous and never awaited, so the D1 read + sends add zero
+    // latency and can never fail the call. Undefined broadcast → no-op.
+    const dispatchBroadcast = (
+      usage: LanguageModelUsage,
+      finishReason: FinishReason | undefined,
+      startedAtMs: number,
+      finishedAtMs: number,
+      ttftMs?: number
+    ): void => {
+      if (!deps.broadcast) return;
+      try {
+        const record = toEmissionRecord(
+          usageRecord(claims, body.model, usage, nowMs, ref.model.cost),
+          { traceId, startedAtMs, finishedAtMs, ttftMs, finishReason }
+        );
+        // `c.executionCtx` throws when no ExecutionContext exists (unit tests); the
+        // dispatcher tolerates an undefined ctx (the fan-out still runs to completion).
+        let ctx: ExecutionContext | undefined;
+        try {
+          ctx = c.executionCtx;
+        } catch {
+          ctx = undefined;
+        }
+        deps.broadcast.dispatch(record, ctx);
+      } catch (e) {
+        // Belt-and-suspenders: dispatch must never fail the call, even if a buggy
+        // dispatcher throws synchronously.
+        console.error(
+          JSON.stringify({
+            event: "terminus.broadcast.dispatch_error",
+            message: e instanceof Error ? e.message : String(e),
+          })
+        );
+      }
+    };
+
     // Streaming: peek-first-chunk fallback (CON-74). Mirror the non-streaming candidate
     // loop — drive each candidate's stream until the first client-output part (commit)
     // or a pre-output error. A retryable pre-output error rotates to the next candidate;
@@ -260,6 +313,7 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
         });
         // Gateway owns streaming fallback now, so disable the SDK's same-target retry
         // (it would add hidden backoff before the peek detects the failure).
+        const startedAtMs = deps.now?.() ?? Date.now();
         const result = streamText({ ...callOptionsFor(model), maxRetries: 0 });
         const peeked = await peekStream(result.fullStream);
         if (peeked.kind === "error") {
@@ -267,12 +321,18 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
           lastStreamError = peeked.error;
           continue;
         }
+        // First client-output part observed → time-to-first-token, the real server-side
+        // upstream-latency signal for streaming (broadcast design §5).
+        const ttftMs = (deps.now?.() ?? Date.now()) - startedAtMs;
         const sse = toOpenAIChatStream(
           peeked.stream,
           meta,
-          (usage) => {
+          (usage, finishReason) => {
             void emit(usage);
             background(deps.credentials.recordSuccess?.(candidate.id));
+            // Streaming latency is client-pull-observed (finish fires as the client
+            // drains the committed stream); `ttftMs` above is the upstream signal (§5).
+            dispatchBroadcast(usage, finishReason, startedAtMs, deps.now?.() ?? Date.now(), ttftMs);
           },
           // Mid-stream error after commit: no fallback, just cool down for the next request.
           (err) => void coolDownIfRetryable(candidate, err),
@@ -302,6 +362,7 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
         accountId: cred.accountId,
         sessionId: claims.sid,
       });
+      const startedAtMs = deps.now?.() ?? Date.now();
       try {
         // The gateway owns resilience via cross-candidate fallback, so disable the SDK's
         // same-target retry (it would add hidden backoff before we fall back).
@@ -315,6 +376,12 @@ export async function chatCompletions(c: TerminusContext, deps: ChatDeps): Promi
         };
         await emit(result.totalUsage);
         captureTrace(completion);
+        dispatchBroadcast(
+          result.totalUsage,
+          result.finishReason,
+          startedAtMs,
+          deps.now?.() ?? Date.now()
+        );
         return Response.json(toOpenAIChatCompletion(meta, completion));
       } catch (err) {
         if (!coolDownIfRetryable(candidate, err)) throw err;

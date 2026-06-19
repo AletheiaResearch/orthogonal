@@ -7,6 +7,8 @@ import { APICallError } from "ai";
 import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
 import { describe, expect, it } from "vitest";
 
+import type { BroadcastDispatcher } from "./broadcast/dispatcher";
+import type { EmissionRecord } from "./broadcast/record";
 import type { ModelsDevRegistry, ResolvedModelRef } from "./catalog/registry";
 import type { CredentialProvider } from "./credentials/provider";
 import type { Env } from "./env";
@@ -1175,5 +1177,125 @@ describe("terminus chat — trace content-capture (CON-61)", () => {
     expect(body.choices[0].finish_reason).toBe("stop"); // client wire format: coerced
     expect(traces).toHaveLength(1);
     expect(traces[0].finishReason).toBeUndefined(); // trace: raw, not fabricated
+  });
+});
+
+function capturingBroadcast(): { broadcast: BroadcastDispatcher; records: EmissionRecord[] } {
+  const records: EmissionRecord[] = [];
+  return {
+    records,
+    broadcast: {
+      dispatch: (record) => {
+        records.push(record);
+      },
+    },
+  };
+}
+
+const FIXED_TRACE_ID = "0123456789abcdef0123456789abcdef";
+
+describe("terminus chat — broadcast fan-out (CON-73)", () => {
+  const textGen = (text: string): MockLanguageModelV3 =>
+    new MockLanguageModelV3({
+      doGenerate: {
+        content: [{ type: "text", text }],
+        finishReason: "stop",
+        usage: LL_USAGE,
+        warnings: [],
+      },
+    } as unknown as MockArgs);
+
+  const textStream = (text: string): MockLanguageModelV3 =>
+    new MockLanguageModelV3({
+      doStream: {
+        stream: simulateReadableStream({
+          chunks: [
+            { type: "stream-start", warnings: [] },
+            { type: "text-start", id: "t" },
+            { type: "text-delta", id: "t", delta: text },
+            { type: "text-end", id: "t" },
+            { type: "finish", finishReason: "stop", usage: LL_USAGE },
+          ],
+        }),
+      },
+    } as unknown as MockArgs);
+
+  async function chat(opts: {
+    model: MockLanguageModelV3;
+    broadcast?: BroadcastDispatcher;
+    stream?: boolean;
+  }) {
+    const gateway = createApp({
+      loadRegistry: () => Promise.resolve(REGISTRY),
+      buildCredentials: () => credentials,
+      broadcast: opts.broadcast,
+      chat: { buildModel: () => opts.model, newTraceId: () => FIXED_TRACE_ID },
+    });
+    return gateway.request(
+      "/v1/chat/completions",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${await token()}`, "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "anthropic/claude-opus-4-5",
+          messages: [{ role: "user", content: "hi" }],
+          ...(opts.stream ? { stream: true } : {}),
+        }),
+      },
+      env
+    );
+  }
+
+  it("dispatches one metrics-only record for a non-streaming completion", async () => {
+    const { broadcast, records } = capturingBroadcast();
+    const res = await chat({ model: textGen("Hello there"), broadcast });
+
+    expect(res.status).toBe(200);
+    expect(records).toHaveLength(1);
+    expect(records[0].metrics).toMatchObject({
+      traceId: FIXED_TRACE_ID,
+      sessionId: "sess_1",
+      model: "anthropic/claude-opus-4-5",
+      provider: "anthropic",
+      inputTokens: 5,
+      outputTokens: 2,
+      // The mock's raw finish reason is undefined (see the trace-capture tests); it is
+      // coerced to "stop" only on the OpenAI wire, never fabricated in the record.
+      finishReason: undefined,
+    });
+    expect(records[0].metrics.costUsd).toBeCloseTo((5 * 5 + 2 * 25) / 1_000_000);
+    expect(records[0].content).toBeUndefined(); // Phase 1 is metrics-only
+  });
+
+  it("dispatches one record for a streaming completion (after the stream drains)", async () => {
+    const { broadcast, records } = capturingBroadcast();
+    const res = await chat({ model: textStream("Hello there"), broadcast, stream: true });
+
+    expect(res.status).toBe(200);
+    await res.text(); // drain so the finish part fires → dispatch
+    expect(records).toHaveLength(1);
+    expect(records[0].metrics).toMatchObject({
+      traceId: FIXED_TRACE_ID,
+      model: "anthropic/claude-opus-4-5",
+      inputTokens: 5,
+      finishReason: undefined,
+    });
+  });
+
+  it("does nothing when no broadcast dispatcher is configured (default)", async () => {
+    const res = await chat({ model: textGen("Hello there") });
+    expect(res.status).toBe(200);
+  });
+
+  it("still returns 200 when the dispatcher throws (broadcast must never fail the call)", async () => {
+    const throwing: BroadcastDispatcher = {
+      dispatch: () => {
+        throw new Error("dispatcher boom");
+      },
+    };
+    const res = await chat({ model: textGen("Hello there"), broadcast: throwing });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { choices: { message: { content: string } }[] };
+    expect(body.choices[0].message.content).toBe("Hello there");
   });
 });
