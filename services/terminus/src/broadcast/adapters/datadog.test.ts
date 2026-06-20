@@ -162,6 +162,8 @@ describe("DatadogDestination", () => {
 
     expect(span(calls[0]).name).toBe("chat anthropic/claude-opus-4-5");
     expect(span(calls[0]).trace_id).toBe("0af7651916cd43dd8448eb211c80319c");
+    // Root span: parent_id is the literal "undefined" required by the LLM-Obs schema.
+    expect(span(calls[0]).parent_id).toBe("undefined");
   });
 
   it("assigns a fresh non-empty span_id (string)", async () => {
@@ -291,6 +293,13 @@ describe("DatadogDestination", () => {
     await expect(dest.send(record(), new AbortController().signal)).rejects.toThrow(/HTTP 500/);
   });
 
+  it("rejects a non-202 2xx (strict intake contract — only 202 Accepted is success)", async () => {
+    const { fetchImpl } = captureFetch(new Response(null, { status: 200 }));
+    const dest = new DatadogDestination(config(), fetchImpl);
+
+    await expect(dest.send(record(), new AbortController().signal)).rejects.toThrow(/HTTP 200/);
+  });
+
   it("rejects on a network error", async () => {
     const fetchImpl = (() => Promise.reject(new Error("network down"))) as unknown as typeof fetch;
     const dest = new DatadogDestination(config(), fetchImpl);
@@ -322,13 +331,13 @@ describe("DatadogDestination", () => {
       expect(attrs(calls[0])).not.toHaveProperty("tags");
     });
 
-    it("returns ok on a generic 2xx response", async () => {
+    it("returns NOT ok on a non-202 2xx (strict intake contract)", async () => {
       const { fetchImpl } = captureFetch(new Response(null, { status: 200 }));
       const dest = new DatadogDestination(config(), fetchImpl);
 
       const result = await dest.testConnection();
 
-      expect(result.ok).toBe(true);
+      expect(result.ok).toBe(false);
       expect(result.status).toBe(200);
     });
 

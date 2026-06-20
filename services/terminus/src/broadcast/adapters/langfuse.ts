@@ -9,10 +9,9 @@
  * Auth is header-borne HTTP Basic: `Authorization: Basic base64(publicKey:secretKey)`.
  * The keys come from config; the header is assembled in the constructor.
  *
- * Langfuse ingestion is a partial-success protocol — it MAY answer `207 Multi-Status`
- * when some events succeed and others fail. We treat any 2xx (which includes 207) as a
- * delivered batch; `res.ok` already covers 200–299, so 207 needs no special-casing in
- * `send()`.
+ * Langfuse ingestion is a partial-success protocol — it answers `207 Multi-Status` with a
+ * per-event `errors[]`, so a 2xx status alone does not mean every event was accepted. `send()`
+ * therefore inspects a 207 body and treats a non-empty `errors[]` as a delivery failure.
  *
  * Event-id discipline this adapter is responsible for getting right:
  *  - each ingestion event carries its own envelope `id` (a fresh UUID) — the trace and
@@ -136,9 +135,21 @@ export class LangfuseDestination implements BroadcastDestination {
       signal,
       redirect: "manual",
     });
-    // `res.ok` is 200–299, which includes Langfuse's 207 Multi-Status.
     if (!res.ok) {
       throw new Error(`langfuse ingestion failed: HTTP ${res.status}`);
+    }
+    // Langfuse ingestion is a MULTI-STATUS protocol: a 207 carries a per-event `errors[]`, so a
+    // 2xx alone does not mean the trace+generation were both accepted. Surface a partial failure
+    // (e.g. the generation rejected while the trace succeeded) as a delivery error rather than
+    // silently reporting success. A non-JSON / shapeless body is treated as accepted (we only
+    // fail on an explicit, non-empty error list).
+    if (res.status === 207) {
+      const payload = (await res.json().catch(() => null)) as { errors?: unknown[] } | null;
+      if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
+        throw new Error(
+          `langfuse ingestion partial failure: ${payload.errors.length} event(s) rejected`
+        );
+      }
     }
   }
 
@@ -154,7 +165,9 @@ export class LangfuseDestination implements BroadcastDestination {
         body: JSON.stringify({ batch: [] }),
         redirect: "manual",
       });
-      return { ok: res.ok || res.status === 207, status: res.status };
+      // `res.ok` (200–299) already covers Langfuse's 207 Multi-Status; the empty probe batch has
+      // no events to partially fail, so transport-level reachability is all this attests.
+      return { ok: res.ok, status: res.status };
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) };
     }

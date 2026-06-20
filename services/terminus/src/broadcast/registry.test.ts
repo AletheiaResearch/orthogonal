@@ -52,7 +52,8 @@ function captureFetch() {
   const calls: Array<{ url: string; init: RequestInit }> = [];
   const impl = ((input: RequestInfo | URL, init?: RequestInit) => {
     calls.push({ url: String(input), init: init ?? {} });
-    return Promise.resolve(new Response(null, { status: 200 }));
+    // 202 satisfies every adapter's success contract (res.ok for most; Datadog requires === 202).
+    return Promise.resolve(new Response(null, { status: 202 }));
   }) as unknown as typeof fetch;
   return { impl, calls };
 }

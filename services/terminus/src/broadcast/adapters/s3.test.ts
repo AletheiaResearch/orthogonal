@@ -149,6 +149,36 @@ describe("S3Destination", () => {
     );
   });
 
+  it("normalizes a trailing slash on the endpoint (no // before the bucket)", async () => {
+    const { fetchImpl, calls } = captureFetch(new Response(null, { status: 200 }));
+    const dest = new S3Destination(
+      config({ endpoint: "https://s3.us-east-1.amazonaws.com/" }),
+      fetchImpl,
+      FIXED_NOW
+    );
+
+    await dest.send(record(), new AbortController().signal);
+
+    expect(calls[0].url).toBe(
+      "https://s3.us-east-1.amazonaws.com/traces-bucket/" +
+        "traces/_/2025/01/01/sess-1/0af7651916cd43dd8448eb211c80319c.json"
+    );
+    expect(calls[0].url).not.toContain(".com//");
+  });
+
+  it("percent-encodes key segments so a sessionId with URL delimiters can't corrupt the URL", async () => {
+    const { fetchImpl, calls } = captureFetch(new Response(null, { status: 200 }));
+    const dest = new S3Destination(config(), fetchImpl, FIXED_NOW);
+
+    await dest.send(record({ sessionId: "a/b?c#d" }), new AbortController().signal);
+
+    // The whole id is one encoded path segment — no raw '?', '#', or extra '/' leaks out.
+    expect(calls[0].url).toContain(`/${encodeURIComponent("a/b?c#d")}/`);
+    const parsed = new URL(calls[0].url);
+    expect(parsed.search).toBe(""); // the '?' did not start a query string
+    expect(parsed.hash).toBe(""); // the '#' did not start a fragment
+  });
+
   it("writes a raw JSON body of { metrics } and sets content-type, no content-encoding", async () => {
     const { fetchImpl, calls } = captureFetch(new Response(null, { status: 200 }));
     const dest = new S3Destination(config(), fetchImpl, FIXED_NOW);

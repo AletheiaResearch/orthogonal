@@ -56,12 +56,18 @@ function pad2(n: number): string {
  * calendar day of `startedAtMs`, so the key is fully determined by the record.
  */
 function objectKey(metrics: EmissionMetrics, prefix: string): string {
-  const tenant = metrics.tenant || "_";
+  // Percent-encode the data-derived segments: `sessionId` (and `tenant`) are token/operator-
+  // supplied and may contain URL delimiters (`?`, `#`, `/`) that would otherwise corrupt the
+  // request URL or split the object key. `prefix` is left verbatim — it is operator config meant
+  // to carry its own `/` path depth.
+  const tenant = encodeURIComponent(metrics.tenant || "_");
+  const sessionId = encodeURIComponent(metrics.sessionId);
+  const traceId = encodeURIComponent(metrics.traceId);
   const d = new Date(metrics.startedAtMs);
   const yyyy = d.getUTCFullYear();
   const mm = pad2(d.getUTCMonth() + 1);
   const dd = pad2(d.getUTCDate());
-  return `${prefix}traces/${tenant}/${yyyy}/${mm}/${dd}/${metrics.sessionId}/${metrics.traceId}.json`;
+  return `${prefix}traces/${tenant}/${yyyy}/${mm}/${dd}/${sessionId}/${traceId}.json`;
 }
 
 /** Gzip `bytes` via the platform `CompressionStream` (Workers-native, no zlib dependency). */
@@ -84,7 +90,9 @@ export class S3Destination implements BroadcastDestination {
     fetchImpl: typeof fetch = fetch,
     now: () => number = () => Date.now()
   ) {
-    this.config = config;
+    // Strip trailing slashes so `endpoint: "https://…amazonaws.com/"` doesn't build a `//bucket`
+    // path that S3/R2/MinIO reject (mirrors the Langsmith/Langfuse host normalization).
+    this.config = { ...config, endpoint: config.endpoint.replace(/\/+$/, "") };
     this.fetchImpl = fetchImpl;
     this.now = now;
     this.id = config.id;

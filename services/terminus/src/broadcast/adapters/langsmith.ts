@@ -40,6 +40,8 @@ interface LangsmithRun {
   run_type: "llm";
   start_time: string;
   end_time: string;
+  /** LangSmith's `RunCreate` schema REQUIRES `inputs`; metrics-only → an empty object (no content). */
+  inputs: Record<string, never>;
   extra: { metadata: Record<string, unknown> };
   session_name?: string;
   outputs?: { finish_reason: string };
@@ -73,6 +75,9 @@ function buildMetadata(metrics: EmissionMetrics): Record<string, unknown> {
     ls_model_name: metrics.model,
     ls_provider: metrics.provider,
     session_id: metrics.sessionId,
+    // The canonical trace id (the run's own id is a random UUID), so an operator can correlate
+    // this run with the same call's S3 object / Datadog span / Langfuse trace.
+    terminus_trace_id: metrics.traceId,
     // Our gateway-computed cost has no native LangSmith field, so it rides in metadata.
     terminus_cost_usd: metrics.costUsd,
     input_tokens: metrics.inputTokens,
@@ -155,6 +160,8 @@ export class LangsmithDestination implements BroadcastDestination {
       run_type: "llm",
       start_time: new Date(metrics.startedAtMs).toISOString(),
       end_time: new Date(metrics.finishedAtMs).toISOString(),
+      // Required by the RunCreate schema; empty so no request content is exported (metrics-only).
+      inputs: {},
       extra: { metadata: buildMetadata(metrics) },
     };
     if (this.projectName !== undefined) {

@@ -53,6 +53,8 @@ interface DatadogSpan {
   name: string;
   span_id: string;
   trace_id: string;
+  /** Required by the LLM-Obs span schema; a root span sets the literal string "undefined". */
+  parent_id: string;
   start_ns: number;
   duration: number;
   meta: SpanMeta;
@@ -82,6 +84,8 @@ function buildSpan(metrics: EmissionMetrics): DatadogSpan {
     // 64-bit ids); §8 fixes only `trace_id == metrics.traceId`, not the span-id encoding.
     span_id: crypto.randomUUID(),
     trace_id: metrics.traceId,
+    // Single root span per call — Datadog's schema requires the literal "undefined" here.
+    parent_id: "undefined",
     // Nanoseconds as a JS number — see the encoding note in the module header.
     start_ns: Math.round(metrics.startedAtMs * 1e6),
     duration: Math.round(metrics.latencyMs * 1e6),
@@ -148,8 +152,9 @@ export class DatadogDestination implements BroadcastDestination {
       signal,
       redirect: "manual",
     });
-    // 202 Accepted is within res.ok (200–299); throw on anything else.
-    if (!res.ok) {
+    // Datadog's intake contract is explicit: success is 202 Accepted (empty body). Treat any
+    // other status — including a generic 200/201 — as a failed delivery.
+    if (res.status !== 202) {
       throw new Error(`datadog llm-obs export failed: HTTP ${res.status}`);
     }
   }
@@ -166,8 +171,8 @@ export class DatadogDestination implements BroadcastDestination {
         body: JSON.stringify(body),
         redirect: "manual",
       });
-      // Success is 202 Accepted, which `res.ok` (200–299) already covers.
-      return { ok: res.ok, status: res.status };
+      // Mirror send()'s contract: only 202 Accepted is a successful probe.
+      return { ok: res.status === 202, status: res.status };
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) };
     }

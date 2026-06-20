@@ -226,6 +226,8 @@ describe("LangsmithDestination", () => {
     expect(md.ls_model_name).toBe("anthropic/claude-opus-4-5");
     expect(md.ls_provider).toBe("anthropic");
     expect(md.session_id).toBe("sess-XYZ");
+    // The canonical trace id rides in metadata so the run correlates with the other destinations.
+    expect(md.terminus_trace_id).toBe("0af7651916cd43dd8448eb211c80319c");
     expect(md.terminus_cost_usd).toBe(0.0123);
     expect(md.input_tokens).toBe(100);
     expect(md.output_tokens).toBe(50);
@@ -270,13 +272,15 @@ describe("LangsmithDestination", () => {
     expect(run(calls[0])).not.toHaveProperty("outputs");
   });
 
-  it("NEVER emits an inputs field (metrics-only — content is gated off)", async () => {
+  it("emits an EMPTY inputs object (schema-required, but metrics-only — no content)", async () => {
     const { fetchImpl, calls } = captureFetch(new Response(null, { status: 200 }));
     const dest = new LangsmithDestination(config(), fetchImpl);
 
     await dest.send(record(), new AbortController().signal);
 
-    expect(run(calls[0])).not.toHaveProperty("inputs");
+    // LangSmith's RunCreate requires `inputs`; it must be present but empty so no request
+    // content is exported (the run would 422 without it).
+    expect(run(calls[0]).inputs).toEqual({});
   });
 
   it("passes the AbortSignal through to fetch", async () => {

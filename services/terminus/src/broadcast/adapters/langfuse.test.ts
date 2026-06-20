@@ -325,11 +325,40 @@ describe("LangfuseDestination", () => {
     expect(calls[0].signal).toBe(signal);
   });
 
-  it("treats a 207 multi-status response as success (does not throw)", async () => {
+  it("treats a 207 with no per-event errors as success (does not throw)", async () => {
+    const { fetchImpl } = captureFetch(
+      new Response(JSON.stringify({ successes: [{ id: "a", status: 201 }], errors: [] }), {
+        status: 207,
+        headers: { "content-type": "application/json" },
+      })
+    );
+    const dest = new LangfuseDestination(config(), fetchImpl);
+
+    await expect(dest.send(record(), new AbortController().signal)).resolves.toBeUndefined();
+  });
+
+  it("treats a 207 with no parseable body as success (transport-level accept)", async () => {
     const { fetchImpl } = captureFetch(new Response(null, { status: 207 }));
     const dest = new LangfuseDestination(config(), fetchImpl);
 
     await expect(dest.send(record(), new AbortController().signal)).resolves.toBeUndefined();
+  });
+
+  it("throws on a 207 multi-status with per-event errors (partial failure is not delivered)", async () => {
+    const { fetchImpl } = captureFetch(
+      new Response(
+        JSON.stringify({
+          successes: [{ id: "trace-1", status: 201 }],
+          errors: [{ id: "gen-1", status: 400, message: "invalid generation" }],
+        }),
+        { status: 207, headers: { "content-type": "application/json" } }
+      )
+    );
+    const dest = new LangfuseDestination(config(), fetchImpl);
+
+    await expect(dest.send(record(), new AbortController().signal)).rejects.toThrow(
+      /partial failure/i
+    );
   });
 
   it("rejects on a non-2xx response", async () => {

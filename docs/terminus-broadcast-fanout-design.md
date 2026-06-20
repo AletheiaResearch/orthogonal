@@ -527,3 +527,18 @@ dependencies (all crypto over `crypto.subtle`). The four adapters and their conf
   config/secret fields are enforced so a persisted row is never silently inert. The three Phase-1
   types' integration tests pass unchanged through the refactor.
 - **ClickHouse (CON-80) + W&B Weave (CON-81)** remain deferred per §13.2–3 and their own issues.
+
+**Vendor-schema conformance (PR #24 review).** Wire-format details that the §8 distillation missed
+and the PR bots (Greptile/Codex/CodeRabbit) caught, now fixed + tested:
+
+- **Datadog**: a root span MUST carry `parent_id: "undefined"` (the literal string), and the intake
+  contract treats **only `202`** as success (not any 2xx) — enforced in both `send` and the probe.
+- **LangSmith**: `RunCreate` REQUIRES `inputs` → send `inputs: {}` (empty; still metrics-only, no
+  content), and stash the canonical `terminus_trace_id` in `extra.metadata` so the random run id can
+  be correlated with the same call's S3 object / Datadog span / Langfuse trace.
+- **Langfuse**: `207 Multi-Status` carries a per-event `errors[]`; `send` inspects it and surfaces a
+  partial failure as a delivery error (a 2xx status alone is not "all accepted").
+- **S3**: normalize a trailing slash on `endpoint` (avoid `//bucket`), and **percent-encode** the
+  data-derived key segments (`sessionId`/`tenant`) so a token/operator value containing `?`/`#`/`/`
+  cannot corrupt the request URL or split the object key (the SigV4 canonical URI matches, as the
+  URL is signed and sent from the same encoded path).
