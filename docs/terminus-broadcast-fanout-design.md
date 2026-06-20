@@ -1,8 +1,8 @@
 # Terminus broadcast fan-out — design (CON-73, folds CON-54)
 
-> Status: **approved — implementing Phase 1.** Revised once after an adversarial review (codex)
-> against the real source; decisions resolved with Nejc (§13). Spec-driven per
-> `docs/terminus-llm-gateway.md`. Branch: `nejc/con-73-broadcast-fanout`. Lands on `terminus`.
+> Status: **Phase 1 merged (PR #23); Phase 2 implemented (CON-79, §14).** Revised once after an
+> adversarial review (codex) against the real source; decisions resolved with Nejc (§13).
+> Spec-driven per `docs/terminus-llm-gateway.md`. Lands on `terminus`.
 
 ## 1. Goal
 
@@ -481,3 +481,64 @@ cross-cutting concern. The R2 _native binding_ remains an optional deploy-time o
    cost split deferred (do not re-price per destination).
 7. **R2** — ✅ R2 is an **S3 destination via creds** (endpoint + access keys, runtime-configurable,
    no binding); the native binding is an optional deploy-time optimization only.
+
+## 14. Phase-2 implementation notes (CON-79)
+
+Built against the now-frozen `BroadcastDestination` interface (one agent per adapter, TDD), then
+wired centrally into the registry + admin. Metrics-only; SSRF-guarded; `redirect:"manual"`; zero new
+dependencies (all crypto over `crypto.subtle`). The four adapters and their config/secret split:
+
+| type        | `config` (non-secret)                      | `secret` (encrypted)           |
+| ----------- | ------------------------------------------ | ------------------------------ |
+| `s3`        | `endpoint, bucket, region, gzip?, prefix?` | `accessKeyId, secretAccessKey` |
+| `langsmith` | `endpoint?, projectName?`                  | `apiKey`                       |
+| `langfuse`  | `host?`                                    | `publicKey, secretKey`         |
+| `datadog`   | `site?, mlApp`                             | `apiKey`                       |
+
+- **S3 (`adapters/s3.ts` + `sigv4.ts`).** Hand-rolled AWS SigV4 — a self-contained raw-bytes
+  HMAC-SHA256 key-derivation chain (`kDate→kRegion→kService→kSigning`) over `crypto.subtle`, kept
+  out of the shared `hmac.ts` (which returns hex and would break the chain). The derivation is
+  pinned to AWS's published `iam`/`20150830`/`us-east-1` signing-key vector in `sigv4.test.ts`.
+  Path-style addressing (`{endpoint}/{bucket}/{key}`) works for AWS S3, R2, MinIO, etc. The object
+  key is **event-time** partitioned from `metrics.startedAtMs`
+  (`traces/{tenant|_}/YYYY/MM/DD/{sid}/{traceId}.json`), so re-delivery is idempotent; the injected
+  `now` clock is used **only** for `x-amz-date` (keeping signing tests deterministic). Optional gzip
+  via `CompressionStream`. The test-connection probe is a signed `ListObjectsV2?max-keys=0` (reads
+  nothing, never a probe PUT); a 403 surfaces as reachable-but-auth-rejected.
+- **Datadog (`adapters/datadog.ts`).** `start_ns`/`duration` are JS **numbers** in nanoseconds — at
+  ~1.75e18 the sub-microsecond float granularity is irrelevant for a span start, and a JSON
+  string/BigInt risks intake type-rejection. `model_name`/`model_provider` nest at
+  `meta.metadata.*`; success is HTTP 202; a metrics-only span is ~1 KB (well under the 1 MB
+  silent-drop limit). **Follow-up:** confirm the exact `span_id`/`trace_id` id encoding on the first
+  real delivery — §8 fixes only `trace_id == metrics.traceId`, not the span-id format.
+- **LangSmith / Langfuse.** LangSmith auth is `x-api-key` (not Bearer); a standalone `llm` run with
+  `trace_id == id`, `dotted_order = strftime(start)+id`, and `ls_model_name`/`ls_provider` + gateway
+  cost in `extra.metadata`. Langfuse uses Basic `btoa(pk:sk)`, a native
+  `{batch:[trace-create, generation-create]}` with split `usageDetails` + `costDetails.total` (total
+  cost only, §13.6), and a generation id distinct from the trace id; 207 Multi-Status counts as
+  delivered.
+- **Probes never pollute customer data** (the Phase-1 PostHog lesson): every `testConnection` posts
+  an **empty** batch/spans (or the no-op S3 list) — never a synthetic run/trace/span.
+- **Admin validation is now table-driven** (`DESTINATION_SPECS`): the POST and PATCH paths share one
+  `validateDestinationFields`, so per-type required fields + the SSRF target live in one place. The
+  **universal** guards (plaintext-`headers` rejection, `configHasSecret`, samplingRate range) still
+  run for every type outside the table. SSRF is applied to each type's URL — Datadog's **derived**
+  `https://api.{site}/…` and LangSmith/Langfuse's **optional** endpoints included — and required
+  config/secret fields are enforced so a persisted row is never silently inert. The three Phase-1
+  types' integration tests pass unchanged through the refactor.
+- **ClickHouse (CON-80) + W&B Weave (CON-81)** remain deferred per §13.2–3 and their own issues.
+
+**Vendor-schema conformance (PR #24 review).** Wire-format details that the §8 distillation missed
+and the PR bots (Greptile/Codex/CodeRabbit) caught, now fixed + tested:
+
+- **Datadog**: a root span MUST carry `parent_id: "undefined"` (the literal string), and the intake
+  contract treats **only `202`** as success (not any 2xx) — enforced in both `send` and the probe.
+- **LangSmith**: `RunCreate` REQUIRES `inputs` → send `inputs: {}` (empty; still metrics-only, no
+  content), and stash the canonical `terminus_trace_id` in `extra.metadata` so the random run id can
+  be correlated with the same call's S3 object / Datadog span / Langfuse trace.
+- **Langfuse**: `207 Multi-Status` carries a per-event `errors[]`; `send` inspects it and surfaces a
+  partial failure as a delivery error (a 2xx status alone is not "all accepted").
+- **S3**: normalize a trailing slash on `endpoint` (avoid `//bucket`), and **percent-encode** the
+  data-derived key segments (`sessionId`/`tenant`) so a token/operator value containing `?`/`#`/`/`
+  cannot corrupt the request URL or split the object key (the SigV4 canonical URI matches, as the
+  URL is signed and sent from the same encoded path).

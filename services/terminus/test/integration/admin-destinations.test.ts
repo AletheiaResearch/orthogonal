@@ -317,4 +317,168 @@ describe("admin broadcast destinations API (CON-73)", () => {
     });
     expect(patch.status).toBe(404);
   });
+
+  // ---- CON-79 Phase-2 destination types (s3 / langsmith / langfuse / datadog) ----
+
+  it("creates each Phase-2 destination type (201)", async () => {
+    const cases: Array<{ type: string; config: unknown; secret: unknown }> = [
+      {
+        type: "s3",
+        config: {
+          endpoint: "https://s3.us-east-1.amazonaws.com",
+          bucket: "traces",
+          region: "us-east-1",
+        },
+        secret: { accessKeyId: "AKIAEXAMPLE", secretAccessKey: "shh" },
+      },
+      { type: "langsmith", config: {}, secret: { apiKey: "lsv2_pk_x" } },
+      { type: "langfuse", config: {}, secret: { publicKey: "pk-lf", secretKey: "sk-lf" } },
+      { type: "datadog", config: { mlApp: "orto" }, secret: { apiKey: "dd_key" } },
+    ];
+    for (const body of cases) {
+      const res = await req("/destinations", { method: "POST", body: JSON.stringify(body) });
+      expect(res.status, `${body.type} should create`).toBe(201);
+    }
+    // None of the secret material leaks through the list projection.
+    expect(JSON.stringify(await (await req("/destinations")).json())).not.toMatch(
+      /shh|lsv2_pk_x|sk-lf|dd_key/
+    );
+  });
+
+  it("rejects an unsafe S3 endpoint with 400 (SSRF at create, no write)", async () => {
+    const res = await req("/destinations", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "s3",
+        config: { endpoint: "https://169.254.169.254", bucket: "b", region: "us-east-1" },
+        secret: { accessKeyId: "AKIA", secretAccessKey: "s" },
+      }),
+    });
+    expect(res.status).toBe(400);
+    expect(await db.select().from(broadcastDestinations)).toEqual([]);
+  });
+
+  it("rejects S3 missing required config (region) with 400", async () => {
+    const res = await req("/destinations", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "s3",
+        config: { endpoint: "https://s3.us-east-1.amazonaws.com", bucket: "b" },
+        secret: { accessKeyId: "AKIA", secretAccessKey: "s" },
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects langsmith/langfuse/datadog missing their required secret with 400", async () => {
+    const cases: Array<{ type: string; config: unknown; secret: unknown }> = [
+      { type: "langsmith", config: {}, secret: {} },
+      { type: "langfuse", config: {}, secret: { publicKey: "pk-lf" } }, // missing secretKey
+      { type: "datadog", config: { mlApp: "orto" }, secret: {} }, // missing apiKey
+    ];
+    for (const body of cases) {
+      const res = await req("/destinations", { method: "POST", body: JSON.stringify(body) });
+      expect(res.status, `${body.type} should reject`).toBe(400);
+    }
+  });
+
+  it("rejects an unsafe langsmith endpoint / langfuse host with 400 (SSRF on optional URLs)", async () => {
+    const langsmith = await req("/destinations", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "langsmith",
+        config: { endpoint: "https://10.0.0.1" },
+        secret: { apiKey: "lsv2_pk_x" },
+      }),
+    });
+    expect(langsmith.status).toBe(400);
+    const langfuse = await req("/destinations", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "langfuse",
+        config: { host: "https://169.254.169.254" },
+        secret: { publicKey: "pk-lf", secretKey: "sk-lf" },
+      }),
+    });
+    expect(langfuse.status).toBe(400);
+    expect(await db.select().from(broadcastDestinations)).toEqual([]);
+  });
+
+  it("PATCH re-pointing a langfuse host to a private IP is rejected (merge-path SSRF re-check)", async () => {
+    const create = await req("/destinations", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "langfuse",
+        config: { host: "https://cloud.langfuse.com" },
+        secret: { publicKey: "pk-lf", secretKey: "sk-lf" },
+      }),
+    });
+    const { id } = (await create.json()) as { id: string };
+    const patch = await req(`/destinations/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ config: { host: "https://10.0.0.1" } }),
+    });
+    expect(patch.status).toBe(400);
+  });
+
+  it("rejects datadog missing required mlApp config with 400", async () => {
+    const res = await req("/destinations", {
+      method: "POST",
+      body: JSON.stringify({ type: "datadog", config: {}, secret: { apiKey: "dd_key" } }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("accepts an empty datadog site by falling back to the default (no inert row)", async () => {
+    const res = await req("/destinations", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "datadog",
+        config: { site: "", mlApp: "orto" },
+        secret: { apiKey: "dd_key" },
+      }),
+    });
+    // `site: ""` falls back to the default site (|| not ??) — a valid, non-inert destination.
+    expect(res.status).toBe(201);
+  });
+
+  it("rejects an unsafe Datadog site (SSRF on the derived URL) with 400", async () => {
+    const res = await req("/destinations", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "datadog",
+        config: { site: "169.254.169.254", mlApp: "orto" },
+        secret: { apiKey: "dd_key" },
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("PATCH on an s3 row can't drop a required field (merge re-validates)", async () => {
+    const create = await req("/destinations", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "s3",
+        config: {
+          endpoint: "https://s3.us-east-1.amazonaws.com",
+          bucket: "traces",
+          region: "us-east-1",
+        },
+        secret: { accessKeyId: "AKIA", secretAccessKey: "s" },
+      }),
+    });
+    const { id } = (await create.json()) as { id: string };
+    // Patch only a prefix — endpoint/bucket/region survive the merge, so it's accepted.
+    const ok = await req(`/destinations/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ config: { prefix: "team-a/" } }),
+    });
+    expect(ok.status).toBe(204);
+    // Rotating the secret to an empty access key id is rejected (would persist-but-inert).
+    const bad = await req(`/destinations/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ secret: { accessKeyId: "" } }),
+    });
+    expect(bad.status).toBe(400);
+  });
 });

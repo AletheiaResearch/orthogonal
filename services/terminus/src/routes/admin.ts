@@ -16,6 +16,7 @@ import { DEFAULT_GATEWAY_TOKEN_TTL_SECONDS, mintGatewayToken } from "@open-inspe
 import { drizzle } from "drizzle-orm/d1";
 import { Hono } from "hono";
 
+import { DEFAULT_DATADOG_SITE } from "../broadcast/adapters/datadog";
 import { buildDestination } from "../broadcast/registry";
 import { checkDestinationUrl } from "../broadcast/ssrf";
 import { DestinationStore } from "../broadcast/store";
@@ -44,8 +45,94 @@ function defaultDestinationStore(env: Env): DestinationStore {
   return new DestinationStore(drizzle(env.DB), env.CREDENTIALS_ENCRYPTION_KEY);
 }
 
-/** Broadcast destination types the admin API accepts (CON-73). */
-const KNOWN_DESTINATION_TYPES = new Set(["otlp", "posthog", "webhook"]);
+/**
+ * Per-type create/PATCH validation spec for broadcast destinations (CON-73). Table-driven
+ * so the POST and PATCH paths share ONE validator (no per-type if/else drift across the two)
+ * and Phase-2 types slot in by adding a row. The UNIVERSAL guards — plaintext-`headers`
+ * rejection, `configHasSecret`, samplingRate range — are applied to every type OUTSIDE this
+ * table; this table only carries the per-type URL (SSRF target) + required field lists.
+ */
+interface DestinationSpec {
+  /** Config field carrying a URL to SSRF-check. `required`: the field must be present+valid. */
+  urlConfigField?: { field: string; required: boolean };
+  /** Derive a URL to SSRF-check from config (for types whose endpoint is computed, e.g. Datadog). */
+  derivedUrl?: (config: Record<string, unknown>) => string;
+  /** Non-secret config fields that must be present non-empty strings (e.g. Datadog `mlApp`). */
+  requiredConfigFields?: string[];
+  /** Secret fields that must be present non-empty strings (e.g. PostHog `projectApiKey`). */
+  requiredSecretFields?: string[];
+}
+
+/** Broadcast destination types the admin API accepts + their validation spec (CON-73). */
+const DESTINATION_SPECS: Record<string, DestinationSpec> = {
+  otlp: { urlConfigField: { field: "endpoint", required: true } },
+  posthog: {
+    urlConfigField: { field: "host", required: false },
+    requiredSecretFields: ["projectApiKey"],
+  },
+  webhook: { urlConfigField: { field: "url", required: true } },
+  s3: {
+    urlConfigField: { field: "endpoint", required: true },
+    requiredConfigFields: ["bucket", "region"],
+    requiredSecretFields: ["accessKeyId", "secretAccessKey"],
+  },
+  langsmith: {
+    urlConfigField: { field: "endpoint", required: false },
+    requiredSecretFields: ["apiKey"],
+  },
+  langfuse: {
+    urlConfigField: { field: "host", required: false },
+    requiredSecretFields: ["publicKey", "secretKey"],
+  },
+  datadog: {
+    // `|| DEFAULT` (not `??`) so a present-but-empty `site` falls back to the default rather
+    // than deriving the inert `https://api./…` — kept identical to DatadogDestination's ctor.
+    derivedUrl: (config) =>
+      `https://api.${str(config.site) || DEFAULT_DATADOG_SITE}/api/intake/llm-obs/v1/trace/spans`,
+    requiredConfigFields: ["mlApp"],
+    requiredSecretFields: ["apiKey"],
+  },
+};
+const KNOWN_DESTINATION_TYPES = new Set(Object.keys(DESTINATION_SPECS));
+
+/**
+ * Per-type config/secret validation, shared by create and PATCH (the latter passes the
+ * MERGED-over-existing config/secret). Returns a 400 message on the first failure: an
+ * unsafe/missing URL (SSRF guard), or a missing required config/secret field — which would
+ * otherwise persist a row the registry silently skips as misconfigured (an inert fan-out drop).
+ */
+function validateDestinationFields(
+  type: string,
+  config: Record<string, unknown>,
+  secret: Record<string, unknown>
+): { ok: true } | { ok: false; message: string } {
+  const spec = DESTINATION_SPECS[type];
+  if (!spec) return { ok: true }; // unknown type is rejected by the caller's KNOWN check
+  if (spec.urlConfigField) {
+    const { field, required } = spec.urlConfigField;
+    if (config[field] !== undefined) {
+      const check = checkDestinationUrl(str(config[field]) ?? "");
+      if (!check.ok) return { ok: false, message: `invalid ${type} ${field}: ${check.reason}` };
+    } else if (required) {
+      return { ok: false, message: `invalid ${type} ${field}: ${field} is required` };
+    }
+  }
+  if (spec.derivedUrl) {
+    const check = checkDestinationUrl(spec.derivedUrl(config));
+    if (!check.ok) return { ok: false, message: `invalid ${type} site: ${check.reason}` };
+  }
+  for (const field of spec.requiredConfigFields ?? []) {
+    if (!str(config[field])) {
+      return { ok: false, message: `${type} destinations require config.${field} (string)` };
+    }
+  }
+  for (const field of spec.requiredSecretFields ?? []) {
+    if (!str(secret[field])) {
+      return { ok: false, message: `${type} destinations require secret.${field} (string)` };
+    }
+  }
+  return { ok: true };
+}
 
 /** A policy blob that fails validation (vs any other failure) — for a 400 vs 500 split. */
 function isPolicyValidationError(err: unknown): boolean {
@@ -373,47 +460,15 @@ export function buildAdminApp(deps: AdminDeps = {}) {
         400
       );
     }
-    // Every runtime-configured URL is an SSRF vector — validate it at create time.
-    const cfg = body.config as Record<string, unknown>;
-    const requiredUrlField = type === "webhook" ? "url" : type === "otlp" ? "endpoint" : null;
-    if (requiredUrlField) {
-      const url = str(cfg[requiredUrlField]);
-      const check = url
-        ? checkDestinationUrl(url)
-        : ({ ok: false, reason: `${requiredUrlField} is required` } as const);
-      if (!check.ok) {
-        return c.json(
-          {
-            error: {
-              message: `invalid ${type} ${requiredUrlField}: ${check.reason}`,
-              type: "bad_request",
-            },
-          },
-          400
-        );
-      }
-    }
-    if (type === "posthog" && cfg.host !== undefined) {
-      const check = checkDestinationUrl(str(cfg.host) ?? "");
-      if (!check.ok) {
-        return c.json(
-          { error: { message: `invalid posthog host: ${check.reason}`, type: "bad_request" } },
-          400
-        );
-      }
-    }
-    // Per-type required auth: a PostHog destination needs a project key in `secret`, or it
-    // would be persisted-but-inert (the registry skips it as misconfigured at resolve time).
-    if (type === "posthog" && !str((body.secret as Record<string, unknown>).projectApiKey)) {
-      return c.json(
-        {
-          error: {
-            message: "posthog destinations require secret.projectApiKey (string)",
-            type: "bad_request",
-          },
-        },
-        400
-      );
+    // Per-type validation: SSRF-check every runtime-configured URL (an SSRF vector) and
+    // require the fields the registry needs, so a persisted row is never silently inert.
+    const valid = validateDestinationFields(
+      type,
+      body.config as Record<string, unknown>,
+      body.secret as Record<string, unknown>
+    );
+    if (!valid.ok) {
+      return c.json({ error: { message: valid.message, type: "bad_request" } }, 400);
     }
     try {
       const { id } = await buildDestinationStore(c.env).create({
@@ -528,46 +583,11 @@ export function buildAdminApp(deps: AdminDeps = {}) {
           ? { ...existingSecret, ...(body.secret as Record<string, unknown>) }
           : existingSecret;
 
-      const requiredUrlField =
-        existing.type === "webhook" ? "url" : existing.type === "otlp" ? "endpoint" : null;
-      if (requiredUrlField) {
-        const url = str(mergedConfig[requiredUrlField]);
-        const check = url
-          ? checkDestinationUrl(url)
-          : ({ ok: false, reason: `${requiredUrlField} is required` } as const);
-        if (!check.ok) {
-          return c.json(
-            {
-              error: {
-                message: `invalid ${existing.type} ${requiredUrlField}: ${check.reason}`,
-                type: "bad_request",
-              },
-            },
-            400
-          );
-        }
-      }
-      if (existing.type === "posthog") {
-        if (mergedConfig.host !== undefined) {
-          const check = checkDestinationUrl(str(mergedConfig.host) ?? "");
-          if (!check.ok) {
-            return c.json(
-              { error: { message: `invalid posthog host: ${check.reason}`, type: "bad_request" } },
-              400
-            );
-          }
-        }
-        if (!str(mergedSecret.projectApiKey)) {
-          return c.json(
-            {
-              error: {
-                message: "posthog destinations require secret.projectApiKey (string)",
-                type: "bad_request",
-              },
-            },
-            400
-          );
-        }
+      // Re-validate the MERGED result against the row's type (same validator as create), so a
+      // partial PATCH can neither drop a required field nor SSRF past the URL guard.
+      const valid = validateDestinationFields(existing.type, mergedConfig, mergedSecret);
+      if (!valid.ok) {
+        return c.json({ error: { message: valid.message, type: "bad_request" } }, 400);
       }
 
       if (body.config !== undefined) fields.config = mergedConfig;
