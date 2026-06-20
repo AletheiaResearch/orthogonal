@@ -16,8 +16,12 @@ import { drizzle } from "drizzle-orm/d1";
 import type { BroadcastDestinationRow } from "../db/schema";
 import { PLATFORM_OWNER } from "../db/vault";
 import type { Env } from "../env";
+import { DatadogDestination } from "./adapters/datadog";
+import { LangfuseDestination } from "./adapters/langfuse";
+import { LangsmithDestination } from "./adapters/langsmith";
 import { OtlpDestination } from "./adapters/otlp";
 import { PosthogDestination } from "./adapters/posthog";
+import { S3Destination } from "./adapters/s3";
 import { WebhookDestination } from "./adapters/webhook";
 import type { BroadcastDestination } from "./destination";
 import { type BroadcastDispatcher, CompositeDispatcher } from "./dispatcher";
@@ -29,6 +33,10 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function asString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
+}
+
+function asBool(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
 }
 
 function asHeaders(value: unknown): Record<string, string> {
@@ -84,6 +92,58 @@ export function buildDestination(
           hmacKey: asString(secret.hmacKey),
           headers: asHeaders(secret.headers),
         },
+        fetchImpl
+      );
+    }
+    case "s3": {
+      const endpoint = asString(config.endpoint);
+      const bucket = asString(config.bucket);
+      const region = asString(config.region);
+      const accessKeyId = asString(secret.accessKeyId);
+      const secretAccessKey = asString(secret.secretAccessKey);
+      if (!endpoint || !bucket || !region || !accessKeyId || !secretAccessKey) return null;
+      return new S3Destination(
+        {
+          ...base,
+          endpoint,
+          bucket,
+          region,
+          gzip: asBool(config.gzip),
+          prefix: asString(config.prefix),
+          accessKeyId,
+          secretAccessKey,
+        },
+        fetchImpl
+      );
+    }
+    case "langsmith": {
+      const apiKey = asString(secret.apiKey);
+      if (!apiKey) return null;
+      return new LangsmithDestination(
+        {
+          ...base,
+          endpoint: asString(config.endpoint),
+          projectName: asString(config.projectName),
+          apiKey,
+        },
+        fetchImpl
+      );
+    }
+    case "langfuse": {
+      const publicKey = asString(secret.publicKey);
+      const secretKey = asString(secret.secretKey);
+      if (!publicKey || !secretKey) return null;
+      return new LangfuseDestination(
+        { ...base, host: asString(config.host), publicKey, secretKey },
+        fetchImpl
+      );
+    }
+    case "datadog": {
+      const mlApp = asString(config.mlApp);
+      const apiKey = asString(secret.apiKey);
+      if (!mlApp || !apiKey) return null;
+      return new DatadogDestination(
+        { ...base, site: asString(config.site), mlApp, apiKey },
         fetchImpl
       );
     }
